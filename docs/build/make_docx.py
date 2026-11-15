@@ -1,4 +1,4 @@
-"""Build Civil-Scan-Logic-and-Figures.docx in the project folder.
+"""Build iScale-Logic-and-Figures.docx in the project folder.
 
 Run:  uv run --with python-docx python docs/build/make_docx.py
 (figures first: uv run python docs/build/figures.py)
@@ -20,7 +20,7 @@ from docx.shared import Cm, Pt, RGBColor
 ROOT = Path(__file__).resolve().parents[2]
 FIG = Path(__file__).with_name("fig")
 SHOT = ROOT / "docs" / "screenshots"
-OUT = ROOT / "Civil-Scan-Logic-and-Figures.docx"
+OUT = ROOT / "iScale-Logic-and-Figures.docx"
 sys.path.insert(0, str(ROOT))
 from civil import jobcard, materials  # noqa: E402  (the document is built from the app's own code)
 
@@ -92,6 +92,7 @@ def figure(path: Path, caption: str, width_cm: float = 16.4):
     fig_no += 1
     doc.add_picture(str(path), width=Cm(width_cm))
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    doc.paragraphs[-1].paragraph_format.keep_with_next = True  # never leave a caption alone on the next page
     c = p(caption, bold_lead=f"Figure {fig_no}. ", size=9, color=INK2)
     c.alignment = WD_ALIGN_PARAGRAPH.CENTER
     return fig_no
@@ -129,18 +130,22 @@ def table(head, rows, widths_cm, caption: str | None = None):
     for row in t.rows:
         for i, w in enumerate(widths_cm):
             row.cells[i].width = Cm(w)
+    # LibreOffice lays tables out from the grid, not the cell widths: set both
+    t.autofit = False
+    for gc, w in zip(t._tbl.tblGrid.findall(qn("w:gridCol")), widths_cm):
+        gc.set(qn("w:w"), str(int(round(w / 2.54 * 1440))))
     doc.add_paragraph()
     return t
 
 
 # ------------------------------------------------------------------------------------------- title
 t = doc.add_paragraph()
-r = t.add_run("Civil Scan")
+r = t.add_run("iScale")
 r.bold, r.font.size, r.font.color.rgb = True, Pt(28), ACTION
 t2 = doc.add_paragraph()
 r = t2.add_run("How it works: the logic and the figures behind the project")
 r.font.size, r.font.color.rgb = Pt(15), INK
-p("Project folder: /home/lucas/Documents/Projects/civil-scan   ·   Version of 15 November 2026, with field test, pothole map, Civil Helper, materials cost, the pothole job card and self sign-up", size=9, color=INK2)
+p("Project folder: /home/lucas/Documents/Projects/civil-scan   ·   Version of 15 November 2026, with field test, pothole map, Civil Helper, materials cost, the pothole job card, self sign-up, XMPP chat, the Thai field test and opt-in location", size=9, color=INK2)
 p("Every formula and constant in this document is taken from the code as it stands (module names are given so each "
   "figure can be checked). Figures marked \"example\" use made-up inputs to show the shape of the logic; they are not field results.",
   size=9.5, color=INK2, italic=True)
@@ -148,7 +153,7 @@ p("Every formula and constant in this document is taken from the code as it stan
 # ------------------------------------------------------------------------------------------- 1 pitch
 doc.add_heading("1. The pitch", level=1)
 p("Find every pothole. Fix the right one first.", size=13, color=ACTION).runs[0].bold = True
-p("Civil Scan is road inspection for city engineering teams. A crew drives a street with a camera; the app finds the "
+p("iScale (formerly Civil Scan) is road inspection for city engineering teams. A crew drives a street with a camera; the app finds the "
   "potholes, measures them in 3D, scores every 25 m of road, ranks what to fix first by how dangerous it is and how busy "
   "the road is, and proves afterwards that each repair held. Engineers share one pothole map, talk in encrypted chats, "
   "and ask Civil Helper, an assistant that answers from the organisation's own manuals.")
@@ -165,8 +170,9 @@ bullets([
      "button, the bill of materials, the best time to work and the repair steps, laid out for a phone or iPad on site."),
     ("One shared pothole map.", "Anyone pins a pothole once and every engineer on the server sees it; each colleague who "
      "confirms it pushes it up the list."),
-    ("Crew chat that stays private.", "1:1 and group chats with the Signal Protocol (the protocol WhatsApp uses). Messages "
-     "live on the devices; the server only relays ciphertext and deletes it on delivery."),
+    ("Crew chat that stays private.", "1:1 and group chats over XMPP, the open messaging standard, on the company's own "
+     "ejabberd server (the server software WhatsApp started on). Messages are end-to-end encrypted with OMEMO, XMPP's version "
+     "of the Signal Protocol; the server only passes on ciphertext and deletes it on delivery."),
     ("Civil Helper answers from your manuals.", "Ask a civil-engineering question; Civil Helper answers from the company's own "
      "documents and names its sources. It runs on a local Qwen model, or any provider the admin connects."),
     ("Sign in with a username.", "No password to forget or leak: the username is bound to the person's device by a "
@@ -179,17 +185,33 @@ bullets([
 
 # ------------------------------------------------------------------------------------------- 2 overview
 doc.add_heading("2. System overview", level=1)
-p("Civil Scan is one Python web server (FastAPI) with a browser front end. It does not contain a trained model of its "
+p("iScale is one Python web server (FastAPI) with a browser front end. It does not contain a trained model of its "
   "own: detection and 3D reconstruction are external, swappable components, and everything after them is explicit, "
   "inspectable rules and formulas.")
 figure(FIG / "f1_architecture.png", "Components and where data lives. Light blue: runs in the user's browser; white: the company server; right: optional outside services.")
+p("The flow from a drive video to a repair job is shown below on the Route 348 test (section 12.6). Detection is the "
+  "pre-inference step: a pothole detector looks at 3 frames a second and decides which stretches of the drive are worth "
+  "rebuilding. Feature engineering is LingBot-Map, and the two models work together: the detector's boxes go with the "
+  "clip to LingBot-Map, every 3D point rebuilt from a pixel inside a box is marked as \"pothole\" (magenta in the figure), "
+  "and a pothole is confirmed where those points meet a dip measured in the road surface. The analysis then measures it "
+  "(area, depth, volume, diameter, circularity) and grades its severity. Each finding can be checked in its own point "
+  "cloud (section 3.6). The four job-card outputs (risk, "
+  "location, cost and material, time and traffic) are computed by fixed, configurable rules, not by a language model. "
+  "Civil Helper, a local LLM with retrieval over the company's own manuals, answers engineers' questions beside them and "
+  "cites its sources. GPS, when a drive is recorded in iScale with location on, gives the 3D survey its scale and position; "
+  "this test video has none.")
+figure(FIG / "f20_iscale_flow.png", "The iScale flow on the Route 348 test (clip 1, 0:00-0:40): detection, LingBot-Map 3D guided "
+       "by the detector's boxes (magenta: 3D points from inside the boxes), measurement, rules and Civil Helper, and the "
+       "output on the map, the job card and the 3D check. All images and numbers are from "
+       "this run; the height map is relative to the local road surface (8 m windows). Number plates pixelated. Footage: "
+       "\"EP160\", ถนนไทยแลนด์ (YouTube, CC BY).", 16.4)
 table(["Part", "What it does", "Code"], [
     ["Accounts", "Username + device-key sign-in, self sign-up (company, join code, individual), admins, sessions", "civil/auth.py, civil/vault.py, static/session.js"],
     ["Survey pipeline", "Detect -> windows -> LingBot -> align -> rules -> condition -> plans", "civil/video/*, civil/align.py, civil/analysis/*"],
     ["Fix-first ranking", "Severity x safety x traffic for survey defects and shared pins", "civil/priority.py, civil/traffic.py"],
     ["Shared pins", "Pothole pins seen by everyone on the server, confirmations, optional size", "civil/pins.py"],
     ["Materials and job card", "Materials-only bill of materials, repair window, steps; the four-part pothole card", "civil/materials.py, civil/jobcard.py, static/jobcard.js"],
-    ["Chat relay", "Signal-Protocol ciphertext relay, groups", "civil/messaging.py, civil/groups.py, static/chat.js"],
+    ["Chat (XMPP)", "ejabberd lifecycle, chat tokens, group rooms; XMPP client and OMEMO in the browser", "civil/xmpp.py, civil/groups.py, static/xmpp.js, static/chat.js"],
     ["Civil Helper", "Document library, hybrid search, LLM provider settings", "civil/helper.py"],
     ["Front end", "Map, 3D, repairs, verification, video, messages, settings", "static/*.js"],
 ], [3.0, 8.4, 5.2], "Main parts and their code.")
@@ -202,7 +224,7 @@ p("The detector is Roboflow's hosted model pothole-all-conditions-n6tqz/1. The a
   "becomes an event only when at least 2 hits fall within 1 s of each other. Each event opens a clip:")
 formula("clip = [ t_first_hit - 10 s ,  t_last_hit + 10 s ]   clamped to [0, video length];  overlapping clips merge")
 p("Only the clips go to LingBot-Map. A 2-minute drive with three potholes therefore costs three ~20 s reconstructions "
-  "instead of one 120 s reconstruction, which is what makes a 16 GB GPU enough (Figure 2).")
+  f"instead of one 120 s reconstruction, which is what makes a 16 GB GPU enough (Figure {fig_no + 1}).")
 figure(FIG / "f2_windows.png", "Detection hits become events, and events become clips for 3D (example data; logic from civil/video/windows.py and config/video.json).")
 doc.add_heading("3.2 3D reconstruction with LingBot-Map", level=2)
 p("LingBot-Map (Robbyant, arXiv:2604.14141, Apache-2.0) turns ordinary RGB video into camera poses and per-frame depth. "
@@ -212,7 +234,8 @@ p("LingBot-Map (Robbyant, arXiv:2604.14141, Apache-2.0) turns ordinary RGB video
 doc.add_heading("3.3 Scale and position (civil/align.py)", level=2)
 numbered([
     "Up axis: taken from the decoder's metadata, otherwise estimated from the dominant plane (the road).",
-    "Scale: from a GPS track when the survey has one (similarity fit), otherwise from the known camera height above the "
+    "Scale: from a GPS track when the survey has one (similarity fit; a drive recorded in iScale with location on brings its "
+    "own track, section 9.5), otherwise from the known camera height above the "
     "road (default 1.4 m): scale = camera height / reconstructed height of the camera above the fitted road plane.",
     "Map position: Umeyama similarity fit of the camera path to the GPS track on the horizontal plane; without GPS, the "
     "start point and heading entered for the survey.",
@@ -227,9 +250,52 @@ p("The detector's box is mapped through H to give a first width, length and area
   "The defaults are uncalibrated guesses, so the app hides these sizes until the camera is calibrated once with "
   "`civil calibrate`. The 3D measurement remains the main one; this is the quick cross-check.")
 figure(FIG / "f3_perspective.png", "Perspective transform: the trapezoid in the frame becomes a 3.5 m x 12 m rectangle seen from above (example box; civil/video/perspective.py).")
-doc.add_heading("3.5 Joining 2D and 3D", level=2)
-p("Each detector box is carried through LingBot's depth into the 3D survey. Where the geometry rules also find a dip at "
-  "that spot, the two become one pothole with measured depth and size; the evidence string records both sources.")
+cf = json.loads((FIG / "check_facts.json").read_text())  # written by docs/build/check_fig.py from the survey
+src = cf["sources"]
+doc.add_heading("3.5 How the detector and LingBot-Map work together", level=2)
+p("The detector finds potholes in the 2D video; LingBot-Map rebuilds the road in 3D and finds where the surface dips. "
+  "Neither is trusted alone. The detector's boxes travel with each clip (boxes.json, in LingBot's model pixels), and when "
+  "LingBot-Map's depth turns a frame into 3D points, every point from a pixel inside a box is labelled \"pothole\" "
+  "(adapters/lingbot_map.py). Those points are kept even where the cloud is thinned. The analysis then compares them with "
+  "the dips it measures in the road surface (civil/analysis, merge_detector):")
+table(["Outcome", "What it means", "Route 348, clip 1"], [
+    ["Detector + 3D agree", "Detector points and a measured dip within 0.5 m: one pothole, with measured depth, area and volume; "
+     "the evidence says \"confirmed by the video pothole detector\"", str(src.get("detector+geometry", 0))],
+    ["3D only", "A dip the detector did not mark: kept as a 3D finding (a pothole it missed, a shadow or a patch)", str(src.get("geometry", 0))],
+    ["Detector only", "Detector points but no measurable dip: kept with low severity and flagged \"check the clip or "
+     "tag it manually\"; water-filled holes and rough reconstructions end up here", str(src.get("detector", 0))],
+], [3.6, 10.0, 3.0], "The three outcomes when the two models are joined, and how often each happened on Route 348 clip 1 (potholes only).")
+
+doc.add_heading("3.6 Checking a finding in its point cloud", level=2)
+p("Because both models can be wrong, every road defect has a 3D check that shows the evidence behind it. It opens in the "
+  "finding's side panel and in its job card, and is drawn on the server, so it also works on phones without 3D graphics "
+  "(civil/check3d.py, static/check3d.js):")
+bullets([
+    "From above: the point cloud in photo colour around the finding, the detector's points in magenta and the measured "
+    "outline as a circle of the measured diameter.",
+    "Height against the road: a road plane is fitted to a ring of points around the finding, and each 4 cm cell is coloured "
+    "by its average height against it (red below, blue above). Averaging matters because LingBot-Map often stacks the same "
+    "road in thin layers a few centimetres apart.",
+    "Cross-section: the 3D points along a 10 cm strip through the centre, with the average surface and the measured depth.",
+    "A verdict in words (detector + 3D agree, 3D only, detector only), the number of detector points nearby and inside the "
+    "outline, the depth re-measured from the fitted plane, and the roughness of the road around it. It warns when the "
+    "detector's points lie outside the outline, when the re-measured depth differs from the survey's by more than 3 cm "
+    "(or half), and when the road around it is rough (more than ±3 cm).",
+    "Correct, Wrong or Unsure: the engineer's answer is saved on the finding with their name, the time and an optional note, "
+    "so wrong results can be counted. The 3D view also has a Detector colour mode that paints the detector's points magenta "
+    "across the whole clip.",
+])
+d2, d95 = cf["F2C7-0002"], cf["F2C7-0095"]
+p(f"On Route 348 the check was useful at once. Pothole F2C7-0002 is listed as confirmed by both models, but none of the "
+  f"detector's {d2['det_points']:,} nearby points fall inside its measured outline: the two were joined only because they "
+  f"are within 0.5 m. Re-measured against the fitted plane it is {d2['remeasured'] * 100:.1f} cm deep rather than "
+  f"{d2['measured'] * 100:.1f} cm, on a road that is rough to ±{d2['noise'] * 100:.1f} cm. Finding F2C7-0095 (detector only) "
+  f"has {d95['det_points']:,} detector points but no clean dip; the road around it varies by ±{d95['noise'] * 100:.1f} cm. "
+  "Both are cases an engineer should look at before a crew is sent.")
+figure(FIG / "f21_check3d.png", "The 3D check as the app draws it, for two Route 348 findings. Top: F2C7-0002 (detector + 3D "
+       "agree, but the detector's points, magenta, lie outside the measured outline). Bottom: F2C7-0095 (detector only). "
+       "Left to right: from above, height against the fitted road (red below), cross-section with the average surface.", 16.4)
+figure(SHOT / "check3d-phone.png", "The 3D check in the job card on a phone, with the verdict, warnings and the Correct / Wrong / Unsure answer.", 6.5)
 
 # ------------------------------------------------------------------------------------------- 4 rules
 doc.add_heading("4. Geometry rules and severity", level=1)
@@ -376,7 +442,7 @@ figure(FIG / "f6_road_weight.png", "Road weight from vehicles per day, compared 
 p("Example: a medium pothole on a congested primary road (2.0 x 1.6 x 4 x 1.5 = 19.2) ranks above a high-severity "
   "pothole on a residential street (3.5 x 1.6 x 1.5 = 8.4). This is the behaviour the automated test "
   "test_ranking_puts_busy_roads_first checks.")
-p("Google's terms do not allow storing Routes API results. Civil Scan therefore keeps congestion only in the server's "
+p("Google's terms do not allow storing Routes API results. iScale therefore keeps congestion only in the server's "
   "memory for 5 minutes and never writes it to disk; surveys and pins store only the OpenStreetMap road class and any "
   "vehicles/day an engineer typed in. Google's pricing for this call (Compute Routes Pro, reported by Research Desk on "
   "14 Nov 2026): 5,000 requests free per month, then US$10 per 1,000. Every pothole also links to Google Maps with the "
@@ -406,22 +472,42 @@ p("Both keys are derived with HKDF from one 32-byte server key (data/secrets/db.
   "variable). The database file and its write-ahead log were checked byte by byte after migration: no username or name "
   "appears in clear. If the key is kept in the data folder, a copy of the whole folder can still be read; keeping the key "
   "in CIVIL_DB_KEY outside the folder means a copied database alone reveals nobody.")
-doc.add_heading("9.3 Encrypted chat (Signal Protocol)", level=2)
-p("Each device publishes public keys; a sender runs X3DH with the recipient's bundle and then the Double Ratchet, so every "
-  "message has a new key. The server stores only ciphertext until the recipient's device confirms delivery, then deletes "
-  "it (SQLite secure_delete zeroes the freed space). Plain text and keys stay in the device's IndexedDB. Both people can "
-  "compare a 60-digit security code to rule out anyone in the middle.")
-figure(FIG / "f7_chat.png", "One message from Ann to Bob through the relay; groups reuse the same sessions.")
-p("Group chats: a company admin creates the group from the company's engineers, people they've talked to, or anyone on the "
-  "server found by exact username. The sender's device encrypts each message once per member; the server checks that the "
-  "sender and every recipient are members and relays each copy. The group id is inside the encryption as well as on the "
-  "envelope, and a device drops a message whose two labels disagree. The server can see who is in a group, when messages "
-  "are sent and their size, but not their content.")
+doc.add_heading("9.3 Chat over XMPP with OMEMO encryption", level=2)
+p("Chat uses XMPP (RFC 6120 and 6121), the open standard for instant messaging. Each iScale server runs its own XMPP server, "
+  "ejabberd 26.07, which the iScale server starts and stops itself. ejabberd listens on this computer only (127.0.0.1); "
+  "browsers reach it through iScale's own address at /xmpp (XMPP over WebSocket, RFC 7395), and iScale lets the connection "
+  "through only for a signed-in user from the app's own page. Server-to-server federation is switched off, so chat never "
+  "leaves the company's server.")
+bullets([
+    ("Sign-in.", "There are no chat passwords. When the app opens chat it asks iScale for a token that lasts one hour "
+     "(a JSON Web Token signed with a key shared only with ejabberd) and signs in to XMPP with it."),
+    ("Addresses.", "A person's XMPP address is their hashed id, for example u3c86...@iscale.local, never their username. "
+     "ejabberd's database therefore holds no usernames or names; the app asks iScale who an address belongs to."),
+    ("Encryption.", "Messages are end-to-end encrypted with OMEMO (XEP-0384, the version used by the Conversations, Gajim "
+     "and Monal apps). Each browser publishes its public keys on the XMPP server (PEP); a sender sets up a Signal-Protocol "
+     "session (X3DH, then the Double Ratchet) with every device of the recipient, encrypts the text once with AES-GCM and "
+     "sends that key to each device. Keys and plain text stay in the browser's IndexedDB."),
+    ("Offline delivery.", "A message to someone who is offline waits in ejabberd's offline store and is deleted once "
+     "delivered. No message archive is kept (MAM is off)."),
+    ("Groups.", "Each iScale group is a members-only XMPP room (XEP-0045). iScale creates the room and keeps its member "
+     "list the same as the group's; ejabberd refuses anyone else. Rooms keep the last 200 encrypted messages so a member "
+     "who was away catches up."),
+    ("Checking who you talk to.", "Both people can compare OMEMO fingerprints (Security code) to rule out anyone in the middle."),
+])
+figure(FIG / "f7_chat.png", "One message from Ann to Bob over XMPP with OMEMO (static/xmpp.js, static/chat.js, civil/xmpp.py).")
+p("Tested on 15 November 2026 with two people in two browsers. 1:1 messages arrived both ways within a few seconds. A group "
+  "message reached the member who was online, and a member who had never signed in was named as not reachable. A 1:1 "
+  "message sent while Bob was offline was kept by ejabberd (offline queue: 1), delivered when he came back, and then "
+  "removed (queue: 0). The test text was not found anywhere in ejabberd's data folder. The first offline test failed: "
+  "ejabberd could not tell that a person who signs in only with tokens exists, so it sent the message back. iScale now "
+  "registers each person with ejabberd when they first open chat, using a random password nobody holds, and the app "
+  "shows \"A message wasn't delivered\" when the server refuses one.", italic=True)
 table(["Data", "Where it is kept", "Who can read it"], [
     ["Chat text, locations, shared potholes in chat", "Each participant's device (IndexedDB)", "The participants only"],
-    ["Chat in transit", "Server, as ciphertext, until delivered", "Nobody (deleted after delivery, at most 30 days)"],
+    ["Chat in transit", "ejabberd offline store, as OMEMO ciphertext, until delivered", "Nobody (deleted after delivery)"],
+    ["Recent group messages", "ejabberd room history (last 200), as OMEMO ciphertext", "Nobody; group members' devices decrypt"],
     ["Usernames, names, group names", "Server database, encrypted", "Signed-in colleagues via the app"],
-    ["Group membership, message timing", "Server database", "Server operator (needed for routing)"],
+    ["Group membership, message timing", "Server database and ejabberd, by hashed id", "Server operator (needed for routing)"],
     ["Pothole pins and confirmations", "Server database", "Everyone signed in on the server, by design"],
     ["Survey video, point clouds, findings", "Server project folders", "Engineers of the owning company"],
     ["Google traffic results", "Server memory, 5 minutes", "Not stored"],
@@ -448,6 +534,93 @@ p("The browser creates the device key before the account exists and sends its pu
   "accounts an hour.")
 figure(SHOT / "create-account.png", "Create account on the sign-in screen: for a company (new, or join with a code) or just me.", 15.5)
 figure(SHOT / "company-join-code.png", "A new company's admin sees the join code in Settings, with Copy, New code and Turn off.", 15.5)
+
+doc.add_heading("9.5 Using the device's location (opt-in, with an agreement)", level=2)
+p("iScale can use the phone's or tablet's GPS to place potholes more precisely, but only for people who accept a short "
+  "agreement. It is shown once, right after sign-in, with two buttons: Accept and Decline. Declining changes nothing else: "
+  "pins can still be placed by tapping the map. The choice can be changed at any time with the Use my location switch in "
+  "Settings, Location; switching it on shows the agreement again, switching it off stops location at once.")
+table(["Use", "What leaves the device", "Who sees it"], [
+    ["\"You are here\" dot on the map, with its accuracy ring", "Nothing: drawn in the browser only", "Only the person"],
+    ["Pin where I am", "The pin's position and its GPS accuracy (source = device)", "Everyone on the server, like any pin"],
+    ["Record a drive", "The video and a GPS track (about one position a second) saved as gps.csv", "People in the company who open the project"],
+    ["Share location in chat", "One position, end-to-end encrypted (OMEMO)", "The people in that chat"],
+], [4.6, 6.6, 5.4], "What location is used for (civil/location.py, static/location.js). Live position is never sent to the server or shown to others.")
+doc.add_heading("How consent is kept", level=3)
+bullets([
+    "The agreement is two text files, English and Thai (config/location_agreement.md and .th.md), each starting with the "
+    "same version line; a ไทย / English switch sits at the top of the dialog. The server fills in the company that runs "
+    "the server, a contact and a postal address, which the host company's admin sets in Settings, Location. A Thai file "
+    "with an older version than the English one is not shown.",
+    "Every answer (accepted, declined or withdrawn) is stored with the agreement version and the time, in a consent_log table "
+    "keyed by the person's hashed ID. Location counts as on only when the latest answer is \"accepted\" for the current "
+    "version. Changing the text means changing the version, and everyone who had accepted is asked again.",
+    "The server enforces it: a pin marked as a GPS pin, or a recorded drive with a GPS track, is refused (HTTP 403) unless "
+    "the person's location is on. A decline on entry is remembered, so the agreement is not shown on every sign-in.",
+    "Location is read only while iScale is on screen: the browser's position watch stops when the tab is hidden and "
+    "restarts when it comes back. Browsers allow location only over HTTPS or on the computer itself.",
+    "Turning location off, or declining a new version, deletes at once the gps.csv files of drives the person recorded "
+    "(also from the clips made from them); Delete my GPS tracks does the same without turning location off. Pins stay as "
+    "records of where the pothole is, and surveys already computed keep their road positions; the agreement says so.",
+])
+doc.add_heading("What Thailand's PDPA asks of this agreement", level=3)
+p("Research Desk checked the Personal Data Protection Act B.E. 2562 and the PDPC's guidelines, notifications and rulings "
+  "(all opened 15 Nov 2026). Precise location linked to an account is personal data (s.6), but not sensitive data (s.26). "
+  "Because the feature is optional, consent (s.19) is the lawful basis. The table shows how the agreement meets each "
+  "requirement. It is a reading of the sources, not legal advice.")
+table(["Requirement (source)", "How iScale meets it"], [
+    ["Consent separate from other terms, specific, in plain Thai (s.19; PDPC consent guideline 3.1-3.3)",
+     "Its own screen after sign-in, not part of sign-up; four named purposes; Thai and English texts"],
+    ["Freely given, not a condition of the service (s.19 para 4)", "Decline keeps every other feature; pins by tapping the map"],
+    ["No pre-ticked choice; Accept and Decline equally prominent (guideline 3.6; PDPC order 16/2567)",
+     "Two buttons of the same style; nothing pre-selected; Escape does not count as an answer"],
+    ["Each person decides; an employer cannot consent for staff (PDPC opinion 19/2566)", "Asked per account; admins cannot change it for others"],
+    ["Notice items: purposes and basis, data, retention, recipients, controller with address, transfers abroad (s.23; notice guideline 4.1)",
+     "All in the text; pin coordinates sent to OpenStreetMap (Europe) and, if turned on, Google are stated"],
+    ["The eight rights with their sections (s.23(6))", "Listed: s.19, 30, 31, 32, 33, 34, 36 and 73, with the PDPC complaint channel"],
+    ["Withdrawal as easy as consent, immediate, logged (s.19 para 5; PDPC opinions 4/2566, 4/2568)",
+     "One switch in Settings; collection stops at once; every answer logged with version and time"],
+    ["Delete consent-based data after withdrawal (s.33(2), s.37(3))", "Drive tracks are deleted when location is turned off"],
+], [8.2, 8.4], "PDPA points for the location agreement (Shared/Project_CIVIL/research/location-consent-pdpa.md).")
+p("Three decisions are left to the company running iScale: who the data controller is (the server's company, or each "
+  "client company for its own staff, which would make the server's company a processor needing a data-processing "
+  "agreement, s.40); whether staff location rests on consent or on the employer's contract or legitimate interest; and "
+  "retention periods. The text uses consent, the company running the server as controller, and retention as listed above.")
+
+doc.add_heading("Precise pins", level=3)
+p("Pin where I am does not take the first position the phone reports, which is often a rough network fix. It waits until "
+  "the GPS reports an accuracy of 10 m or better and then opens the pin form. While it waits it shows the current accuracy, "
+  "and the person can use the best position so far. The pin keeps the accuracy, and its details say \"GPS where the "
+  "reporter stood, ±8 m\" rather than \"Placed on the map\".")
+formula("accept the fix when  accuracy ≤ 10 m  and  age ≤ 5 s;   otherwise show ±accuracy and wait (or Use this position)")
+doc.add_heading("Recorded drives", level=3)
+p("Record a drive opens the rear camera full screen. While it records, the GPS track is logged with times measured from "
+  "the moment recording starts. On upload the server stores the track as gps.csv next to the video, and the video job uses "
+  "it as in section 3.3: the camera path from LingBot-Map is fitted to the GPS track, which gives real-world scale and map "
+  "position instead of the camera-height guess that varied by up to 2× in the Thai test (section 12.6).")
+bullets([
+    "Browsers record with a variable frame rate, and Chrome's WebM files have no frame count. The server first rewrites the "
+    "recording as a constant 30 frames-per-second MP4 (civil/video/normalize.py, PyAV), so that frame k is the picture at "
+    "k / 30 s and matches the GPS times. Safari's rotation flag is applied so an upright phone gives an upright road.",
+    "GPS points less accurate than 30 m are dropped before saving (tunnels, flyovers, a cold start), and the fit is used only "
+    "if the track moves more than 5 m; otherwise the camera height sets the scale, as before.",
+    "The screen is kept awake while recording. A recording stops by itself after 15 minutes. Recording works without "
+    "location too; the drive is then scaled from the camera height.",
+])
+doc.add_heading("What was tested", level=3)
+p("12 automated tests cover consent (asked, declined, accepted, withdrawn, a new version, the Thai text and its version check), the server refusing GPS pins "
+  "and tracks without consent, the track file, deleting only one's own tracks, deleting tracks when location is turned off, the privacy contact, and the frame-rate "
+  "conversion: a WebM with irregular frame times (0, 0.05, 0.2 ... 2.0 s) came out as 61 frames at 30 fps, with the right "
+  "picture at 0.7 s and 1.6 s. In the browser at phone (390 × 844) and iPad (820 × 1180) sizes, with a simulated GPS that "
+  "improved from ±40 m to ±6 m: the agreement appeared on entry, Pin where I am waited from ±16 m to ±8 m before opening "
+  "the form, the pin was saved with ±8 m, and the Settings switch turned location off and on. A 16-second recording from a "
+  "simulated camera uploaded with an 18-point GPS track and was converted to 504 frames at 30 fps; the video job then ran "
+  "to the end. No real phone, real GPS or real camera has been used yet.", italic=False)
+figure(FIG / "f19_location_phone.png", "Location on a phone (390 px wide): (1) the agreement shown once after sign-in, with equal Accept and Decline "
+       "buttons; (2) the same agreement in Thai; (3) Pin where I am waiting for a position within 10 m; (4) Record a drive "
+       "with GPS accuracy, time and size. "
+       "GPS and camera are simulated (desktop browser test).", 16.4)
+figure(SHOT / "location-settings-ipad.png", "Settings, Location on an iPad: the switch, the agreement and Delete my GPS tracks.", 13.0)
 
 doc.add_heading("10. Civil Helper: answers from your own documents", level=1)
 p("Questions in the side panel are routed first. Survey questions (where, how many, cost, verified) are answered by fixed "
@@ -476,7 +649,8 @@ p("The server answers only to its own host names (protection against DNS rebindi
 import json as _json
 FT = _json.loads((FIG / "field_test.json").read_text())
 FB = _json.loads((FIG / "field_test_before.json").read_text())
-doc.add_heading("12. Field test on a real road video", level=1)
+doc.add_heading("12. Field tests on real road videos", level=1)
+p("Sections 12.1-12.5 are the first test, a 40 s walk on Rangoon Road in South Africa. Section 12.6 is the second, on two longer videos filmed in Thailand.", italic=True)
 p("Video: \"Terrible potholes in Rangoon Road\", Northern Natal News (YouTube, R2Vr3R_Dpj0), "
   f"{FT['duration_s']:.0f} s, {FT['size']} at {FT['fps']:.0f} fps. It is filmed by a person walking along a gravel-patched "
   "road with large water-filled potholes, camera at about chest height. There is no GPS, so scale comes from the assumed "
@@ -585,10 +759,84 @@ table(["No.", "Method", "Depth", "Cut area", "Bags", "Tack coat", "Base", f"Mate
 figure(FIG / "f15_rangoon_materials.png", "Materials cost per pothole on Rangoon Road, split by material, with each pothole's method.")
 
 # ------------------------------------------------------------------------------------------- 13 limits
+# ------------------------------------------------------------------------------------------- 12.6 Thailand
+TT = _json.loads((FIG / "thai_test.json").read_text())
+TI, TE = TT["isan"], TT["ep160"]
+doc.add_heading("12.6 Thailand: two longer videos", level=2).paragraph_format.page_break_before = True
+p("Research Desk searched YouTube for 2-10 minute videos filmed on Thai roads with clear potholes (Shared/Project_CIVIL/research/thai-test-videos.md). "
+  "No Thai video with GPS was found. Two were used, for internal testing only (not redistributed):")
+table(["", "Isan road", "Route 348, Non Din Daeng"], [
+    ["Video", "\"Thailand Pothole roads\", Trestrail Family Travel (YouTube Bdl-oXwVH_E), standard YouTube licence",
+     "\"EP160 ถนนพังเร็วจัง\", ถนนไทยแลนด์ (YouTube 1OKl3nodw3s), Creative Commons BY"],
+    ["Used", f"all {TI['duration_s']:.0f} s, 1080p", f"5:20-6:10 ({TE['duration_s']:.0f} s), 1080p: the potholed stretch by the PT and Shell stations"],
+    ["Camera", "phone behind a car windscreen; bonnet cropped off (bottom 16% of the frame); height 1.3 m assumed",
+     "motorbike handlebar camera; dashboard cropped off (bottom 20%); height 1.1 m assumed"],
+    ["Where", "northeast Thailand; the exact road is unknown (the uploader's tag says Yasothon, a school sign matches Roi Et or Bueng Kan)",
+     "Route 348 (Thana Withi Road), Non Din Daeng, Buriram: the description names the road, and the PT station seen at 5:30 is the only "
+     "PT station in the district on OpenStreetMap"],
+    ["Road", "rural two-lane road, broken up along its whole length, mostly dry", "road under widening; mud, puddles and potholed asphalt"],
+], [2.4, 7.1, 7.1], "The two Thai test videos.")
+p(f"Isan road: the detector checked {TI['samples']} frames, found {TI['detections']} pothole boxes and confirmed {TI['events']} events. "
+  f"Route 348: {TE['samples']} frames, {TE['detections']} boxes, {TE['events']} events. "
+  f"In all, {sum(c['potholes'] for c in TI['clips'] + TE['clips'])} potholes were found and {sum(c['measured'] for c in TI['clips'] + TE['clips'])} of them measured in 3D. "
+  "The test ran on this computer on 15 November 2026.")
+figure(FIG / "f18_thai_isan.png", "Isan road: detector confidence over the video, the four 3D clips with how many potholes each measured and its scale, and four frames with the detector's boxes.")
+doc.add_heading("What the longer videos broke, and what was changed", level=3)
+bullets([
+    ("3D clips now have a maximum length.", "With potholes along the whole road, the ±10 s clips merged into one 128 s clip (about 640 frames). "
+     "LingBot-Map takes at most 256 frames, so it stopped with an error. Clips are now at most 40 s long (200 frames at 5 fps). A longer "
+     "merged clip is cut midway between two potholes, so no pothole is split (config/video.json, window.max_s)."),
+    ("Only points near the camera are kept.", "Through a windscreen, the full point cloud stacked the road in layers 20-60 cm apart: "
+     "the same patch of road, seen from frames a few seconds apart, landed at different heights. No road surface was found and no pothole "
+     "was measured. Keeping only points within 1 model unit of the camera that saw them fixed the first clip: it now measures "
+     f"{TI['clips'][0]['measured']} of {TI['clips'][0]['potholes']} potholes and a road "
+     f"{min(TI['clips'][0]['road_width_m'][:4]):.1f}-{max(TI['clips'][0]['road_width_m'][:4]):.1f} m wide, about right for two lanes. "
+     "This is a setting (lingbot.max_depth_units), off by default; it was used for both Thai videos."),
+    ("Depth ignores stray points.", "The deepest point used to come from the single lowest point in each 10 cm cell. In a noisy cloud "
+     "one stray point gave depths of 2-3 m. Each cell now uses its 25th-percentile height, and a pothole's depth is the 90th percentile "
+     "over its cells."),
+    ("Depths a road can't have are not reported.", "A hole that measures deeper than 40 cm is marked \"deepest point not measurable\". "
+     "In video this is water, or a reflection of sky and trees in the water. Severity and materials then use the median depth, and the app "
+     "asks for a measurement on site."),
+])
+rows = []
+for name, d in (("Isan", TI), ("Route 348", TE)):
+    for i, c in enumerate(d["clips"]):
+        rows.append([f"{name} {i + 1}", f"{c['start']:.0f}-{c['end']:.0f} s", f"x{c['scale']:.1f}", f"{c['length_m']:.0f} m",
+                     f"{c['measured']} / {c['potholes']}", "-" if c["depth_p50_cm"] is None else f"{c['depth_p50_cm']:.0f} / {c['depth_max_cm']:.0f} cm",
+                     f"{c['scored_segments']} of {c['segments']}"])
+table(["Clip", "Video time", "Scale", "Path", "Measured / found", "Depth median / max", "Segments scored"], rows,
+      [2.3, 2.2, 1.5, 1.6, 2.8, 3.2, 2.8], "Results per 3D clip (after the changes above).")
+p("What the table shows:")
+bullets([
+    ("Isan clip 1 (0-40 s) is the one result to build on.", f"{TI['clips'][0]['measured']} potholes measured, typically "
+     f"{TI['clips'][0]['across_p50_m']:.2f} m across and {TI['clips'][0]['depth_p50_cm']:.0f} cm deep (90% shallower than {TI['clips'][0]['depth_p90_cm']:.0f} cm). "
+     f"The road is about 6 m wide and the path is {TI['clips'][0]['length_m']:.0f} m in 40 s (about 17 km/h), both believable. Most 25 m segments "
+     "score 0-28 out of 100, which matches the footage."),
+    ("Water defeats the measurement.", "Isan clip 2 crosses water-filled holes: 18 of its 24 potholes were seen by the detector but not "
+     "measured, and only 2 of 7 segments have a road surface."),
+    ("The scale is not consistent.", "Scale comes from the assumed camera height, through the road plane fitted to each clip. It came out "
+     "at x12.5-12.9 for Isan clips 1-2 and x6.9-7.0 for clips 3-4 of the same drive, and x4.8 and x8.4 for the two Route 348 clips. "
+     "Sizes and depths in a clip with the wrong scale are wrong by the same factor, so only clips whose road width checks out should be trusted."),
+])
+thai_map = figure(FIG / "f17_thai_map.png", "Route 348 at Non Din Daeng, Buriram. Left: the area (500 m scale bar). Right: the 33 potholes found, "
+    "coloured by severity, along the camera path; the green cross is the PT station used to place the clip. Map data © OpenStreetMap contributors.")
+p("Placing it on the map: the clip starts 42 m before the PT station, the distance covered in the first 10 s, on the centre line of Route 348, "
+  "heading northeast (45°), so that the station is on the rider's right as in the video. The second clip continues from the end of the first. "
+  "The road is straight here for at least 250 m, so the clips are turned, not bent. Position along the road is good to a few tens of metres "
+  "at best, and which side of the road a pothole is on is not reliable.", italic=True)
+p("Depth rules and the Rangoon results: the numbers in sections 12.2-12.5 were measured with the earlier rule (the lowest point in a cell). "
+  "Re-analysed with the new rules, the deepest Rangoon pothole is 11.7 cm instead of 19.7 cm, and the other depths fall by a similar share. "
+  "Which rule is closer to the truth can only be settled with tape-measured potholes, so sections 12.2-12.5 are left as measured.", italic=True)
+
 doc.add_heading("13. Limits and what is not yet proven", level=1)
 bullets([
-    "One real road video has been processed end to end (section 12), filmed on foot without GPS. A vehicle-mounted drive "
-    "with GPS, compared against tape-measured potholes, is still needed to know how accurate depth and size are.",
+    "Three real road videos have been processed end to end (section 12), none with GPS: a walk in South Africa and two "
+    "drives in Thailand. A drive with GPS, compared against tape-measured potholes, is still needed to know how accurate depth and size are.",
+    "From a vehicle, the scale taken from the camera height varied by a factor of up to 2 between clips of the same drive (section 12.6). "
+    "Until GPS or a calibrated camera supplies the scale, check each clip's road width before trusting its sizes.",
+    "Depth depends on how the deepest point is chosen: changing the rule moved the Rangoon depths by about 40% (section 12.6).",
+    "Keeping only points near the camera (lingbot.max_depth_units) was tuned on one Thai clip. It is off by default and needs testing on more video.",
     "Depth through standing water is unreliable (reflections, no texture).",
     "Pothole sizes change with the angle of the analysis grid, which follows the map axes rather than the road: up to 35% "
     "in the field test (section 12.4). Aligning the grid with the walked path would remove this.",
@@ -602,10 +850,26 @@ bullets([
     "phone or iPad.",
     "Google live congestion has not been tested with a real key; how precise travel-time ratios are on 25-200 m pieces "
     "of road is undocumented and needs a field test.",
-    "Every message to a group of n people costs n encryptions on the sender's device; that is fine for crews of tens, "
-    "not for hundreds.",
+    "A group message carries one encrypted key per member device, so it grows with the group; that is fine for crews of "
+    "tens, not for hundreds.",
+    "OMEMO trusts a new device the first time it is seen (as most XMPP apps do) and announces a changed key; people who need "
+    "certainty should compare security codes.",
+    "Chat was tested with the app's own browser client. Outside XMPP apps (Conversations, Gajim, Monal) speak the same "
+    "protocols, but connecting them would need a direct XMPP port and a sign-in method other than iScale's tokens; neither "
+    "is set up or tested.",
+    "The 3D check shows the evidence; it does not decide. Its re-measured depth uses a simple plane fit and can differ from "
+    "the survey's measurement by several centimetres on rough or layered reconstructions. Engineers' Correct / Wrong answers "
+    "are stored but not yet used to tune the detector or the joining distance (0.5 m).",
+    "Location has been tested only with a simulated GPS and a simulated camera in a desktop browser. A real drive recorded "
+    "on a phone with GPS, and pothole sizes from it compared with a tape measure, is still the key missing test. iPhones stop "
+    "location when the screen locks or Safari goes to the background, so the screen must stay on while recording.",
+    "The recording's time zero is when the browser reports that recording started, which can differ from the first frame "
+    "by a frame or two (about 0.1 s, under 1 m at 30 km/h). This has not been measured on a phone.",
+    "The location agreement was written for this app and checked against the PDPA points in section 9.5; it has not been "
+    "reviewed by a lawyer, and the Thai text was written by the assistant and needs a check by a native speaker. The "
+    "controller, lawful basis for staff and retention periods are still the company's decisions.",
     "The bundled Signal library (libsignal-protocol-typescript) is GPL-3.0. Distributing the app outside the organisation "
-    "would require releasing it under GPL-3.0 or replacing the library.",
+    "would require releasing it under GPL-3.0 or replacing the library. ejabberd is GPL-2.0 and runs as a separate program.",
 ])
 
 # ------------------------------------------------------------------------------------------- 13 screens
@@ -618,7 +882,7 @@ for f, cap in [("sign-in.png", "Sign-in with the pitch: username only."),
                ("fix-first.png", "Fix-first list: severity x safety x traffic, with Google Maps links and the materials cost of each pothole."),
                ("jobcard-desktop.png", "The pothole job card on a computer: a centred window with two columns."),
                ("jobcard-ipad.png", "The job card on an iPad (820 x 1180): a full-screen sheet that keeps two columns."),
-               ("group-chat.png", "Encrypted group chat for a crew (test data).")]:
+               ("group-chat.png", "Group chat for a crew over XMPP, end-to-end encrypted with OMEMO (test data).")]:
     if (SHOT / f).exists():
         figure(SHOT / f, cap, 15.5)
 if (SHOT / "phone-chat.png").exists():
@@ -630,8 +894,16 @@ bullets([
     "LingBot-Map: Robbyant (Ant Group), arXiv:2604.14141; github.com/Robbyant/lingbot-map; Apache-2.0.",
     "Pothole detector: Roboflow Universe, \"pothole-all-conditions\" (model version 1).",
     "Field-test video: \"Terrible potholes in Rangoon Road\", Northern Natal News, YouTube (youtube.com/watch?v=R2Vr3R_Dpj0); used for testing only, not redistributed.",
+    "Thai field-test videos: \"Thailand Pothole roads\", Trestrail Family Travel, YouTube (youtube.com/watch?v=Bdl-oXwVH_E, 2022); "
+    "\"EP160 ถนนพังเร็วจัง\", ถนนไทยแลนด์, YouTube (youtube.com/watch?v=1OKl3nodw3s, 2022, CC BY). Used for internal testing only, not "
+    "redistributed. Found and checked by Research Desk on 15 Nov 2026 (Shared/Project_CIVIL/research/thai-test-videos.md).",
+    "Thai field-test location: OpenStreetMap way 297485642 (Route 348, Thana Withi Road) and node 2127590173 (PT station), Non Din Daeng, "
+    "Buriram, found with Overpass on 15 Nov 2026; map tiles © OpenStreetMap contributors (ODbL).",
     "Perspective transform method: toolcluster.app, \"OpenCV perspective transform\" (getPerspectiveTransform / warpPerspective).",
     "Signal Protocol: signal.org/docs, X3DH key agreement and Double Ratchet specifications.",
+    "XMPP: RFC 6120 (core), RFC 6121 (messaging and presence), RFC 7395 (XMPP over WebSocket); XEP-0045 Multi-User Chat; "
+    "XEP-0163 Personal Eventing Protocol; XEP-0384 OMEMO Encryption (eu.siacs.conversations.axolotl namespace); xmpp.org.",
+    "ejabberd 26.07 (ProcessOne, GPL-2.0), docs.ejabberd.im: JWT authentication, mod_offline, mod_muc, mod_http_api.",
     "Google Routes API pricing and storage terms: as reported by Research Desk on 14 Nov 2026 "
     "(Shared/Project_CIVIL/research/traffic-and-rag-sources.md); confirm before production use.",
     "OpenStreetMap road classes via the Overpass API, and street addresses via Nominatim (data © OpenStreetMap contributors, ODbL).",
@@ -640,6 +912,10 @@ bullets([
     "Sola Asphalt quote to the DRR Bureau of Road Maintenance, 10 Nov 2026; four Bangkok store listings, Nov 2026. "
     "Factor F: Comptroller General's Department criteria and circular ว 481 (26 Jun 2026). All compiled by Research Desk on "
     "15 Nov 2026 (Shared/Project_CIVIL/research/repair-cost-sources.md).",
+    "Location consent: Personal Data Protection Act B.E. 2562 (Royal Gazette text), PDPC consent and privacy-notice "
+    "guidelines, PDPC notifications on erasure (2567), data subject access (2569) and DPOs (2566), PDPC opinions 4/2566, "
+    "4/2568 and 10/2568, and expert-committee orders 16/2567 and 17/2567. Compiled by Research Desk on 15 Nov 2026 "
+    "(Shared/Project_CIVIL/research/location-consent-pdpa.md); not legal advice.",
     "Job card layout: the user's design brief (IMG_1764.png, four tablet screens: Location, Cost & Material, Time Analytics, Planning), 15 Nov 2026.",
     "Field-test location: OpenStreetMap way 854179657, Rangoon Road, Leonardsville, Ladysmith, KwaZulu-Natal, found with "
     "Nominatim and Overpass on 15 Nov 2026; map tiles © OpenStreetMap contributors (ODbL).",

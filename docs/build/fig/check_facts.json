@@ -1,0 +1,23 @@
+{
+ "F2C7-0002": {
+  "code": "both",
+  "det_points": 1639,
+  "det_inside": 0,
+  "measured": 0.084,
+  "remeasured": 0.050938292050193165,
+  "noise": 0.031137277473111864
+ },
+ "F2C7-0095": {
+  "code": "detector_only",
+  "det_points": 6110,
+  "det_inside": 1890,
+  "measured": null,
+  "remeasured": 0.11156849110793607,
+  "noise": 0.08271478480199014
+ },
+ "sources": {
+  "detector+geometry": 3,
+  "geometry": 1,
+  "detector": 11
+ }
+}

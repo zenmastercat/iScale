@@ -1,0 +1,82 @@
+{
+ "frame_t": 33.0,
+ "boxes_in_frame": 2,
+ "detections": 48,
+ "events": 7,
+ "windows": [
+  [
+   0.0,
+   40.0
+  ],
+  [
+   40.0,
+   52.6
+  ]
+ ],
+ "clip_frames": 200,
+ "points": 5120666,
+ "stretch_m": [
+  4.9,
+  18.9
+ ],
+ "potholes": [
+  {
+   "n": 1,
+   "id": "F2C7-0001",
+   "severity": "high",
+   "area_m2": 0.17,
+   "depth_m": 0.08,
+   "volume_m3": 0.0049,
+   "diameter_m": 0.47,
+   "circularity": 0.72
+  },
+  {
+   "n": 2,
+   "id": "F2C7-0003",
+   "severity": "medium",
+   "area_m2": 0.09,
+   "depth_m": 0.173,
+   "volume_m3": 0.0015,
+   "diameter_m": 0.34,
+   "circularity": 0.57
+  },
+  {
+   "n": 3,
+   "id": "F2C7-0002",
+   "severity": "high",
+   "area_m2": 0.68,
+   "depth_m": 0.084,
+   "volume_m3": 0.0158,
+   "diameter_m": 0.93,
+   "circularity": 0.81
+  },
+  {
+   "n": 4,
+   "id": "F2C7-0004",
+   "severity": "medium",
+   "area_m2": 0.29,
+   "depth_m": null,
+   "volume_m3": 0.0073,
+   "diameter_m": 0.61,
+   "circularity": 0.42
+  }
+ ],
+ "notes": [
+  "up axis estimated from the dominant (ground) plane",
+  "scale from camera height 1.1 m (factor 4.7959)",
+  "placed on Route 348 (Thana Withi Road), Non Din Daeng, Buriram, anchored at the PT station (OSM node 2127590173), heading 45 deg; stretch and direction assumed (no GPS)"
+ ],
+ "detector_points_clip": 69053,
+ "box_frames": 35,
+ "sample_every_s": null,
+ "detector": {
+  "kind": "roboflow",
+  "api_url": "https://serverless.roboflow.com",
+  "model_id": "pothole-all-conditions-n6tqz/1",
+  "confidence": 0.45,
+  "sample_fps": 3,
+  "min_hits": 2,
+  "hit_gap_s": 1.0,
+  "workers": 4
+ }
+}

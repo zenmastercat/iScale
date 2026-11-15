@@ -108,7 +108,7 @@ reconstruction bent about +-25 cm along the 22 m walk, which a single surface fi
 segment read as huge potholes. Video clips now fit the road in 8 m windows
 (`config/video.json -> analysis.surface_window_m`). Result: 10 potholes (8 confirmed by the
 detector), 0.3-2.3 m across. Depth through standing water is not reliable. Details and
-figures: section 12 of `Civil-Scan-Logic-and-Figures.docx`
+figures: section 12 of `iScale-Logic-and-Figures.docx`
 (`uv run python docs/build/field_test.py <project> <video survey> <clip survey> <video.mp4>`).
 
 

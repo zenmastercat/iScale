@@ -1,6 +1,6 @@
 # Using LingBot-Map as the decoder
 
-civil-scan contains no machine-learning model. The step "drive video → 3D" is a
+iScale (folder `civil-scan`) contains no machine-learning model. The step "drive video → 3D" is a
 **decoder slot**: an external process that writes a point cloud and camera poses.
 LingBot-Map is the first intended decoder. You install and run it separately; this
 app only calls it and converts its output.
@@ -11,7 +11,7 @@ or run). Re-check them when you pin a newer commit.
 
 ## What LingBot-Map gives and what the app adds
 
-| | LingBot-Map | civil-scan adds |
+| | LingBot-Map | iScale adds |
 |---|---|---|
 | Input | Monocular RGB video or image folder (518 px wide); no intrinsics, GPS or IMU | GPS track (`gps.csv`) or camera height for scale |
 | Output | Per frame: camera pose, intrinsics, z-depth, confidence (NPZ) | Back-projection to a coloured point cloud (`adapters/lingbot_map.py convert`) |
