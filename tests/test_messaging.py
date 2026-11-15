@@ -1,63 +1,117 @@
-"""Encrypted-chat relay, shared pins and traffic-weighted ranking."""
+"""XMPP chat plumbing (tokens, addresses, WebSocket gate, ejabberd config), shared pins and
+traffic-weighted ranking. The OMEMO encryption itself runs in the browser and is checked there."""
 
 import base64
+import hashlib
+import hmac
+import json
 import time
 
+import pytest
+from starlette.websockets import WebSocketDisconnect
+
+from civil import xmpp
 from helpers import admin, client_for
 
 
-def b64(n: int) -> str:
-    return base64.b64encode(bytes(range(n % 256)) * 1 or b"x").decode() or "eA=="
+def _jwt_claims(tok: str) -> dict:
+    head, body, sig = tok.split(".")
+    want = base64.urlsafe_b64encode(hmac.new(xmpp.jwt_secret(), f"{head}.{body}".encode(), hashlib.sha256).digest()).rstrip(b"=").decode()
+    assert hmac.compare_digest(sig, want), "token not signed with the ejabberd key"
+    return json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
 
 
-def keys(reg: int, n_pre: int = 3) -> dict:
-    k = base64.b64encode(b"\x05" + bytes(32)).decode()
-    return {"registration_id": reg, "identity_key": k,
-            "signed_prekey": {"id": 1, "public_key": k, "signature": base64.b64encode(bytes(64)).decode()},
-            "prekeys": [{"id": i, "public_key": k} for i in range(1, n_pre + 1)]}
-
-
-def test_relay_hands_out_one_time_prekeys_once_and_deletes_after_ack():
-    a, b = client_for("rita"), client_for("sam")
-    assert a.put("/api/chat/keys", json=keys(11)).json()["prekeys"] == 3
-    assert b.put("/api/chat/keys", json=keys(22, 2)).status_code == 200
-    seen = set()
-    for _ in range(2):
-        bun = a.get("/api/chat/bundle/sam").json()
-        assert bun["registration_id"] == 22 and bun["prekey"]["id"] not in seen
-        seen.add(bun["prekey"]["id"])
-    assert a.get("/api/chat/bundle/sam").json()["prekey"] is None  # used up; X3DH still works without one
-    body = base64.b64encode(b"ciphertext-only").decode()
-    mid = a.post("/api/chat/send", json={"to": "sam", "type": 3, "body": body}).json()["id"]
-    got = b.get("/api/chat/inbox?after=0").json()["messages"]
-    assert [m["id"] for m in got] == [mid] and got[0]["sender"] == "rita" and got[0]["body"] == body
-    assert a.get("/api/chat/inbox?after=0").json()["messages"] == []  # not delivered to the sender
-    assert b.post("/api/chat/ack", json={"up_to": mid}).json()["deleted"] == 1
-    assert b.get("/api/chat/inbox?after=0").json()["messages"] == []  # gone from the server
-
-
-def test_relay_rejects_bad_input():
+def test_chat_token_is_a_short_lived_jwt_for_your_own_hashed_address():
     a = client_for("rita")
-    assert a.post("/api/chat/send", json={"to": "rita", "type": 1, "body": "eA=="}).status_code == 400
-    assert a.post("/api/chat/send", json={"to": "nobody-xyz", "type": 1, "body": "eA=="}).status_code == 404
-    assert a.post("/api/chat/send", json={"to": "sam", "type": 1, "body": "not base64!!"}).status_code == 400
-    assert a.post("/api/chat/send", json={"to": "sam", "type": 9, "body": "eA=="}).status_code == 422
+    t = a.get("/api/xmpp/token").json()
+    claims = _jwt_claims(t["token"])
+    assert claims["jid"] == t["jid"] and t["jid"].endswith("@" + xmpp.DOMAIN)
+    assert "rita" not in t["jid"]                          # the server only sees a hash
+    assert 0 < claims["exp"] - time.time() <= xmpp.TOKEN_TTL
+    assert t["websocket"] == "/xmpp" and t["running"] is False   # tests never reach ejabberd
 
 
-def test_long_poll_returns_when_a_message_arrives():
-    import threading
+def test_chat_token_needs_a_signed_in_user():
+    from fastapi.testclient import TestClient
 
-    a, b = client_for("rita"), client_for("sam")
-    out = {}
-    t0 = time.time()
+    from civil.api import app
+    assert TestClient(app, headers={"X-Civil-Scan": "1"}).get("/api/xmpp/token").status_code == 401
 
-    def poll():
-        out["r"] = b.get("/api/chat/inbox?after=999999999&wait=5").json()
 
-    th = threading.Thread(target=poll)
-    th.start()
-    th.join()
-    assert time.time() - t0 >= 4.5 and out["r"]["messages"] == []
+def test_username_to_address_and_back():
+    a, _ = client_for("rita"), client_for("sam")
+    p = a.get("/api/xmpp/jid?username=sam").json()
+    assert p["username"] == "sam" and p["jid"].endswith("@" + xmpp.DOMAIN)
+    assert a.get(f"/api/xmpp/whois?jid={p['jid']}/web-1234").json()["username"] == "sam"
+    assert a.get("/api/xmpp/jid?username=nobody-xyz").status_code == 404
+    assert a.get("/api/xmpp/whois?jid=sam@evil.example").status_code == 404
+
+
+def test_websocket_gate_refuses_strangers_and_other_sites():
+    from fastapi.testclient import TestClient
+
+    from civil.api import app
+    anon = TestClient(app, headers={"X-Civil-Scan": "1"})
+    with pytest.raises(WebSocketDisconnect) as e:
+        with anon.websocket_connect("/xmpp", subprotocols=["xmpp"]) as ws:
+            ws.receive_text()
+    assert e.value.code == 4401
+    a = client_for("rita")
+    with pytest.raises(WebSocketDisconnect) as e:
+        with a.websocket_connect("/xmpp", subprotocols=["xmpp"], headers={"origin": "https://evil.example"}) as ws:
+            ws.receive_text()
+    assert e.value.code == 4401
+    with pytest.raises(WebSocketDisconnect) as e:   # signed in, same site, but ejabberd is down: "try again later"
+        with a.websocket_connect("/xmpp", subprotocols=["xmpp"]) as ws:
+            ws.receive_text()
+    assert e.value.code == 1013
+
+
+def test_ejabberd_config_is_local_only_and_keeps_no_archive():
+    y = xmpp.config_yaml()
+    assert 'ip: "127.0.0.1"' in y and "s2s:\n    deny: all" in y
+    assert "mam: false" in y and "mod_mam" not in y            # no message archive on the server
+    assert "  - jwt" in y and "muc_create:\n    deny: all" in y   # only iScale creates rooms
+    assert "members_only: true" in y and "anonymous: false" in y
+
+
+def test_chat_sign_in_gives_ejabberd_an_account_entry_once(monkeypatch):
+    """JWT alone can't tell ejabberd a person exists, and it would bounce their offline messages."""
+    calls = []
+
+    def fake_api(cmd, **kw):
+        calls.append((cmd, kw.get("user")))
+        return 1 if cmd == "check_account" else 0
+    monkeypatch.setattr(xmpp, "api", fake_api)
+    monkeypatch.setattr(xmpp, "_accounts", set())
+    a = client_for("rita")
+    uid = a.get("/api/xmpp/token").json()["jid"].split("@")[0]
+    a.get("/api/xmpp/token")
+    assert calls == [("check_account", uid), ("register", uid)]   # second sign-in: cached, no calls
+    y = xmpp.config_yaml()
+    assert "auth_method:\n  - jwt\n  - internal" in y and "mod_register" not in y   # no self-registration
+
+
+def test_group_rooms_follow_membership(monkeypatch):
+    calls = []
+    monkeypatch.setattr(xmpp, "ensure_room", lambda gid, name, uids, owner=None: calls.append((gid, name, set(uids), owner)))
+    monkeypatch.setattr(xmpp, "drop_room", lambda gid: calls.append((gid, None, None, None)))
+    a = admin()
+    client_for("rita"), client_for("sam")
+    g = a.post("/api/groups", json={"name": "Night crew", "members": ["rita"]}).json()
+    assert g["jid"] == f"g{g['id']}@{xmpp.MUC}" and all(m["jid"].endswith(xmpp.DOMAIN) for m in g["members"])
+    assert calls[-1][1] == "Night crew" and len(calls[-1][2]) == 2
+    a.post(f"/api/groups/{g['id']}/members", json={"usernames": ["sam"]})
+    assert len(calls[-1][2]) == 3
+    a.delete(f"/api/groups/{g['id']}")
+    assert calls[-1] == (g["id"], None, None, None)
+
+
+def test_group_changes_still_work_while_ejabberd_is_down():
+    a = admin()
+    client_for("rita")
+    r = a.post("/api/groups", json={"name": "Offline crew", "members": ["rita"]})
+    assert r.status_code == 200, r.text   # synced on next xmpp.start()
 
 
 def test_pins_are_shared_with_everyone_and_merge_nearby_reports():

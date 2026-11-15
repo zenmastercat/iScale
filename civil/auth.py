@@ -90,7 +90,8 @@ def person(uid: str | None) -> dict | None:
         return None
     comp = db.one("SELECT name, kind FROM companies WHERE id=?", u["company_id"]) or {}
     return {"username": u["username"], "display_name": u["display_name"],
-            "company": comp.get("name") if comp.get("kind", "company") == "company" else "Independent"}
+            "company": comp.get("name") if comp.get("kind", "company") == "company" else "Independent",
+            "jid": f"{u['uid']}@{_xmpp_domain()}"}
 
 
 def public_user(u: dict) -> dict:
@@ -255,6 +256,12 @@ def require_admin(request: Request) -> dict:
     if u["role"] != "admin":
         raise HTTPException(403, "only an admin can do this")
     return u
+
+
+def _xmpp_domain() -> str:
+    from . import xmpp
+
+    return xmpp.DOMAIN
 
 
 # --- routes ---------------------------------------------------------------------------------
@@ -468,9 +475,9 @@ def reset_device(username: str, request: Request):
     with db.tx() as con:
         con.execute("UPDATE users SET auth_key=NULL, key_set_at=NULL WHERE username=?", (u["uid"],))
         con.execute("DELETE FROM sessions WHERE username=?", (u["uid"],))
-        con.execute("DELETE FROM signal_identity WHERE username=?", (u["uid"],))
-        con.execute("DELETE FROM signal_prekeys WHERE username=?", (u["uid"],))
-        con.execute("DELETE FROM messages WHERE recipient=?", (u["uid"],))
+    from . import xmpp  # late import: xmpp imports this module
+
+    xmpp.remove_account_sessions(u["uid"])  # their chat devices must sign in again; contacts see a new OMEMO key
     return public_user(get_user(uid=u["uid"]))
 
 
@@ -482,6 +489,9 @@ def disable_member(username: str, request: Request):
         raise HTTPException(400, "you can't disable your own account")
     db.run("UPDATE users SET disabled=1 WHERE username=?", u["uid"])
     end_sessions(u["uid"])
+    from . import xmpp
+
+    xmpp.remove_account_sessions(u["uid"])
     return public_user(get_user(uid=u["uid"]))
 
 
@@ -507,9 +517,8 @@ def directory(request: Request, q: str = ""):
         ex = get_user(q)
         if ex and not ex["disabled"]:
             rows.append(ex)
-    keyed = {r["username"] for r in db.all_("SELECT username FROM signal_identity")}
     out = []
     for r in rows:
         p = public_user(r)
-        out.append({k: p[k] for k in ("username", "display_name", "company", "role")} | {"can_chat": r["uid"] in keyed})
+        out.append({k: p[k] for k in ("username", "display_name", "company", "role")} | {"can_chat": True, "jid": f"{r['uid']}@{_xmpp_domain()}"})
     return out

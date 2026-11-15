@@ -155,3 +155,38 @@ def test_windowed_surface_follows_reconstruction_drift():
     assert np.nanmax(np.abs(whole[flat])) > 0.1              # the bend leaks into the residual
     assert np.nanpercentile(np.abs(local[flat]), 95) < 0.02  # windowed fit follows it
     assert abs(np.nanmin(local[pothole]) + 0.06) < 0.015     # and keeps the pothole's depth
+
+
+def _road_with_hole(extra_below: float = 0.0, share: float = 0.0, everywhere: bool = False):
+    """A flat 25 m road sampled every 5 cm with a 0.8 m wide, 6 cm deep pothole at s=12 m.
+    `share` of the points (in the hole, or `everywhere`) are pushed `extra_below` m down, as a
+    stray-point cloud or a water reflection would."""
+    from civil.analysis.detect import SegmentSurface, detect_surface
+    from civil.config import analysis_params
+
+    rng = np.random.default_rng(1)
+    s, o = np.meshgrid(np.arange(0, 25, 0.05), np.arange(-3, 3, 0.05), indexing="ij")
+    s, o = np.repeat(s.ravel(), 3), np.repeat(o.ravel(), 3)
+    z = rng.normal(0, 0.003, s.size)
+    hole = (s - 12) ** 2 + o ** 2 < 0.4 ** 2
+    z[hole] -= 0.06
+    pick = (hole | everywhere) & (rng.random(s.size) < share)
+    z[pick] -= extra_below
+    p = analysis_params()
+    path = np.stack([np.zeros(51), np.arange(51) * 0.5], 1)
+    surf = SegmentSurface(s, o, z, 0.0, 25.0, p)
+    found, _ = detect_surface({"id": "S001", "s0": 0.0, "s1": 25.0}, surf, path, 0.5, p)
+    return [f for f in found if f["type"] in ("pothole", "depression", "manhole_sunken")]
+
+
+def test_pothole_depth_ignores_stray_points_and_refuses_reflections():
+    clean = _road_with_hole()
+    assert len(clean) == 1 and abs(clean[0]["metrics"]["depth_max_m"] - 0.06) < 0.02
+    # 2% of all points scattered 1.5 m below the road: the depth must not follow them
+    stray = _road_with_hole(1.5, 0.02, everywhere=True)
+    assert len(stray) == 1 and abs(stray[0]["metrics"]["depth_max_m"] - 0.06) < 0.02
+    # a puddle: a third of the hole's points sit 2 m "below" (the reflected sky)
+    wet = _road_with_hole(2.0, 0.33)
+    m = wet[0]["metrics"]
+    assert m["depth_max_m"] is None and m["depth_unreliable"] is True
+    assert 0.03 < m["depth_median_m"] < 0.1 and "water" in wet[0]["evidence"]

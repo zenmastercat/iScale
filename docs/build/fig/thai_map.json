@@ -1,0 +1,339 @@
+{
+ "centre": [
+  14.272404,
+  102.715585
+ ],
+ "potholes": 33,
+ "rows": [
+  {
+   "id": "F2C7-0001",
+   "severity": "high",
+   "source": "detector+geometry",
+   "lat": 14.272401,
+   "lon": 102.715533,
+   "diameter_m": 0.47,
+   "depth_max_m": 0.08,
+   "depth_unreliable": false
+  },
+  {
+   "id": "F2C7-0002",
+   "severity": "high",
+   "source": "detector+geometry",
+   "lat": 14.272426,
+   "lon": 102.715549,
+   "diameter_m": 0.93,
+   "depth_max_m": 0.084,
+   "depth_unreliable": false
+  },
+  {
+   "id": "F2C7-0003",
+   "severity": "medium",
+   "source": "detector+geometry",
+   "lat": 14.272422,
+   "lon": 102.715545,
+   "diameter_m": 0.34,
+   "depth_max_m": 0.173,
+   "depth_unreliable": false
+  },
+  {
+   "id": "F2C7-0004",
+   "severity": "medium",
+   "source": "geometry",
+   "lat": 14.272438,
+   "lon": 102.715574,
+   "diameter_m": 0.61,
+   "depth_max_m": null,
+   "depth_unreliable": true
+  },
+  {
+   "id": "F2C7-0091",
+   "severity": "low",
+   "source": "detector",
+   "lat": 14.271906,
+   "lon": 102.715034,
+   "diameter_m": null,
+   "depth_max_m": null,
+   "depth_unreliable": false
+  },
+  {
+   "id": "F2C7-0092",
+   "severity": "low",
+   "source": "detector",
+   "lat": 14.271814,
+   "lon": 102.714954,
+   "diameter_m": null,
+   "depth_max_m": null,
+   "depth_unreliable": false
+  },
+  {
+   "id": "F2C7-0093",
+   "severity": "low",
+   "source": "detector",
+   "lat": 14.272428,
+   "lon": 102.71557,
+   "diameter_m": null,
+   "depth_max_m": null,
+   "depth_unreliable": false
+  },
+  {
+   "id": "F2C7-0094",
+   "severity": "low",
+   "source": "detector",
+   "lat": 14.272174,
+   "lon": 102.715336,
+   "diameter_m": null,
+   "depth_max_m": null,
+   "depth_unreliable": false
+  },
+  {
+   "id": "F2C7-0095",
+   "severity": "low",
+   "source": "detector",
+   "lat": 14.272024,
+   "lon": 102.715179,
+   "diameter_m": null,
+   "depth_max_m": null,
+   "depth_unreliable": false
+  },
+  {
+   "id": "F2C7-0096",
+   "severity": "low",
+   "source": "detector",
+   "lat": 14.27225,
+   "lon": 102.715406,
+   "diameter_m": null,
+   "depth_max_m": null,
+   "depth_unreliable": false
+  },
+  {
+   "id": "F2C7-0097",
+   "severity": "low",
+   "source": "detector",
+   "lat": 14.272291,
+   "lon": 102.715454,
+   "diameter_m": null,
+   "depth_max_m": null,
+   "depth_unreliable": false
+  },
+  {
+   "id": "F2C7-0098",
+   "severity": "low",
+   "source": "detector",
+   "lat": 14.271951,
+   "lon": 102.715112,
+   "diameter_m": null,
+   "depth_max_m": null,
+   "depth_unreliable": false
+  },
+  {
+   "id": "F2C7-0099",
+   "severity": "low",
+   "source": "detector",
+   "lat": 14.271997,
+   "lon": 102.715166,
+   "diameter_m": null,
+   "depth_max_m": null,
+   "depth_unreliable": false
+  },
+  {
+   "id": "F2C7-0100",
+   "severity": "low",
+   "source": "detector",
+   "lat": 14.272209,
+   "lon": 102.715378,
+   "diameter_m": null,
+   "depth_max_m": null,
+   "depth_unreliable": false
+  },
+  {
+   "id": "F2C7-0101",
+   "severity": "low",
+   "source": "detector",
+   "lat": 14.272244,
+   "lon": 102.71542,
+   "diameter_m": null,
+   "depth_max_m": null,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0001",
+   "severity": "medium",
+   "source": "geometry",
+   "lat": 14.272437,
+   "lon": 102.715634,
+   "diameter_m": 0.96,
+   "depth_max_m": 0.026,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0002",
+   "severity": "high",
+   "source": "geometry",
+   "lat": 14.272537,
+   "lon": 102.715682,
+   "diameter_m": 7.29,
+   "depth_max_m": 0.099,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0003",
+   "severity": "medium",
+   "source": "geometry",
+   "lat": 14.272452,
+   "lon": 102.715647,
+   "diameter_m": 0.84,
+   "depth_max_m": 0.029,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0004",
+   "severity": "high",
+   "source": "geometry",
+   "lat": 14.272447,
+   "lon": 102.715689,
+   "diameter_m": 1.96,
+   "depth_max_m": 0.246,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0005",
+   "severity": "medium",
+   "source": "geometry",
+   "lat": 14.272522,
+   "lon": 102.715717,
+   "diameter_m": 2.19,
+   "depth_max_m": 0.048,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0006",
+   "severity": "low",
+   "source": "geometry",
+   "lat": 14.272521,
+   "lon": 102.715753,
+   "diameter_m": 0.37,
+   "depth_max_m": 0.041,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0007",
+   "severity": "medium",
+   "source": "geometry",
+   "lat": 14.27255,
+   "lon": 102.715756,
+   "diameter_m": 1.72,
+   "depth_max_m": 0.047,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0008",
+   "severity": "low",
+   "source": "geometry",
+   "lat": 14.27254,
+   "lon": 102.715769,
+   "diameter_m": 0.23,
+   "depth_max_m": 0.044,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0009",
+   "severity": "low",
+   "source": "geometry",
+   "lat": 14.272546,
+   "lon": 102.715783,
+   "diameter_m": 0.23,
+   "depth_max_m": 0.03,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0010",
+   "severity": "low",
+   "source": "geometry",
+   "lat": 14.272553,
+   "lon": 102.715783,
+   "diameter_m": 0.23,
+   "depth_max_m": 0.029,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0029",
+   "severity": "high",
+   "source": "geometry",
+   "lat": 14.272632,
+   "lon": 102.715782,
+   "diameter_m": 1.48,
+   "depth_max_m": 0.071,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0030",
+   "severity": "high",
+   "source": "geometry",
+   "lat": 14.272605,
+   "lon": 102.715812,
+   "diameter_m": 1.38,
+   "depth_max_m": 0.06,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0031",
+   "severity": "medium",
+   "source": "geometry",
+   "lat": 14.272601,
+   "lon": 102.715831,
+   "diameter_m": 0.41,
+   "depth_max_m": 0.056,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0032",
+   "severity": "high",
+   "source": "geometry",
+   "lat": 14.272639,
+   "lon": 102.715826,
+   "diameter_m": 3.32,
+   "depth_max_m": 0.134,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0033",
+   "severity": "high",
+   "source": "geometry",
+   "lat": 14.272698,
+   "lon": 102.715881,
+   "diameter_m": 5.39,
+   "depth_max_m": 0.22,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0034",
+   "severity": "low",
+   "source": "geometry",
+   "lat": 14.272656,
+   "lon": 102.71589,
+   "diameter_m": 0.42,
+   "depth_max_m": 0.029,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0035",
+   "severity": "high",
+   "source": "geometry",
+   "lat": 14.272681,
+   "lon": 102.715922,
+   "diameter_m": 0.95,
+   "depth_max_m": 0.055,
+   "depth_unreliable": false
+  },
+  {
+   "id": "FDCE-0348",
+   "severity": "low",
+   "source": "detector",
+   "lat": 14.272741,
+   "lon": 102.715955,
+   "diameter_m": null,
+   "depth_max_m": null,
+   "depth_unreliable": false
+  }
+ ]
+}

@@ -35,6 +35,7 @@ def analysis_params() -> dict:
         "raster_m": 0.1,
         "pothole_min_depth_m": 0.025,
         "pothole_min_area_m2": 0.04,
+        "pothole_max_depth_m": 0.4,
         "roughness_std_m": 0.007,
         "roughness_min_area_m2": 1.0,
         "heave_min_height_m": 0.025,

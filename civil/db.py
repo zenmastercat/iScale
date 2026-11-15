@@ -1,7 +1,9 @@
-"""SQLite store for accounts, sessions, encrypted-chat relay, Civil Helper library and settings.
+"""SQLite store for accounts, sessions, chat groups, Civil Helper library and settings.
 
-Everything lives in data/civil.db on the company's own server. Chat rows hold only
-Signal-Protocol ciphertext and are deleted once the recipient's device confirms delivery.
+Everything lives in data/civil.db on the company's own server. Chat messages are not
+stored here: they travel over XMPP (civil/xmpp.py, ejabberd) as OMEMO ciphertext. The
+signal_identity, signal_prekeys and messages tables are left over from the earlier relay
+and are kept only so old databases still migrate.
 People are stored by a keyed hash of their username (vault.uid); the username, display
 name and group names are AES-GCM encrypted (vault.seal). Every `username`, `sender`,
 `recipient`, `reporter`, `uploader` and `resolved_by` column below holds that uid.

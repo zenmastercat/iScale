@@ -1,10 +1,10 @@
 """Group chats. A company admin creates a group and picks members: anyone in their company,
 or any engineer on this server by exact username (people they've talked to or searched for).
 
-The server keeps only the roster, which it needs to route messages: group id, encrypted
-group name, and member uids. Messages are encrypted on the sender's device separately for
-each member over the 1:1 Signal sessions and relayed by messaging.send_group, so the server
-never sees what's said.
+iScale keeps the roster (group id, encrypted group name, member uids) and mirrors it into an
+XMPP multi-user chat room on ejabberd (xmpp.ensure_room): members-only, non-anonymous, one
+room per group, room JID g<id>@conference.<domain>. Messages are OMEMO-encrypted on the
+sender's device for every member's devices, so neither iScale nor ejabberd sees what's said.
 
 Who manages a group: the admin who created it, and the admins of the group's company.
 Any member can leave.
@@ -18,7 +18,7 @@ import time
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from . import auth, db, vault
+from . import auth, db, vault, xmpp
 
 router = APIRouter(prefix="/api/groups")
 MAX_MEMBERS = 100
@@ -44,6 +44,29 @@ def _group(gid: str) -> dict:
     return g
 
 
+def sync_room(gid: str) -> bool:
+    """Mirror one group into its XMPP room. False (and nothing raised) when ejabberd is down;
+    xmpp.start() re-syncs every group when it comes up."""
+    g = db.one("SELECT * FROM chat_groups WHERE id=?", gid)
+    try:
+        if g is None:
+            xmpp.drop_room(gid)
+        else:
+            xmpp.ensure_room(gid, vault.open_(g["name"], "chat_groups.name"), _member_uids(gid), g["created_by"])
+        return True
+    except HTTPException as e:
+        if e.status_code == 503:
+            return False
+        raise
+
+
+def sync_all_rooms() -> int:
+    n = 0
+    for g in db.all_("SELECT id FROM chat_groups"):
+        n += sync_room(g["id"])
+    return n
+
+
 def _member_uids(gid: str) -> list[str]:
     return [r["username"] for r in db.all_("SELECT username FROM chat_group_members WHERE group_id=? ORDER BY added", gid)]
 
@@ -56,6 +79,7 @@ def _out(me: dict, g: dict) -> dict:
     members = [p for p in (auth.person(u) for u in _member_uids(g["id"])) if p]
     creator = auth.person(g["created_by"])
     return {"id": g["id"], "name": vault.open_(g["name"], "chat_groups.name"), "created": g["created"],
+            "jid": xmpp.room_jid(g["id"]),
             "created_by": creator["username"] if creator else None,
             "members": sorted(members, key=lambda p: p["display_name"].lower()),
             "can_manage": _can_manage(me, g)}
@@ -97,6 +121,7 @@ def create_group(body: GroupIn, request: Request):
                     (gid, me["company_id"], vault.seal(body.name.strip(), "chat_groups.name"), me["uid"], now))
         con.executemany("INSERT INTO chat_group_members(group_id,username,added) VALUES(?,?,?)",
                         [(gid, u, now + i * 1e-6) for i, u in enumerate([me["uid"], *uids])])
+    sync_room(gid)
     return _out(me, _group(gid))
 
 
@@ -107,6 +132,7 @@ def rename_group(gid: str, body: GroupPatch, request: Request):
     if not _can_manage(me, g):
         raise HTTPException(403, "only the group's admins can rename it")
     db.run("UPDATE chat_groups SET name=? WHERE id=?", vault.seal(body.name.strip(), "chat_groups.name"), gid)
+    sync_room(gid)
     return _out(me, _group(gid))
 
 
@@ -122,6 +148,7 @@ def add_members(gid: str, body: MembersIn, request: Request):
     with db.tx() as con:
         con.executemany("INSERT OR IGNORE INTO chat_group_members(group_id,username,added) VALUES(?,?,?)",
                         [(gid, u, now) for u in uids])
+    sync_room(gid)
     return _out(me, g)
 
 
@@ -135,11 +162,10 @@ def remove_member(gid: str, username: str, request: Request):
         raise HTTPException(403, "only the group's admins can remove people")
     with db.tx() as con:
         con.execute("DELETE FROM chat_group_members WHERE group_id=? AND username=?", (gid, uid))
-        # undelivered copies for the removed person are dropped too
-        con.execute("DELETE FROM messages WHERE group_id=? AND recipient=?", (gid, uid))
         left = con.execute("SELECT COUNT(*) AS n FROM chat_group_members WHERE group_id=?", (gid,)).fetchone()["n"]
         if not left:
             con.execute("DELETE FROM chat_groups WHERE id=?", (gid,))
+    sync_room(gid)  # removing the affiliation also stops them reading the room
     return {"ok": True}
 
 
@@ -150,6 +176,6 @@ def delete_group(gid: str, request: Request):
     if not _can_manage(me, g):
         raise HTTPException(403, "only the group's admins can delete it")
     with db.tx() as con:
-        con.execute("DELETE FROM messages WHERE group_id=?", (gid,))
         con.execute("DELETE FROM chat_groups WHERE id=?", (gid,))
+    sync_room(gid)
     return {"ok": True}

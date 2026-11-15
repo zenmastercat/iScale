@@ -1,5 +1,7 @@
 # iScale
 
+(Formerly Civil Scan. The project folder, the Python package `civil` and the `civil` command keep their old names.)
+
 An original, self-hosted street-inspection platform built from the workflow shown in
 a city-infrastructure product video: **see it** (scan the street in 3D and inventory
 every defect and asset), **plan it** (condition scores, repair plans and costs),
@@ -46,7 +48,7 @@ teams, on a server your organisation runs.
   computer only. Admins get a Get-started checklist; everyone gets a first-run welcome.
 
 The logic, formulas and figures behind all of this are in
-[Civil-Scan-Logic-and-Figures.docx](Civil-Scan-Logic-and-Figures.docx)
+[iScale-Logic-and-Figures.docx](iScale-Logic-and-Figures.docx)
 (rebuild with `uv run python docs/build/figures.py && uv run --with python-docx python docs/build/make_docx.py`).
 
 ## Quick start
@@ -195,3 +197,22 @@ not included; the detector runs on Roboflow's servers (CC BY 4.0 dataset, see it
   per member on the sender's device; the server checks the roster and relays ciphertext.
 - The bundled Signal library (`static/vendor/signal`) is GPL-3.0: keep the app inside your
   organisation, or release it under GPL-3.0, or swap the library before distributing it.
+
+## Location (opt-in)
+
+Each person decides whether iScale may use their device's location. After sign-in, iScale shows the agreement in
+`config/location_agreement.md` once, with Accept and Decline. The answer is stored with the agreement's version
+in `consent_log`. **Settings, Location** has the on/off switch, the agreement, **Delete my GPS tracks**, and, for
+the host company's admin, the privacy contact shown in the agreement. To ask everyone again, change the
+`version:` line.
+
+When location is on, and only while iScale is on screen:
+- **My location** shows a "you are here" dot with its accuracy. It stays on the device.
+- **Pin where I am** waits for a GPS position within 10 m. The pin is saved with `source=device` and `accuracy_m`.
+- **Record a drive** records the camera and a GPS track. The upload goes to the pothole-video pipeline. The track
+  becomes `gps.csv`, which gives LingBot-Map surveys their real scale and position. Positions less accurate than
+  30 m are dropped. Browser recordings are first converted to 30 fps MP4 (`civil/video/normalize.py`).
+- **Share location** in chat sends a one-off position.
+
+The server refuses GPS pins and drive tracks from people whose location is off (HTTP 403). Browsers allow
+location and the camera only on HTTPS or on localhost.

@@ -1,4 +1,4 @@
-"""civil-scan command line.
+"""iScale command line (the command is still `civil`).
 
   civil serve [--host 127.0.0.1] [--port 8765]     run the web app
   civil demo                                        build the demo project (no server)
@@ -36,7 +36,22 @@ def main() -> None:
     if a.cmd == "serve":
         import uvicorn
 
-        uvicorn.run("civil.api:app", host=a.host, port=a.port, log_level="info")
+        import os
+
+        from . import xmpp
+
+        chat = os.environ.get("CIVIL_XMPP", "on") != "off"
+        if chat:
+            print(xmpp.start(), flush=True)
+            if xmpp.running():
+                from . import groups
+
+                print(f"XMPP: {groups.sync_all_rooms()} group rooms in step", flush=True)
+        try:
+            uvicorn.run("civil.api:app", host=a.host, port=a.port, log_level="info")
+        finally:
+            if chat:
+                xmpp.stop()
     elif a.cmd == "demo":
         from . import pipeline, store
         from .config import DEFAULT_ORIGIN

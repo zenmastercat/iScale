@@ -35,7 +35,7 @@ OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 OVERPASS_MIRRORS = (OVERPASS_URL, "https://overpass.private.coffee/api/interpreter",
                     "https://maps.mail.ru/osm/tools/overpass/api/interpreter")
 ROUTES_URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
-USER_AGENT = "civil-scan/0.2 (street inspection; self-hosted)"
+USER_AGENT = "iScale/0.3 (street inspection; self-hosted)"
 OSM_TTL = 7 * 86400
 LIVE_TTL = 5 * 60
 _route_memo: dict[str, tuple[float, dict | None]] = {}   # memory only, never persisted

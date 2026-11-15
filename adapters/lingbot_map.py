@@ -97,7 +97,8 @@ def _pose_direction(files: list[Path]) -> str:
 
 def convert(pred_dir: Path, out: Path, stride: int = 2, conf_drop_pct: float = 30.0,
             far_pct: float = 95.0, fps: float = 10.0, max_points: int = 6_000_000,
-            boxes: dict[int, list[list[float]]] | None = None, t0: float = 0.0, pose: str = "auto") -> dict:
+            boxes: dict[int, list[list[float]]] | None = None, t0: float = 0.0, pose: str = "auto",
+            max_depth: float | None = None) -> dict:
     """boxes: {frame index: [[x0,y0,x1,y1] in model-image pixels]} from a 2D detector.
     Every depth pixel inside a box is back-projected as well and gets label 1 ("pothole"),
     so the detection lands in 3D at the exact spot the model saw it."""
@@ -143,6 +144,8 @@ def convert(pred_dir: Path, out: Path, stride: int = 2, conf_drop_pct: float = 3
             continue
         ok &= c >= np.percentile(c[ok], conf_drop_pct)
         ok &= d <= np.percentile(d[ok], far_pct)
+        if max_depth:  # model units; far road is where single-camera depth is least accurate
+            ok &= d <= max_depth
         lab = np.zeros(ok.shape, np.int32)
         for (bx0, by0, bx1, by1) in boxes.get(i, []):
             lab[(uu >= bx0) & (uu <= bx1) & (vv >= by0) & (vv <= by1)] = 1

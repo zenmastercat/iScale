@@ -1,4 +1,4 @@
-"""Figures for docs/Civil-Scan-Logic-and-Figures.docx.
+"""Figures for iScale-Logic-and-Figures.docx.
 
 Every curve is computed with the app's own modules (civil.*), so the figures show the
 logic the code actually runs. Example inputs are labelled "example".
@@ -48,12 +48,12 @@ def architecture():
     fig, ax = plt.subplots(figsize=(10, 5.6))
     ax.set_xlim(0, 10), ax.set_ylim(0, 5.6), ax.axis("off")
     ax.text(0.1, 5.35, "Devices (browser)", fontsize=10, color=INK2, fontweight="bold")
-    ax.text(3.6, 5.35, "Company server (Civil Scan, FastAPI)", fontsize=10, color=INK2, fontweight="bold")
+    ax.text(3.6, 5.35, "Company server (iScale, FastAPI)", fontsize=10, color=INK2, fontweight="bold")
     ax.text(8.0, 5.35, "Outside services", fontsize=10, color=INK2, fontweight="bold")
-    box(ax, 0.1, 3.9, 2.8, 1.2, "Engineer's browser\nmap, 3D, repairs, chat\nSignal keys + chat history\nin IndexedDB (this device only)", fc=TINT, ec="#cfdbec")
+    box(ax, 0.1, 3.9, 2.8, 1.2, "Engineer's browser\nmap, 3D, repairs, chat\nOMEMO keys + chat history\nin IndexedDB (this device only)", fc=TINT, ec="#cfdbec")
     box(ax, 0.1, 2.2, 2.8, 1.2, "Admin's browser\nteam, Civil Helper provider,\ntraffic, network mode", fc=TINT, ec="#cfdbec")
     box(ax, 3.5, 4.3, 4.0, 0.8, "Accounts: username + device key, sessions\nusernames/names encrypted (AES-GCM, HMAC id)")
-    box(ax, 3.5, 3.35, 1.9, 0.8, "Chat relay\nciphertext only,\ndeleted on delivery", size=8.8)
+    box(ax, 3.5, 3.35, 1.9, 0.8, "XMPP chat (ejabberd)\nOMEMO ciphertext only,\ndeleted on delivery", size=8.8)
     box(ax, 5.6, 3.35, 1.9, 0.8, "Shared pins\n+ fix-first ranking", size=8.8)
     box(ax, 3.5, 2.4, 1.9, 0.8, "Survey pipeline\ndetect, align, rules,\ncondition, plans", size=8.8)
     box(ax, 5.6, 2.4, 1.9, 0.8, "Civil Helper (RAG)\nlibrary search +\nLLM provider", size=8.8)
@@ -73,7 +73,7 @@ def architecture():
         ax.hlines(y, 7.5, 7.75, color=RULE, lw=2)
     for y in (4.65, 3.7, 2.75, 1.8):
         ax.hlines(y, 7.75, 8.0, color=RULE, lw=2)
-    ax.text(5.0, -0.25, "Every outside service is optional and switchable by the admin. Chat content never leaves the relay.",
+    ax.text(5.0, -0.25, "Every outside service is optional and switchable by the admin. Chat stays on this server's XMPP service (no federation).",
             ha="center", fontsize=8.5, color=INK2)
     fig.savefig(OUT / "f1_architecture.png")
     plt.close(fig)
@@ -230,20 +230,21 @@ def msg(ax, x0, x1, y, text, color=INK, dashed=False):
 
 
 def chat_seq():
-    fig, ax = plt.subplots(figsize=(10, 5.3))
-    ax.set_xlim(0, 10), ax.set_ylim(0, 5.8), ax.axis("off")
+    fig, ax = plt.subplots(figsize=(10, 5.6))
+    ax.set_xlim(0, 10), ax.set_ylim(0, 6.1), ax.axis("off")
     A, S, B = 1.4, 5.0, 8.6
-    lanes(ax, ["Ann's device", "Company server (relay)", "Bob's device"], [A, S, B])
-    msg(ax, B, S, 4.75, "publish identity key, signed pre-key, 100 one-time pre-keys (public halves)")
-    msg(ax, A, S, 4.25, "fetch Bob's pre-key bundle")
-    msg(ax, S, A, 3.85, "bundle (one-time pre-key handed out once, then deleted)", INK2, True)
-    ax.text(A, 3.35, "X3DH -> shared secret\nDouble Ratchet: new key per message", ha="center", fontsize=8.3, color=ACTION)
-    msg(ax, A, S, 2.75, "ciphertext + recipient (server can't read it)", ACTION)
-    msg(ax, S, B, 2.25, "long-poll inbox delivers ciphertext", ACTION, True)
-    ax.text(B, 1.75, "decrypt, store plaintext\nin IndexedDB only", ha="center", fontsize=8.3, color=ACTION)
-    msg(ax, B, S, 1.15, "ack up to id -> server deletes the row (secure_delete)")
-    ax.text(5, 0.3, "Groups: Ann's device encrypts the same message once per member over each 1:1 session and posts the copies together; "
-            "the server checks the roster and relays each copy.", ha="center", fontsize=8.3, color=INK2, wrap=True)
+    lanes(ax, ["Ann's browser", "XMPP server", "Bob's browser"], [A, S, B], top=5.5, bottom=0.75)
+    msg(ax, B, S, 5.05, "sign in with a 1-hour iScale token (JWT)")
+    msg(ax, B, S, 4.6, "publish OMEMO device list + key bundle (PEP)")
+    msg(ax, A, S, 4.1, "PEP fetch: Bob's device list and bundle")
+    msg(ax, S, A, 3.7, "bundle (public keys only)", INK2, True)
+    ax.text(A, 3.15, "X3DH -> session\nDouble Ratchet per device;\nAES-GCM for the text", ha="center", fontsize=8.3, color=ACTION)
+    msg(ax, A, S, 2.55, "OMEMO message: ciphertext + a key per device", ACTION)
+    msg(ax, S, B, 2.1, "live, or offline store until Bob is back", ACTION, True)
+    ax.text(B, 1.55, "decrypt, store plaintext\nin IndexedDB only", ha="center", fontsize=8.3, color=ACTION)
+    ax.text(S, 1.15, "offline copy deleted on delivery;\nno archive (no MAM)", ha="center", fontsize=8.3, color=INK2)
+    ax.text(5, 0.3, "Groups: a members-only XMPP room (XEP-0045) per iScale group. Ann's browser encrypts the text once and adds a key "
+            "for every member's device; ejabberd lets only members in.", ha="center", fontsize=8.3, color=INK2, wrap=True)
     fig.savefig(OUT / "f7_chat.png")
     plt.close(fig)
 

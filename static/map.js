@@ -64,6 +64,7 @@ function createGlMap(el, { onSelect, onSegment, onPin, onMapClick }) {
     map.addSource("segments", { type: "geojson", data: empty });
     map.addSource("findings", { type: "geojson", data: empty });
     map.addSource("pins", { type: "geojson", data: empty });
+    map.addSource("me", { type: "geojson", data: empty });
     map.addLayer({ id: "seg-hl", type: "line", source: "segments", filter: ["==", ["get", "hl"], true],
       layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#1e4f8f", "line-width": 16, "line-opacity": 0.25 } });
     map.addLayer({ id: "seg-case", type: "line", source: "segments",
@@ -89,6 +90,13 @@ function createGlMap(el, { onSelect, onSegment, onPin, onMapClick }) {
         "circle-stroke-width": ["case", ["get", "hl"], 3.5, 2],
         "circle-opacity": ["case", ["==", ["get", "status"], "open"], 1, 0.35],
       } });
+    // "you are here": accuracy ring (a real-size circle polygon) and a blue dot, under nothing else
+    map.addLayer({ id: "me-acc", type: "fill", source: "me", filter: ["==", ["get", "part"], "acc"],
+      paint: { "fill-color": "#1e6fd9", "fill-opacity": 0.12, "fill-outline-color": "#1e6fd9" } });
+    // the dot sits above pins so it is never hidden; the ring stays underneath
+    map.addLayer({ id: "me-dot", type: "circle", source: "me", filter: ["==", ["get", "part"], "dot"],
+      paint: { "circle-radius": 7, "circle-color": ["case", ["get", "stale"], "#8a96a3", "#1e6fd9"],
+        "circle-stroke-color": "#ffffff", "circle-stroke-width": 2.5 } });
     map.on("click", "pin", (e) => {
       const f = e.features[0];
       if (f && !pinMode) { e.originalEvent.stopPropagation(); onPin && onPin(f.properties.id); }
@@ -117,6 +125,7 @@ function createGlMap(el, { onSelect, onSegment, onPin, onMapClick }) {
     ready = true;
     if (pending) api.setData(...pending);
     if (pinsPending) api.setPins(pinsPending);
+    if (mePending !== undefined) api.setMe(mePending);
   });
 
   let lastData = null;
@@ -125,6 +134,16 @@ function createGlMap(el, { onSelect, onSegment, onPin, onMapClick }) {
   let pinMode = false;
   let pinsPending = null;
   let pins = [];
+  let mePending;
+
+  function circlePoly(lon, lat, r) {
+    const k = Math.cos((lat * Math.PI) / 180), ring = [];
+    for (let i = 0; i <= 48; i++) {
+      const a = (i / 48) * 2 * Math.PI;
+      ring.push([lon + ((r * Math.cos(a)) / (6378137 * k)) * 180 / Math.PI, lat + ((r * Math.sin(a)) / 6378137) * 180 / Math.PI]);
+    }
+    return { type: "Polygon", coordinates: [ring] };
+  }
 
   function buildPins() {
     map.getSource("pins").setData({ type: "FeatureCollection", features: pins.map((p) => ({
@@ -207,6 +226,13 @@ function createGlMap(el, { onSelect, onSegment, onPin, onMapClick }) {
       fitted = el.clientHeight > 50;
     },
     setPinMode(on) { pinMode = on; map.getCanvas().style.cursor = on ? "crosshair" : ""; },
+    /** The person's own position ({lat, lon, acc, stale}) or null to hide it. Drawn only on this device. */
+    setMe(fix) {
+      if (!ready) { mePending = fix; return; }
+      map.getSource("me").setData(!fix ? empty : { type: "FeatureCollection", features: [
+        { type: "Feature", geometry: circlePoly(fix.lon, fix.lat, Math.max(1, fix.acc || 0)), properties: { part: "acc" } },
+        { type: "Feature", geometry: { type: "Point", coordinates: [fix.lon, fix.lat] }, properties: { part: "dot", stale: !!fix.stale } }] });
+    },
     ensureView() {},
     setVisible(kind, on) {
       visible[kind] = on;
@@ -233,7 +259,7 @@ function createSvgMap(el, { onSelect, onSegment, onPin, onMapClick }) {
   note.className = "svgmap-note";
   note.textContent = "Map data © OpenStreetMap contributors · basic map (this browser has WebGL turned off)";
   el.appendChild(note);
-  let data = null, hl = new Set(), hlSeg = new Set(), pins = [], pinMode = false;
+  let data = null, hl = new Set(), hlSeg = new Set(), pins = [], pinMode = false, me = null;
   const visible = { defects: true, assets: true };
   let view = null; // {cx, cy, s}: lon/lat centre and pixels per metre
   const R = 6378137;
@@ -262,7 +288,24 @@ function createSvgMap(el, { onSelect, onSegment, onPin, onMapClick }) {
     return [view.cy + (y / R) * 180 / Math.PI, view.cx + (x / (R * k)) * 180 / Math.PI];
   }
 
+  function drawMe(g) {
+    if (!me) return null;
+    const [x, y] = proj(me.lon, me.lat);
+    const ring = document.createElementNS(NS, "circle");
+    ring.setAttribute("cx", x); ring.setAttribute("cy", y); ring.setAttribute("r", Math.max(8, (me.acc || 0) * view.s));
+    ring.setAttribute("fill", "rgba(30,111,217,0.12)"); ring.setAttribute("stroke", "#1e6fd9"); ring.setAttribute("stroke-width", 1);
+    const dot = document.createElementNS(NS, "circle");
+    dot.setAttribute("cx", x); dot.setAttribute("cy", y); dot.setAttribute("r", 7);
+    dot.setAttribute("fill", me.stale ? "#8a96a3" : "#1e6fd9"); dot.setAttribute("stroke", "#ffffff"); dot.setAttribute("stroke-width", 2.5);
+    const t = document.createElementNS(NS, "title");
+    t.textContent = `You are here (±${Math.round(me.acc || 0)} m)`;
+    dot.appendChild(t);
+    g.appendChild(ring);
+    return dot;
+  }
+
   function drawPins(g) {
+    const dot = drawMe(g);
     for (const p of pins) {
       const [x, y] = proj(p.lon, p.lat);
       const c = document.createElementNS(NS, "circle");
@@ -277,6 +320,7 @@ function createSvgMap(el, { onSelect, onSegment, onPin, onMapClick }) {
       c.appendChild(t);
       g.appendChild(c);
     }
+    if (dot) g.appendChild(dot);
   }
 
   /* Street tiles under the drawing. Tiles are Web Mercator; each one is placed by projecting its
@@ -417,6 +461,7 @@ function createSvgMap(el, { onSelect, onSegment, onPin, onMapClick }) {
     },
     fitPoints(pts) { fitPts(pts); draw(); },
     setPinMode(on) { pinMode = on; el.style.cursor = on ? "crosshair" : ""; },
+    setMe(fix) { me = fix; if (fix && !view) view = { cx: fix.lon, cy: fix.lat, lat0: fix.lat, s: 2 }; draw(); },
     setVisible(kind, on) { visible[kind] = on; draw(); },
     resize() { draw(); },
   };

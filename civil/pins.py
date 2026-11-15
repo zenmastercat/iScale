@@ -38,6 +38,9 @@ def ensure_schema() -> None:
     cols = {r[1] for r in con.execute("PRAGMA table_info(pins)")}
     if "size" not in cols:  # added later: optional size an engineer measured on site, JSON {width_cm, length_cm, depth_cm}
         con.execute("ALTER TABLE pins ADD COLUMN size TEXT")
+    if "source" not in cols:  # 'map' (tapped on the map) or 'device' (the reporter's GPS, with its accuracy)
+        con.execute("ALTER TABLE pins ADD COLUMN source TEXT NOT NULL DEFAULT 'map'")
+        con.execute("ALTER TABLE pins ADD COLUMN accuracy_m REAL")
 
 
 class SizeIn(BaseModel):
@@ -62,6 +65,8 @@ class PinIn(BaseModel):
     severity: str = "medium"
     note: str = Field(default="", max_length=500)
     size: SizeIn | None = None
+    source: str = "map"                                       # map | device
+    accuracy_m: float | None = Field(default=None, ge=0, le=5000)  # GPS accuracy (68 %), device pins only
 
 
 class PinPatch(BaseModel):
@@ -76,6 +81,7 @@ def _out(p: dict) -> dict:
     rep = auth.person(p["reporter"]) or {}
     res = auth.person(p["resolved_by"]) if p.get("resolved_by") else None
     return {**{k: p[k] for k in ("id", "lat", "lon", "type", "severity", "note", "created", "status", "resolved_at")},
+            "source": p.get("source") or "map", "accuracy_m": p.get("accuracy_m"),
             "reporter": rep.get("username"), "resolved_by": res["username"] if res else None,
             "label": catalog.CATALOG[p["type"]].label if p["type"] in catalog.CATALOG else p["type"],
             "reporter_name": rep.get("display_name"), "reporter_company": rep.get("company"),
@@ -125,6 +131,13 @@ def add_pin(body: PinIn, request: Request):
         raise HTTPException(400, "unknown type")
     if body.severity not in catalog.SEVERITIES:
         raise HTTPException(400, "bad severity")
+    if body.source not in ("map", "device"):
+        raise HTTPException(400, "source must be map or device")
+    if body.source == "device":
+        from . import location
+
+        location.require_enabled(me)  # a GPS pin records where the person stood: needs their agreement
+    acc = round(body.accuracy_m, 1) if body.source == "device" and body.accuracy_m is not None else None
     recent = db.one("SELECT COUNT(*) AS n FROM pins WHERE reporter=? AND created>?", me["uid"], time.time() - 60)["n"]
     if recent >= 30:
         raise HTTPException(429, "too many pins; wait a minute")
@@ -138,9 +151,10 @@ def add_pin(body: PinIn, request: Request):
             db.run("INSERT OR IGNORE INTO pin_confirms(pin_id,username,created) VALUES(?,?,?)", p["id"], me["uid"], time.time())
             return {**_out(db.one("SELECT * FROM pins WHERE id=?", p["id"])), "merged": True}
     pid = secrets.token_hex(5)
-    db.run("INSERT INTO pins(id,lat,lon,type,severity,note,reporter,company_id,created,size) VALUES(?,?,?,?,?,?,?,?,?,?)",
+    db.run("INSERT INTO pins(id,lat,lon,type,severity,note,reporter,company_id,created,size,source,accuracy_m) "
+           "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
            pid, body.lat, body.lon, body.type, body.severity, body.note.strip(), me["uid"], me["company_id"], time.time(),
-           json.dumps(body.size.model_dump()) if body.size else None)
+           json.dumps(body.size.model_dump()) if body.size else None, body.source, acc)
     return {**_out(db.one("SELECT * FROM pins WHERE id=?", pid)), "merged": False}
 
 

@@ -123,7 +123,8 @@ class LingbotClipDecoder(Decoder):
         boxes = {int(k): v for k, v in meta.get("boxes", {}).items()}
         conv = work_dir / "decoded"
         info = _adapter().convert(raw, conv, fps=float(params.get("clip_fps", 10)), boxes=boxes,
-                                  t0=float(params.get("clip_start", 0.0)))
+                                  t0=float(params.get("clip_start", 0.0)),
+                                  max_depth=float(params["max_depth"]) if params.get("max_depth") else None)
         rec = load_outputs(conv, "points.ply", "poses.json", "labels.json")
         if (input_dir / "gps.csv").is_file():
             from ..pointcloud import read_gps_csv

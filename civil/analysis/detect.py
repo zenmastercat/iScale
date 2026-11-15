@@ -130,7 +130,7 @@ def detect_surface(seg: dict, surf: SegmentSurface, path: np.ndarray, step: floa
     expected = (surf.offsets > right + 0.3) & (surf.offsets < left - 0.3)
     metrics["coverage"] = round(float(min(1.0, np.isfinite(res).sum() / max(1, expected.sum() * surf.nu))), 3)
     lo, hi = right + 0.3, left - 0.3
-    mn = surf.g["min"]
+    mn = surf.g["low"]  # robust floor, see grid_stats
     surface = surf.surface
 
     def emit(kind: str, cells: np.ndarray, severity: str | None, metrics_: dict, evidence: str) -> None:
@@ -151,8 +151,11 @@ def detect_surface(seg: dict, surf: SegmentSurface, path: np.ndarray, step: floa
             continue
         r = res[cells[:, 0], cells[:, 1]]
         deep = surface[cells[:, 0], cells[:, 1]] - mn[cells[:, 0], cells[:, 1]]
-        depth = float(np.nanmax(deep))
+        # deepest point, robustly: a few stray cells must not set it (90th percentile once there are 10 cells)
+        depth = float(np.nanmax(deep)) if len(cells) < 10 else float(np.nanpercentile(deep, 90))
         depth_med = float(-np.nanmedian(r))
+        # deeper than a road can be: in video this is water or a reflection inside the hole, not depth
+        unreliable = depth > float(p.get("pothole_max_depth_m", 0.4))
         volume = float(-np.nansum(r) * cell_area)
         per = perimeter(cells) * c
         area_f = len(fill_holes(cells)) * cell_area
@@ -173,9 +176,11 @@ def detect_surface(seg: dict, surf: SegmentSurface, path: np.ndarray, step: floa
             bowl = float(-c2 / c0) if c0 > 0 else 1.0
         dia = 2 * math.sqrt(area / math.pi)
         used[cells[:, 0], cells[:, 1]] = True
-        m = {"area_m2": round(area, 3), "depth_max_m": round(depth, 3), "depth_median_m": round(depth_med, 3),
-             "volume_m3": round(volume, 4), "diameter_m": round(dia, 2), "circularity": round(circ, 2),
-             "flat_share": round(flat, 2), "bowl": round(bowl, 2)}
+        m = {"area_m2": round(area, 3), "depth_max_m": None if unreliable else round(depth, 3),
+             "depth_median_m": round(depth_med, 3), "volume_m3": round(volume, 4), "diameter_m": round(dia, 2),
+             "circularity": round(circ, 2), "flat_share": round(flat, 2), "bowl": round(bowl, 2)}
+        if unreliable:
+            m["depth_unreliable"] = True
         if bowl < 0.25 and flat > 0.7 and circ > 0.7 and 0.15 <= area <= 0.8 and depth_med < 0.06:
             sev = "high" if depth_med >= 0.05 else "medium" if depth_med >= 0.03 else "low"
             emit("manhole_sunken", cells, sev, m,
@@ -183,6 +188,10 @@ def detect_surface(seg: dict, surf: SegmentSurface, path: np.ndarray, step: floa
         elif area > 3.0:
             sev = "high" if depth_med >= 0.05 else "medium" if depth_med >= 0.03 else "low"
             emit("depression", cells, sev, m, f"broad depression {area:.1f} m2, median {depth_med * 100:.1f} cm deep")
+        elif unreliable:
+            emit("pothole", cells, _severity_pothole(depth_med, dia), m,
+                 f"depression {dia:.2f} m across, median {depth_med * 100:.1f} cm deep; its deepest point could not be "
+                 "measured (the 3D shows it far below the road, most likely water or a reflection in the hole): measure on site")
         else:
             emit("pothole", cells, _severity_pothole(depth, dia), m,
                  f"depression {depth * 100:.1f} cm deep, {dia:.2f} m across, {volume * 1000:.1f} L missing material")

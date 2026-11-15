@@ -293,7 +293,7 @@ def ask(company_id: str, question: str, project: str | None = None, survey: str 
         where = f", page {h['page']}" if h["page"] else ""
         parts.append(f"[{i}] {h['title']}{where}\n{h['text']}")
     if ctx:
-        parts.append(f"[{len(hits) + 1}] Survey data from Civil Scan\n{ctx}")
+        parts.append(f"[{len(hits) + 1}] Survey data from iScale\n{ctx}")
     sources_txt = "\n\n".join(parts) if parts else "(no matching documents in the library)"
     user = f"Sources:\n{sources_txt}\n\nQuestion: {question}"
     cfg = config(company_id)
@@ -302,7 +302,7 @@ def ask(company_id: str, question: str, project: str | None = None, survey: str 
     sources = [{"n": i, "title": h["title"], "page": h["page"], "doc_id": h["doc_id"], "snippet": h["text"][:280]}
                for i, h in enumerate(hits, 1)]
     if ctx:
-        sources.append({"n": len(hits) + 1, "title": "Survey data from Civil Scan", "page": None, "doc_id": None, "snippet": ctx[:280]})
+        sources.append({"n": len(hits) + 1, "title": "Survey data from iScale", "page": None, "doc_id": None, "snippet": ctx[:280]})
     return {"answer": text, "sources": sources, "model": f"{cfg['type']}:{model}", "seconds": round(time.time() - t0, 1),
             "library_hits": len(hits)}
 

@@ -71,9 +71,15 @@ def merge_split(findings: list[dict], gap: float = 0.3) -> list[dict]:
         for k in ("area_m2", "volume_m3"):
             if k in m or k in n:
                 m[k] = round(m.get(k, 0) + n.get(k, 0), 4)
-        for k in ("depth_max_m", "height_max_m", "step_m", "texture_std_mm"):
+        for k in ("height_max_m", "step_m", "texture_std_mm"):
             if k in m or k in n:
                 m[k] = max(m.get(k, 0), n.get(k, 0))
+        if "depth_max_m" in m or "depth_max_m" in n:
+            if m.get("depth_unreliable") or n.get("depth_unreliable"):   # any piece with water/reflection: no depth
+                m["depth_max_m"], m["depth_unreliable"] = None, True
+                m["depth_median_m"] = max(m.get("depth_median_m") or 0, n.get("depth_median_m") or 0)
+            else:
+                m["depth_max_m"] = max(m.get("depth_max_m") or 0, n.get("depth_max_m") or 0)
         if "diameter_m" in m:
             m["diameter_m"] = round(2 * (m["area_m2"] / 3.14159) ** 0.5, 2)
         if SEV_ORDER.get(f.get("severity"), 0) > SEV_ORDER.get(tgt.get("severity"), 0):
@@ -82,7 +88,10 @@ def merge_split(findings: list[dict], gap: float = 0.3) -> list[dict]:
             tgt["type"] = "pothole"
         if f.get("segment_id") and f["segment_id"] != tgt.get("segment_id"):
             tgt["segments"] = sorted({tgt.get("segment_id"), f["segment_id"], *tgt.get("segments", [])})
-        if "depth_max_m" in m and "area_m2" in m:
+        if m.get("depth_unreliable") and "area_m2" in m:
+            tgt["evidence"] = (f"depression {m.get('diameter_m', 0):.2f} m across, median {m.get('depth_median_m', 0) * 100:.1f} cm deep; "
+                               "deepest point not measurable (most likely water or a reflection in the hole): measure on site (joined from pieces)")
+        elif m.get("depth_max_m") is not None and "area_m2" in m:
             tgt["evidence"] = (f"depression {m['depth_max_m'] * 100:.1f} cm deep, {m.get('diameter_m', 0):.2f} m across, "
                                f"{m.get('volume_m3', 0) * 1000:.1f} L missing material (joined from pieces)")
         else:

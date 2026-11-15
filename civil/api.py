@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import csv
 import io
 import json
@@ -15,22 +17,32 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 
-from . import auth, catalog, chat, helper, groups, jobcard, materials, messaging, pins, pipeline, planning, priority, settings, store
+from . import auth, catalog, chat, check3d, helper, groups, jobcard, location, materials, pins, pipeline, planning, priority, settings, store, xmpp
 from .analysis.condition import score_segments
 from .config import ALLOWED_HOSTS, DEFAULT_ORIGIN, MAX_UPLOAD_BYTES, STATIC_DIR, unit_costs
 from .decoders import registry
 from .pointcloud import Reconstruction, enu_to_latlon, voxel_downsample
 from .verify import verify as run_verify
 
-app = FastAPI(title="civil-scan", version="0.2.0")
+@contextlib.asynccontextmanager
+async def _lifespan(_app):
+    yield
+    # `civil serve` starts ejabberd before uvicorn; stop it here, because uvicorn re-raises SIGTERM
+    # after shutting down and a `finally` in the CLI would never run. No-op if we didn't start it.
+    await asyncio.to_thread(xmpp.stop)
+
+
+app = FastAPI(title="iScale", version="0.3.0", lifespan=_lifespan)
 app.include_router(auth.router)
-app.include_router(messaging.router)
 app.include_router(pins.router)
 app.include_router(priority.router)
 app.include_router(helper.router)
 app.include_router(groups.router)
 app.include_router(settings.router)
 app.include_router(jobcard.router)
+app.include_router(xmpp.router)
+app.include_router(location.router)
+app.include_router(check3d.router)
 
 # A web page on another site must not drive this local API:
 # - Host check stops DNS-rebinding (a hostile domain resolving to 127.0.0.1);
@@ -196,9 +208,20 @@ def demo(request: Request):
 
 # --- surveys ---------------------------------------------------------------------------------
 @app.post("/api/projects/{pid}/surveys")
-async def create_survey(pid: str, name: str = Form(...), decoder: str = Form(...), params: str = Form("{}"),
-                        files: list[UploadFile] | None = File(default=None)):
+async def create_survey(pid: str, request: Request, name: str = Form(...), decoder: str = Form(...), params: str = Form("{}"),
+                        files: list[UploadFile] | None = File(default=None), recorded: bool = Form(False),
+                        device_track: str = Form("", max_length=2_000_000)):
+    """`recorded`: the video was recorded in iScale's browser recorder. `device_track`: the GPS track
+    this device logged during that recording, JSON [[t_s, lat, lon, accuracy_m], ...]; accepted only
+    when the uploader has location on (agreement accepted)."""
+    me = auth.require(request)
     store.get_project(pid)
+    track = None
+    if device_track:
+        location.require_enabled(me)
+        track = location.parse_track(device_track)
+        if len(track) < 2:
+            track = None  # too short to use; the survey falls back to camera height
     decs = registry()
     if decoder not in decs:
         raise HTTPException(400, f"unknown decoder {decoder}")
@@ -216,11 +239,18 @@ async def create_survey(pid: str, name: str = Form(...), decoder: str = Form(...
     allowed = {"repaired", "density", "seed", "metric", "up_axis", "camera_height_m", "heading_deg",
                "start_east_m", "start_north_m", "analysis"}
     prm = {k: v for k, v in prm.items() if k in allowed}
+    if recorded:
+        prm["recorded"] = True
+    if track:
+        prm["device_gps_by"] = me["uid"]  # whose location this is (Settings, Location, Delete my tracks)
     sv = store.create_survey(pid, name, decoder, prm)
     d = store.survey_dir(pid, sv["id"]) / "input"
     total = 0
     for up in files or []:
-        target = d / store.safe_filename(up.filename or "upload")
+        fname = store.safe_filename(up.filename or "upload")
+        if track and fname.lower().endswith(".csv"):
+            continue  # the device track is the survey's only GPS file
+        target = d / fname
         with open(target, "wb") as out:
             while chunk := await up.read(1 << 20):
                 total += len(chunk)
@@ -229,6 +259,8 @@ async def create_survey(pid: str, name: str = Form(...), decoder: str = Form(...
                     store.update_survey(pid, sv["id"], status="error", error="upload too large")
                     raise HTTPException(413, "upload too large")
                 out.write(chunk)
+    if track:
+        location.write_track(d, track)
     pipeline.submit(pid, sv["id"])
     return sv
 
@@ -292,11 +324,27 @@ def points(pid: str, sid: str, max_points: int = 1_500_000, voxel: float = 0.04)
     voxel = float(np.clip(voxel, 0.01, 1.0))
     rec = Reconstruction.load(store.recon_path(pid, sid))
     idx = voxel_downsample(rec.points, voxel, max_points)
+    from .check3d import pothole_mask
+
+    det = pothole_mask(rec)
+    has_labels = det is not None and bool(det.any())
+    if has_labels:
+        # keep the points inside the detector's boxes even where thinning would drop them, so people
+        # can see exactly what the detector marked in 3D (capped so a huge clip stays loadable)
+        marked = np.flatnonzero(det)
+        if len(marked) > 400_000:
+            marked = marked[np.linspace(0, len(marked) - 1, 400_000).astype(int)]
+        idx = np.union1d(idx, marked)
     xyz = rec.points[idx].astype("<f4")
     rgb = rec.colors[idx] if rec.colors is not None else np.full((len(idx), 3), 180, np.uint8)
     body = xyz.tobytes() + np.ascontiguousarray(rgb, dtype=np.uint8).tobytes()
-    traj = rec.trajectory()
     hdr = {"X-Point-Count": str(len(idx))}
+    if has_labels:  # one byte per point after the colours: 1 = inside a pothole-detector box
+        lab = det[idx].astype(np.uint8)
+        body += lab.tobytes()
+        hdr["X-Labels"] = "detector"
+        hdr["X-Detector-Points"] = str(int(lab.sum()))
+    traj = rec.trajectory()
     if traj is not None:
         hdr["X-Trajectory"] = json.dumps(np.round(traj[::4], 2).tolist())[:60000]
     return Response(body, media_type="application/octet-stream", headers=hdr)

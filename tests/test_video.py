@@ -62,6 +62,24 @@ def test_events_and_windows():
     assert len(w) == 1 and (w[0]["start"], w[0]["end"]) == (2, 36)  # overlapping windows merge
 
 
+def test_long_merged_windows_split_in_gaps_between_potholes():
+    """A road with potholes all along merges into one long window; LingBot takes at most 256 frames
+    (51 s at 5 fps), so windows are capped at max_s and cut between events (Thai field test, 2026-11-15)."""
+    ev = [{"t0": t, "t1": t + 1, "t": t, "hits": 3} for t in (5, 15, 25, 35, 45, 55, 65, 75, 85, 95, 105, 115)]
+    w = windows(ev, duration=130, before_s=10, after_s=10, max_s=40)
+    assert len(w) >= 4 and all(x["end"] - x["start"] <= 40 + 1e-9 for x in w)
+    assert w[0]["start"] == 0 and w[-1]["end"] == 126 and [x["index"] for x in w] == list(range(len(w)))
+    assert all(a["end"] == b["start"] for a, b in zip(w, w[1:]))           # no gaps, no overlap
+    assert sum(len(x["events"]) for x in w) == len(ev)                      # every pothole in exactly one clip
+    for x in w:                                                             # and inside its clip
+        assert all(x["start"] <= e["t0"] and e["t1"] <= x["end"] for e in x["events"])
+    # one very long event (continuous hits) is still cut to max_s pieces
+    w = windows([{"t0": 10, "t1": 100, "t": 10, "hits": 200}], duration=130, max_s=40)
+    assert all(x["end"] - x["start"] <= 40 + 1e-9 for x in w) and (w[0]["start"], w[-1]["end"]) == (0, 110)
+    # short windows are untouched
+    assert len(windows([{"t0": 12, "t1": 12}], 60, max_s=40)) == 1
+
+
 def test_perspective_plane_measures_a_known_rectangle():
     cfg = {"src": [[0.4, 0.5], [0.1, 0.9], [0.9, 0.9], [0.6, 0.5]], "width_m": 3.5, "length_m": 10, "near_m": 4, "px_per_m": 40}
     rp = RoadPlane(cfg, 1000, 1000)

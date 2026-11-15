@@ -1,0 +1,258 @@
+{
+ "isan": {
+  "duration_s": 129.8,
+  "samples": 390,
+  "detections": 178,
+  "events": 23,
+  "windows": [
+   [
+    0.0,
+    40.0
+   ],
+   [
+    40.0,
+    80.0
+   ],
+   [
+    80.0,
+    103.826
+   ],
+   [
+    103.826,
+    127.651
+   ]
+  ],
+  "clips": [
+   {
+    "id": "7a5f1effab",
+    "start": 0.0,
+    "frames": 200,
+    "end": 40.0,
+    "scale": 12.5249,
+    "length_m": 184.5,
+    "potholes": 89,
+    "measured": 73,
+    "detector_only": 16,
+    "unmeasurable_depth": 0,
+    "severity": {
+     "high": 35,
+     "medium": 33,
+     "low": 21
+    },
+    "depth_p50_cm": 8.2,
+    "depth_p90_cm": 13.4,
+    "depth_max_cm": 24.6,
+    "across_p50_m": 0.49,
+    "road_width_m": [
+     6.8,
+     5.5,
+     5.6,
+     5.6,
+     4.0,
+     2.9,
+     1.0
+    ],
+    "condition": [
+     8.0,
+     9.7,
+     20.5,
+     0.0,
+     27.7,
+     25.6,
+     74.3
+    ],
+    "scored_segments": 7,
+    "segments": 7
+   },
+   {
+    "id": "cd598ad939",
+    "start": 40.0,
+    "frames": 200,
+    "end": 80.0,
+    "scale": 12.8619,
+    "length_m": 181.0,
+    "potholes": 24,
+    "measured": 5,
+    "detector_only": 18,
+    "unmeasurable_depth": 1,
+    "severity": {
+     "high": 0,
+     "medium": 5,
+     "low": 19
+    },
+    "depth_p50_cm": 11.8,
+    "depth_p90_cm": 27.7,
+    "depth_max_cm": 35.2,
+    "across_p50_m": 0.28,
+    "road_width_m": [
+     2.8,
+     1.5,
+     0.1,
+     0.6,
+     0.5,
+     0.8,
+     0.5
+    ],
+    "condition": [
+     37.2,
+     86.5,
+     null,
+     null,
+     null,
+     null,
+     null
+    ],
+    "scored_segments": 2,
+    "segments": 7
+   },
+   {
+    "id": "836735e038",
+    "start": 80.0,
+    "frames": 120,
+    "end": 103.826,
+    "scale": 6.9136,
+    "length_m": 54.0,
+    "potholes": 21,
+    "measured": 17,
+    "detector_only": 4,
+    "unmeasurable_depth": 0,
+    "severity": {
+     "high": 4,
+     "medium": 10,
+     "low": 7
+    },
+    "depth_p50_cm": 9.2,
+    "depth_p90_cm": 15.0,
+    "depth_max_cm": 20.0,
+    "across_p50_m": 0.32,
+    "road_width_m": [
+     0.7,
+     2.8
+    ],
+    "condition": [
+     80.1,
+     21.8
+    ],
+    "scored_segments": 2,
+    "segments": 2
+   },
+   {
+    "id": "8512255cd6",
+    "start": 103.826,
+    "frames": 120,
+    "end": 127.651,
+    "scale": 6.9872,
+    "length_m": 38.0,
+    "potholes": 6,
+    "measured": 2,
+    "detector_only": 4,
+    "unmeasurable_depth": 0,
+    "severity": {
+     "high": 1,
+     "medium": 1,
+     "low": 4
+    },
+    "depth_p50_cm": 5.3,
+    "depth_p90_cm": 6.2,
+    "depth_max_cm": 6.4,
+    "across_p50_m": 0.67,
+    "road_width_m": [
+     1.0,
+     0.2
+    ],
+    "condition": [
+     59.5,
+     null
+    ],
+    "scored_segments": 1,
+    "segments": 2
+   }
+  ]
+ },
+ "ep160": {
+  "duration_s": 52.6,
+  "samples": 151,
+  "detections": 48,
+  "events": 7,
+  "windows": [
+   [
+    0.0,
+    40.0
+   ],
+   [
+    40.0,
+    52.6
+   ]
+  ],
+  "clips": [
+   {
+    "id": "2c77cfa42f",
+    "start": 0.0,
+    "frames": 200,
+    "end": 40.0,
+    "scale": 4.7959,
+    "length_m": 118.5,
+    "potholes": 15,
+    "measured": 3,
+    "detector_only": 11,
+    "unmeasurable_depth": 1,
+    "severity": {
+     "high": 2,
+     "medium": 2,
+     "low": 11
+    },
+    "depth_p50_cm": 8.4,
+    "depth_p90_cm": 15.5,
+    "depth_max_cm": 17.3,
+    "across_p50_m": 0.47,
+    "road_width_m": [
+     0.1,
+     0.3,
+     0.6,
+     0.7,
+     1.4
+    ],
+    "condition": [
+     null,
+     null,
+     null,
+     null,
+     7.5
+    ],
+    "scored_segments": 1,
+    "segments": 5
+   },
+   {
+    "id": "dce01cd719",
+    "start": 40.0,
+    "frames": 51,
+    "end": 52.6,
+    "scale": 8.3995,
+    "length_m": 48.0,
+    "potholes": 18,
+    "measured": 17,
+    "detector_only": 1,
+    "unmeasurable_depth": 0,
+    "severity": {
+     "high": 7,
+     "medium": 5,
+     "low": 6
+    },
+    "depth_p50_cm": 4.8,
+    "depth_p90_cm": 16.8,
+    "depth_max_cm": 24.6,
+    "across_p50_m": 0.96,
+    "road_width_m": [
+     11.0,
+     8.4
+    ],
+    "condition": [
+     0.0,
+     0.0
+    ],
+    "scored_segments": 2,
+    "segments": 2
+   }
+  ]
+ }
+}

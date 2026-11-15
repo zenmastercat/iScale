@@ -9,7 +9,12 @@ import numpy as np
 
 def grid_stats(u: np.ndarray, v: np.ndarray, z: np.ndarray, cell: float,
                u0: float, v0: float, nu: int, nv: int) -> dict[str, np.ndarray]:
-    """Per-cell count, min, mean and median of z on a (nu, nv) grid. Empty cells are NaN."""
+    """Per-cell count, min, low (25th percentile), mean and median of z on a (nu, nv) grid. Empty cells are NaN.
+
+    "low" is the floor used for pothole depth. In a noisy video cloud the single lowest point of a cell
+    can be a stray point metres below the road (Thai dashcam test, 2026-11-15); with ~10 points per
+    10 cm cell the 25th percentile ignores a couple of those, and a cell at the bottom of a hole still
+    reads the floor."""
     iu = np.floor((u - u0) / cell).astype(np.int64)
     iv = np.floor((v - v0) / cell).astype(np.int64)
     ok = (iu >= 0) & (iu < nu) & (iv >= 0) & (iv < nv)
@@ -20,6 +25,7 @@ def grid_stats(u: np.ndarray, v: np.ndarray, z: np.ndarray, cell: float,
     count = np.bincount(flat, minlength=nu * nv)
     out = {"count": count.reshape(nu, nv)}
     mn = np.full(nu * nv, np.nan)
+    lo = np.full(nu * nv, np.nan)
     md = np.full(nu * nv, np.nan)
     me = np.full(nu * nv, np.nan)
     if len(flat):
@@ -27,11 +33,13 @@ def grid_stats(u: np.ndarray, v: np.ndarray, z: np.ndarray, cell: float,
         keys = flat[starts]
         ends = np.r_[starts[1:], len(flat)]
         mn[keys] = z[starts]
+        lo[keys] = z[starts + np.floor(0.25 * (ends - starts - 1)).astype(int)]
         mid = (starts + ends - 1) / 2.0
         md[keys] = (z[np.floor(mid).astype(int)] + z[np.ceil(mid).astype(int)]) / 2
         sums = np.add.reduceat(z, starts)
         me[keys] = sums / (ends - starts)
     out["min"] = mn.reshape(nu, nv)
+    out["low"] = lo.reshape(nu, nv)
     out["median"] = md.reshape(nu, nv)
     out["mean"] = me.reshape(nu, nv)
     return out

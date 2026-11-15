@@ -61,6 +61,15 @@ def run_video_job(pid: str, sid: str, progress) -> dict:
             cfg[k] = {**cfg[k], **over[k]}
     d = store.survey_dir(pid, sid)
     video, gps = _find_inputs(d / "input")
+    if sv.get("params", {}).get("recorded") and video.name != "recording-cfr.mp4":
+        # recorded in the browser: variable frame rate, often no frame count; make it constant-rate first
+        from .normalize import normalize_recording
+
+        progress("preparing the recording")
+        fixed = d / "input" / "recording-cfr.mp4"
+        normalize_recording(video, fixed)
+        video.unlink()
+        video = fixed
     info = video_info(video)
     ev_dir = d / "work" / "detections"
     ev_dir.mkdir(parents=True, exist_ok=True)
@@ -84,7 +93,8 @@ def run_video_job(pid: str, sid: str, progress) -> dict:
         boxes += detector.detect(batch)
     hits = sorted({b.t for b in boxes})
     evts = events(hits, int(det_cfg.get("min_hits", 2)), float(det_cfg.get("hit_gap_s", 1.0)))
-    wins = windows(evts, info["duration"], **{k: float(cfg["window"][k]) for k in ("before_s", "after_s", "merge_gap_s")})
+    wins = windows(evts, info["duration"], **{k: float(cfg["window"][k]) for k in ("before_s", "after_s", "merge_gap_s")},
+                   max_s=float(cfg["window"].get("max_s", 40)))
 
     # evidence: one annotated frame + bird's-eye view per detected sample time
     by_t: dict[float, list] = {}
@@ -123,6 +133,7 @@ def run_video_job(pid: str, sid: str, progress) -> dict:
             "parent": sid, "window": w["index"],
             "camera_height_m": float(sv.get("params", {}).get("camera_height_m") or cfg["scale"].get("camera_height_m", 1.4)),
             "clip_start": w["start"], "clip_fps": lb_fps,
+            "max_depth": cfg["lingbot"].get("max_depth_units"),
             "analysis": {k: v for k, v in (cfg.get("analysis") or {}).items() if not k.startswith("_")}})
         cdir = store.survey_dir(pid, child["id"]) / "input"
         times = extract_clip(video, w["start"], w["end"], lb_fps, rows, cdir / "frames")

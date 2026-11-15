@@ -71,7 +71,15 @@ function createGlViewer(el, { onSelect, onTag }) {
     const n = base.z.length;
     const col = points.geometry.getAttribute("color");
     const arr = col.array;
-    if (colorMode === "rgb") {
+    if (colorMode === "detector") {
+      // points inside the pothole detector's boxes in magenta; everything else as faint grey photo
+      for (let i = 0; i < n; i++) {
+        if (base.lab && base.lab[i]) { arr[i * 3] = 1.0; arr[i * 3 + 1] = 0.18; arr[i * 3 + 2] = 0.7; continue; }
+        const r = base.rgb[i * 3], g = base.rgb[i * 3 + 1], b = base.rgb[i * 3 + 2];
+        const l = (0.3 * r + 0.59 * g + 0.11 * b) / 255;
+        arr[i * 3] = arr[i * 3 + 1] = arr[i * 3 + 2] = 0.1 + 0.45 * l;
+      }
+    } else if (colorMode === "rgb") {
       for (let i = 0; i < n * 3; i++) arr[i] = base.rgb[i] / 255;
     } else {
       // height ramp from ground (dark blue-grey) to high (warm white), mono = luminance only
@@ -99,7 +107,7 @@ function createGlViewer(el, { onSelect, onTag }) {
   }
 
   const api = {
-    async load(buffer, count, trajectory) {
+    async load(buffer, count, trajectory, hasLabels = false) {
       if (points) { scene.remove(points); points.geometry.dispose(); points.material.dispose(); points = null; }
       if (traj) { scene.remove(traj); traj.geometry.dispose(); traj = null; }
       const xyz = new Float32Array(buffer, 0, count * 3);
@@ -113,7 +121,8 @@ function createGlViewer(el, { onSelect, onTag }) {
         z[i] = zz;
         if (x < minx) minx = x; if (x > maxx) maxx = x; if (y < miny) miny = y; if (y > maxy) maxy = y;
       }
-      base = { rgb, z };
+      const lab = hasLabels && buffer.byteLength >= count * 16 ? new Uint8Array(buffer, count * 15, count) : null;
+      base = { rgb, z, lab };
       const geo = new THREE.BufferGeometry();
       geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
       geo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(count * 3), 3));
@@ -177,6 +186,7 @@ function createGlViewer(el, { onSelect, onTag }) {
       controls.update();
     },
     setColorMode(m) { colorMode = m; applyColors(); },
+    hasDetectorLabels: () => !!base?.lab,
     setTagging(on) { tagging = on; el.classList.toggle("tagging", on); },
     setActive(on) {
       active = on;

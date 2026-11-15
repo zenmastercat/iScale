@@ -14,7 +14,9 @@
   "window": {
     "before_s": 10,
     "after_s": 10,
-    "merge_gap_s": 0
+    "merge_gap_s": 0,
+    "max_s": 40,
+    "_max_s_note": "Longest 3D clip in seconds. LingBot-Map takes at most 256 frames (--max_frame_num), i.e. 51 s at 5 fps; longer merged windows are cut in the gaps between potholes (found on the Thai field test, 2026-11-15)."
   },
   "frames": {
     "_note": "Band of the frame given to LingBot (fractions of height). LingBot centre-crops tall frames to a square, which would cut the road off a portrait phone video; 'auto' keeps a square band low in the frame for portrait video and the full frame for landscape.",
@@ -49,7 +51,9 @@
     },
     "_env_note": "Extra environment for the LingBot process. On this NixOS machine the conda matplotlib needs the system FreeType preloaded; update the path if the Nix store changes (ls -d /nix/store/*-freetype-*/lib/libfreetype.so.6).",
     "_extra_args_note": "Settings that fit LingBot-Map on this 16 GB RTX 5080 next to the desktop (tested 2026-11-14: 109 frames in 22 s): bf16_weights runs batch_demo.py through adapters/lingbot_lowmem.py (bfloat16 backbone, depth head in chunks of 2 frames); smaller KV cache and 4 scale frames; --use_sdpa because FlashInfer needs nvcc to compile kernels for the smaller cache. On a 24 GB+ GPU remove these for the authors' defaults.",
-    "bf16_weights": true
+    "bf16_weights": true,
+    "max_depth_units": null,
+    "_max_depth_note": "Keep only points nearer than this to the camera that saw them, in LingBot's own units (before scaling; about 8-13 m per unit on road video). null keeps everything. On a dashcam through a windshield (Thai field test, 2026-11-15) the full cloud stacked the road in layers 20-60 cm apart and no road surface was found; 1.0 gave a 5.5-6.8 m wide two-lane road and pothole depths of 12-19 cm. Set it per survey in params.video.lingbot."
   },
   "scale": {
     "_note": "LingBot output is not metric. Scale comes from gps.csv (t, lat, lon from the video start) or, without GPS, from the camera height above the road.",
