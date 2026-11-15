@@ -1,0 +1,397 @@
+{
+ "duration_s": 40.2,
+ "fps": 25.0,
+ "size": "640x360",
+ "samples": null,
+ "detections": 190,
+ "frames_with_box": 112,
+ "conf_min": 0.451,
+ "conf_median": 0.779,
+ "conf_max": 0.873,
+ "events": [
+  [
+   0.0,
+   12.68,
+   38
+  ],
+  [
+   14.32,
+   40.0,
+   74
+  ]
+ ],
+ "windows": [
+  [
+   0.0,
+   40.2
+  ]
+ ],
+ "lingbot_frames": 201,
+ "lingbot": "Inference done in 23.6s (8.5 FPS)",
+ "points": 5246862,
+ "align_notes": [
+  "up axis estimated from the dominant (ground) plane",
+  "scale from camera height 1.4 m (factor 2.2171)",
+  "placed on Rangoon Road, Ladysmith (OpenStreetMap), heading 304 deg; stretch and direction assumed (no GPS)"
+ ],
+ "analysis_s": 6.0,
+ "path_m": 21.857851405025208,
+ "segment": {
+  "id": "S001",
+  "length_m": 26.5,
+  "condition": 0.0,
+  "rating": "failed"
+ },
+ "findings": [
+  {
+   "id": "FCE4-0001",
+   "type": "pothole",
+   "severity": "high",
+   "evidence": "depression 13.1 cm deep, 1.77 m across, 98.6 L missing material (joined from pieces); confirmed by the video pothole detector",
+   "lat": -28.563669450045847,
+   "lon": 29.788690302748755,
+   "metrics": {
+    "area_m2": 2.47,
+    "depth_max_m": 0.131,
+    "depth_median_m": 0.025,
+    "volume_m3": 0.0986,
+    "diameter_m": 1.77,
+    "circularity": 1.0,
+    "flat_share": 0.6,
+    "bowl": 0.1,
+    "detector_points": 156963
+   }
+  },
+  {
+   "id": "FCE4-0002",
+   "type": "pothole",
+   "severity": "high",
+   "evidence": "depression 9.3 cm deep, 1.80 m across, 58.5 L missing material; confirmed by the video pothole detector",
+   "lat": -28.563636346425156,
+   "lon": 29.788661926697507,
+   "metrics": {
+    "area_m2": 2.55,
+    "depth_max_m": 0.093,
+    "depth_median_m": 0.022,
+    "volume_m3": 0.0585,
+    "diameter_m": 1.8,
+    "circularity": 0.33,
+    "flat_share": 0.4,
+    "bowl": 0.03,
+    "detector_points": 111779
+   }
+  },
+  {
+   "id": "FCE4-0003",
+   "type": "pothole",
+   "severity": "high",
+   "evidence": "depression 6.9 cm deep, 0.77 m across, 8.5 L missing material",
+   "lat": -28.56365317689727,
+   "lon": 29.788651361851425,
+   "metrics": {
+    "area_m2": 0.46,
+    "depth_max_m": 0.069,
+    "depth_median_m": 0.016,
+    "volume_m3": 0.0085,
+    "diameter_m": 0.77,
+    "circularity": 0.65,
+    "flat_share": 0.43,
+    "bowl": 0.25
+   }
+  },
+  {
+   "id": "FCE4-0004",
+   "type": "pothole",
+   "severity": "high",
+   "evidence": "depression 12.2 cm deep, 1.82 m across, 57.2 L missing material (joined from pieces); confirmed by the video pothole detector",
+   "lat": -28.563618452589026,
+   "lon": 29.788633567159714,
+   "metrics": {
+    "area_m2": 2.59,
+    "depth_max_m": 0.122,
+    "depth_median_m": 0.027,
+    "volume_m3": 0.0572,
+    "diameter_m": 1.82,
+    "circularity": 1.0,
+    "flat_share": 1.0,
+    "bowl": 1.0,
+    "detector_points": 180556
+   }
+  },
+  {
+   "id": "FCE4-0005",
+   "type": "pothole",
+   "severity": "high",
+   "evidence": "depression 15.0 cm deep, 2.02 m across, 86.2 L missing material (joined from pieces); confirmed by the video pothole detector",
+   "lat": -28.563603666931698,
+   "lon": 29.788590612278547,
+   "metrics": {
+    "area_m2": 3.22,
+    "depth_max_m": 0.15,
+    "depth_median_m": 0.029,
+    "volume_m3": 0.0862,
+    "diameter_m": 2.02,
+    "circularity": 0.28,
+    "flat_share": 0.49,
+    "bowl": 0.02,
+    "detector_points": 180556
+   }
+  },
+  {
+   "id": "FCE4-0006",
+   "type": "pothole",
+   "severity": "medium",
+   "evidence": "depression 14.3 cm deep, 2.27 m across, 132.6 L missing material (joined from pieces); confirmed by the video pothole detector",
+   "lat": -28.563567769476172,
+   "lon": 29.788597222837716,
+   "metrics": {
+    "area_m2": 4.04,
+    "depth_max_m": 0.143,
+    "depth_median_m": 0.033,
+    "volume_m3": 0.1326,
+    "diameter_m": 2.27,
+    "circularity": 0.81,
+    "flat_share": 0.75,
+    "bowl": 1.0,
+    "detector_points": 305915
+   }
+  },
+  {
+   "id": "FCE4-0007",
+   "type": "pothole",
+   "severity": "high",
+   "evidence": "depression 19.7 cm deep, 1.95 m across, 137.2 L missing material (joined from pieces); confirmed by the video pothole detector",
+   "lat": -28.5635599924868,
+   "lon": 29.788546130237926,
+   "metrics": {
+    "area_m2": 3.0,
+    "depth_max_m": 0.197,
+    "depth_median_m": 0.067,
+    "volume_m3": 0.1372,
+    "diameter_m": 1.95,
+    "circularity": 0.38,
+    "flat_share": 0.57,
+    "bowl": 0.09,
+    "detector_points": 305915
+   }
+  },
+  {
+   "id": "FCE4-0008",
+   "type": "pothole",
+   "severity": "medium",
+   "evidence": "depression 7.4 cm deep, 0.28 m across, 1.0 L missing material; confirmed by the video pothole detector",
+   "lat": -28.563561718980715,
+   "lon": 29.788564575466026,
+   "metrics": {
+    "area_m2": 0.06,
+    "depth_max_m": 0.074,
+    "depth_median_m": 0.015,
+    "volume_m3": 0.001,
+    "diameter_m": 0.28,
+    "circularity": 0.85,
+    "flat_share": 0.5,
+    "bowl": 1.0,
+    "detector_points": 305915
+   }
+  },
+  {
+   "id": "FCE4-0009",
+   "type": "pothole",
+   "severity": "low",
+   "evidence": "depression 4.9 cm deep, 0.37 m across, 2.1 L missing material; confirmed by the video pothole detector",
+   "lat": -28.563551678968004,
+   "lon": 29.78857808567694,
+   "metrics": {
+    "area_m2": 0.11,
+    "depth_max_m": 0.049,
+    "depth_median_m": 0.016,
+    "volume_m3": 0.0021,
+    "diameter_m": 0.37,
+    "circularity": 0.69,
+    "flat_share": 0.36,
+    "bowl": 0.03,
+    "detector_points": 305915
+   }
+  },
+  {
+   "id": "FCE4-0010",
+   "type": "pothole",
+   "severity": "high",
+   "evidence": "depression 18.2 cm deep, 0.59 m across, 7.2 L missing material (joined from pieces); confirmed by the video pothole detector",
+   "lat": -28.563549277768523,
+   "lon": 29.78855312131389,
+   "metrics": {
+    "area_m2": 0.27,
+    "depth_max_m": 0.182,
+    "depth_median_m": 0.02,
+    "volume_m3": 0.0072,
+    "diameter_m": 0.59,
+    "circularity": 0.83,
+    "flat_share": 0.5,
+    "bowl": 0.16,
+    "detector_points": 305915
+   }
+  },
+  {
+   "id": "FCE4-0011",
+   "type": "heave",
+   "severity": "high",
+   "evidence": "raised area 7.1 cm above the road surface, 3.25 m2",
+   "lat": -28.563657995345164,
+   "lon": 29.788666929444947,
+   "metrics": {
+    "area_m2": 3.25,
+    "height_max_m": 0.071
+   }
+  },
+  {
+   "id": "FCE4-0012",
+   "type": "heave",
+   "severity": "high",
+   "evidence": "raised area 6.3 cm above the road surface, 0.84 m2",
+   "lat": -28.563633577088332,
+   "lon": 29.78863724148876,
+   "metrics": {
+    "area_m2": 0.84,
+    "height_max_m": 0.063
+   }
+  },
+  {
+   "id": "FCE4-0013",
+   "type": "heave",
+   "severity": "high",
+   "evidence": "raised area 11.0 cm above the road surface, 1.28 m2",
+   "lat": -28.563580337719046,
+   "lon": 29.788584291746375,
+   "metrics": {
+    "area_m2": 1.28,
+    "height_max_m": 0.11
+   }
+  },
+  {
+   "id": "FCE4-0014",
+   "type": "heave",
+   "severity": "low",
+   "evidence": "raised area 2.9 cm above the road surface, 0.15 m2",
+   "lat": -28.563555867261098,
+   "lon": 29.788575398667987,
+   "metrics": {
+    "area_m2": 0.15,
+    "height_max_m": 0.029
+   }
+  },
+  {
+   "id": "FCE4-0015",
+   "type": "heave",
+   "severity": "medium",
+   "evidence": "raised area 3.9 cm above the road surface, 0.10 m2",
+   "lat": -28.56356008646564,
+   "lon": 29.788566568622418,
+   "metrics": {
+    "area_m2": 0.1,
+    "height_max_m": 0.039
+   }
+  },
+  {
+   "id": "FCE4-0016",
+   "type": "heave",
+   "severity": "high",
+   "evidence": "raised area 3.2 cm above the road surface, 0.11 m2 (joined from pieces)",
+   "lat": -28.563546772702722,
+   "lon": 29.788550084048985,
+   "metrics": {
+    "area_m2": 1.22,
+    "height_max_m": 0.09
+   }
+  },
+  {
+   "id": "FCE4-0017",
+   "type": "surface_roughness",
+   "severity": "high",
+   "evidence": "surface texture deviation 21.0 mm over 1 m2 (possible cracking or ravelling; confirm on site)",
+   "lat": -28.563652273762948,
+   "lon": 29.7886811439821,
+   "metrics": {
+    "area_m2": 1.0,
+    "texture_std_mm": 21.0
+   }
+  },
+  {
+   "id": "FCE4-0018",
+   "type": "surface_roughness",
+   "severity": "high",
+   "evidence": "surface texture deviation 12.3 mm over 3 m2 (possible cracking or ravelling; confirm on site)",
+   "lat": -28.563624109142413,
+   "lon": 29.78865359424673,
+   "metrics": {
+    "area_m2": 3.0,
+    "texture_std_mm": 12.3
+   }
+  },
+  {
+   "id": "FCE4-0019",
+   "type": "surface_roughness",
+   "severity": "high",
+   "evidence": "surface texture deviation 15.8 mm over 2 m2 (possible cracking or ravelling; confirm on site)",
+   "lat": -28.563642001894642,
+   "lon": 29.78863858283918,
+   "metrics": {
+    "area_m2": 2.0,
+    "texture_std_mm": 15.8
+   }
+  },
+  {
+   "id": "FCE4-0020",
+   "type": "surface_roughness",
+   "severity": "high",
+   "evidence": "surface texture deviation 18.8 mm over 8 m2 (possible cracking or ravelling; confirm on site)",
+   "lat": -28.56361310623095,
+   "lon": 29.78861339624318,
+   "metrics": {
+    "area_m2": 8.0,
+    "texture_std_mm": 18.8
+   }
+  },
+  {
+   "id": "FCE4-0021",
+   "type": "surface_roughness",
+   "severity": "high",
+   "evidence": "surface texture deviation 14.6 mm over 3 m2 (possible cracking or ravelling; confirm on site)",
+   "lat": -28.563588107450652,
+   "lon": 29.788591050378493,
+   "metrics": {
+    "area_m2": 3.0,
+    "texture_std_mm": 14.6
+   }
+  },
+  {
+   "id": "FCE4-0022",
+   "type": "surface_roughness",
+   "severity": "high",
+   "evidence": "surface texture deviation 12.1 mm over 3 m2 (possible cracking or ravelling; confirm on site)",
+   "lat": -28.563561098540728,
+   "lon": 29.788577332106875,
+   "metrics": {
+    "area_m2": 3.0,
+    "texture_std_mm": 12.1
+   }
+  },
+  {
+   "id": "FCE4-0023",
+   "type": "surface_roughness",
+   "severity": "high",
+   "evidence": "surface texture deviation 11.8 mm over 1 m2 (possible cracking or ravelling; confirm on site) (joined from pieces)",
+   "lat": -28.563561887906204,
+   "lon": 29.788537193530885,
+   "metrics": {
+    "area_m2": 2.0,
+    "texture_std_mm": 15.7
+   }
+  }
+ ],
+ "counts": {
+  "pothole": 10,
+  "heave": 6,
+  "surface_roughness": 7
+ }
+}

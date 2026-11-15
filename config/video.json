@@ -1,0 +1,88 @@
+{
+  "_note": "Video pipeline: a pothole detector scans the drive video, every confirmed detection opens a window [t - before_s, t + after_s], overlapping windows merge, and LingBot-Map turns each window into 3D.",
+  "detector": {
+    "kind": "roboflow",
+    "api_url": "https://serverless.roboflow.com",
+    "model_id": "pothole-all-conditions-n6tqz/1",
+    "api_key_env": "ROBOFLOW_API_KEY",
+    "confidence": 0.45,
+    "sample_fps": 3,
+    "min_hits": 2,
+    "hit_gap_s": 1.0,
+    "workers": 4
+  },
+  "window": {
+    "before_s": 10,
+    "after_s": 10,
+    "merge_gap_s": 0
+  },
+  "frames": {
+    "_note": "Band of the frame given to LingBot (fractions of height). LingBot centre-crops tall frames to a square, which would cut the road off a portrait phone video; 'auto' keeps a square band low in the frame for portrait video and the full frame for landscape.",
+    "band": "auto",
+    "auto_portrait_center": 0.62,
+    "fps": 5,
+    "_fps_note": "Frames per second given to LingBot. 5 fps keeps a 20 s clip near 100 frames, which fits a 16 GB GPU; raise it on a bigger GPU."
+  },
+  "lingbot": {
+    "python": "/home/lucas/.conda/bin/python",
+    "repo": "/home/lucas/Documents/Projects/ CODE/lingbot-map",
+    "model": "/home/lucas/Documents/Projects/ CODE/lingbot-map/lingbot-map.pt",
+    "mode": "streaming",
+    "extra_args": [
+      "--max_frame_num",
+      "256",
+      "--kv_cache_sliding_window",
+      "32",
+      "--num_scale_frames",
+      "4",
+      "--kv_cache_scale_frames",
+      "4",
+      "--keyframe_interval",
+      "2",
+      "--use_sdpa"
+    ],
+    "min_free_gpu_gb": 12,
+    "timeout_s": 3600,
+    "env": {
+      "LD_PRELOAD": "/nix/store/85v143gw8jcqjg04gxb38c4han2z7myb-freetype-2.14.3/lib/libfreetype.so.6",
+      "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"
+    },
+    "_env_note": "Extra environment for the LingBot process. On this NixOS machine the conda matplotlib needs the system FreeType preloaded; update the path if the Nix store changes (ls -d /nix/store/*-freetype-*/lib/libfreetype.so.6).",
+    "_extra_args_note": "Settings that fit LingBot-Map on this 16 GB RTX 5080 next to the desktop (tested 2026-11-14: 109 frames in 22 s): bf16_weights runs batch_demo.py through adapters/lingbot_lowmem.py (bfloat16 backbone, depth head in chunks of 2 frames); smaller KV cache and 4 scale frames; --use_sdpa because FlashInfer needs nvcc to compile kernels for the smaller cache. On a 24 GB+ GPU remove these for the authors' defaults.",
+    "bf16_weights": true
+  },
+  "scale": {
+    "_note": "LingBot output is not metric. Scale comes from gps.csv (t, lat, lon from the video start) or, without GPS, from the camera height above the road.",
+    "camera_height_m": 1.4
+  },
+  "perspective": {
+    "_note": "Road-plane perspective transform (cv2.getPerspectiveTransform + warpPerspective). src: 4 points on the road in the FULL video frame, as fractions of width/height, in the order top-left, bottom-left, bottom-right, top-right. They must be the corners of a real rectangle on the road of width_m x length_m whose near edge is near_m ahead of the camera. Defaults are UNCALIBRATED guesses for a forward-facing camera; run `civil calibrate` to set them.",
+    "calibrated": false,
+    "src": [
+      [
+        0.43,
+        0.6
+      ],
+      [
+        0.08,
+        0.92
+      ],
+      [
+        0.92,
+        0.92
+      ],
+      [
+        0.57,
+        0.6
+      ]
+    ],
+    "width_m": 3.5,
+    "length_m": 12.0,
+    "near_m": 4.0,
+    "px_per_m": 40
+  },
+  "analysis": {
+    "_note": "Analysis settings for LingBot clips. surface_window_m fits the road surface in 8 m windows so reconstruction drift along the walk doesn't become fake potholes (found on the Rangoon Road test, 2026-11-14). 0 = one fit per segment.",
+    "surface_window_m": 8
+  }
+}

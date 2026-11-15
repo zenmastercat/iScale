@@ -1,0 +1,28 @@
+{
+  "_note": "External decoders run as separate processes. Placeholders: {python} civil-scan's Python, {input} first video (or the input folder), {input_dir}, {frames_dir} (needs extract_frames), {output} folder the decoder must write points.ply (+ poses.json) into. Set enabled to true after filling in the paths.",
+  "ffmpeg": "",
+  "lingbot_map": {
+    "label": "LingBot-Map (external, GPU)",
+    "description": "Robbyant LingBot-Map: monocular video -> poses + depth -> point cloud. Not metric: upload gps.csv with the video, or set camera_height_m.",
+    "enabled": false,
+    "accepts": ["video", "gps"],
+    "command": ["{python}", "adapters/lingbot_map.py", "run",
+                "--lingbot-python", "/path/to/lingbot-env/bin/python",
+                "--lingbot-repo", "/path/to/lingbot-map",
+                "--model", "/path/to/lingbot-map/lingbot-map.pt",
+                "--video", "{input}", "--out", "{output}",
+                "--mode", "windowed", "--fps", "10"],
+    "outputs": {"points": "points.ply", "poses": "poses.json"},
+    "meta": {"metric": false, "up_axis": "auto"},
+    "timeout_s": 14400
+  },
+  "custom_example": {
+    "label": "Your own model (template)",
+    "description": "Any command that writes points.ply (+ poses.json / TUM / KITTI poses) into {output}.",
+    "enabled": false,
+    "accepts": ["video", "images", "gps"],
+    "command": ["/path/to/env/bin/python", "/path/to/your_reconstruct.py", "--in", "{input}", "--out", "{output}"],
+    "meta": {"metric": false, "up_axis": "auto"},
+    "timeout_s": 7200
+  }
+}

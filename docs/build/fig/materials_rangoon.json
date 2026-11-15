@@ -1,0 +1,787 @@
+{
+ "rows": [
+  {
+   "no": 1,
+   "bill": {
+    "available": true,
+    "currency": "THB",
+    "symbol": "฿",
+    "method": "full_depth",
+    "method_label": "Deep patch: new base, then cold mix",
+    "depth_m": 0.131,
+    "area_m2": 2.47,
+    "cut_area_m2": 4.72,
+    "cut_w_m": 2.17,
+    "cut_l_m": 2.17,
+    "cut_edge_m": 0.3,
+    "asphalt_depth_m": 0.1,
+    "base_depth_m": 0.031,
+    "layers": 2,
+    "mix_kg": 944.3,
+    "bags": 48,
+    "tack_l": 0.3,
+    "prime_l": 4.8,
+    "base_m3": 0.15,
+    "lines": [
+     {
+      "key": "cold_mix",
+      "code": "BAG",
+      "label": "Premix cold asphalt",
+      "label_th": "ยางมะตอยสำเร็จรูป",
+      "qty": 48,
+      "unit": "bags",
+      "unit_price": 108,
+      "amount": 5184.0,
+      "detail": "48 × 20 kg = 960 kg (needs 944 kg)",
+      "source": "Median of 4 Bangkok store listings, Nov 2026 (99-127 THB a bag, VAT not stated); a producer quote to DRR on 10 Nov 2026 was 185 THB excl. VAT"
+     },
+     {
+      "key": "tack_coat",
+      "code": "LIQ",
+      "label": "Tack coat, CRS-2 emulsion",
+      "label_th": "ยางมะตอยน้ำ CRS-2",
+      "qty": 0.3,
+      "unit": "L",
+      "unit_price": 36.39,
+      "amount": 10.92,
+      "detail": "0.3 L/m² on the cut sides, 0.87 m²",
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,386.67 THB/t excl. VAT, bulk, taken as 1 kg/L; stores sell cans at 48-60 THB/L"
+     },
+     {
+      "key": "base",
+      "code": "AGG",
+      "label": "Crushed rock base",
+      "label_th": "หินคลุกพื้นทาง",
+      "qty": 0.15,
+      "unit": "m³",
+      "unit_price": 0,
+      "amount": null,
+      "detail": "3 cm under the cold mix",
+      "source": "No official or quoted price found (Nov 2026); set your local price"
+     },
+     {
+      "key": "prime_coat",
+      "code": "LIQ",
+      "label": "Prime coat, CSS-1 emulsion",
+      "label_th": "ยางมะตอยน้ำ CSS-1",
+      "qty": 4.8,
+      "unit": "L",
+      "unit_price": 36.45,
+      "amount": 174.96,
+      "detail": "1 L/m² on the new base",
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,453.33 THB/t excl. VAT, bulk, taken as 1 kg/L"
+     }
+    ],
+    "subtotal": 5369.88,
+    "materials_cost": 5369.88,
+    "missing_prices": [
+     "Crushed rock base"
+    ],
+    "tools": [
+     "Asphalt cutter or jackhammer",
+     "Plate compactor",
+     "Shovel",
+     "Wheelbarrow",
+     "Broom",
+     "Traffic cones × 6"
+    ],
+    "excludes": "Labour, equipment hire, transport, overheads and VAT are not included."
+   },
+   "severity": "high"
+  },
+  {
+   "no": 2,
+   "bill": {
+    "available": true,
+    "currency": "THB",
+    "symbol": "฿",
+    "method": "layered_patch",
+    "method_label": "Patch, cold mix in layers",
+    "depth_m": 0.093,
+    "area_m2": 2.55,
+    "cut_area_m2": 4.83,
+    "cut_w_m": 2.2,
+    "cut_l_m": 2.2,
+    "cut_edge_m": 0.3,
+    "asphalt_depth_m": 0.093,
+    "base_depth_m": 0.0,
+    "layers": 2,
+    "mix_kg": 898.7,
+    "bags": 45,
+    "tack_l": 1.7,
+    "prime_l": 0.0,
+    "base_m3": 0.0,
+    "lines": [
+     {
+      "key": "cold_mix",
+      "code": "BAG",
+      "label": "Premix cold asphalt",
+      "label_th": "ยางมะตอยสำเร็จรูป",
+      "qty": 45,
+      "unit": "bags",
+      "unit_price": 108,
+      "amount": 4860.0,
+      "detail": "45 × 20 kg = 900 kg (needs 899 kg)",
+      "source": "Median of 4 Bangkok store listings, Nov 2026 (99-127 THB a bag, VAT not stated); a producer quote to DRR on 10 Nov 2026 was 185 THB excl. VAT"
+     },
+     {
+      "key": "tack_coat",
+      "code": "LIQ",
+      "label": "Tack coat, CRS-2 emulsion",
+      "label_th": "ยางมะตอยน้ำ CRS-2",
+      "qty": 1.7,
+      "unit": "L",
+      "unit_price": 36.39,
+      "amount": 61.86,
+      "detail": "0.3 L/m² on the floor and cut sides, 5.64 m²",
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,386.67 THB/t excl. VAT, bulk, taken as 1 kg/L; stores sell cans at 48-60 THB/L"
+     }
+    ],
+    "subtotal": 4921.86,
+    "materials_cost": 4921.86,
+    "missing_prices": [],
+    "tools": [
+     "Asphalt cutter or jackhammer",
+     "Plate compactor",
+     "Shovel",
+     "Broom",
+     "Traffic cones × 4"
+    ],
+    "excludes": "Labour, equipment hire, transport, overheads and VAT are not included."
+   },
+   "severity": "high"
+  },
+  {
+   "no": 3,
+   "bill": {
+    "available": true,
+    "currency": "THB",
+    "symbol": "฿",
+    "method": "layered_patch",
+    "method_label": "Patch, cold mix in layers",
+    "depth_m": 0.069,
+    "area_m2": 0.46,
+    "cut_area_m2": 1.63,
+    "cut_w_m": 1.28,
+    "cut_l_m": 1.28,
+    "cut_edge_m": 0.3,
+    "asphalt_depth_m": 0.069,
+    "base_depth_m": 0.0,
+    "layers": 2,
+    "mix_kg": 225.7,
+    "bags": 12,
+    "tack_l": 0.6,
+    "prime_l": 0.0,
+    "base_m3": 0.0,
+    "lines": [
+     {
+      "key": "cold_mix",
+      "code": "BAG",
+      "label": "Premix cold asphalt",
+      "label_th": "ยางมะตอยสำเร็จรูป",
+      "qty": 12,
+      "unit": "bags",
+      "unit_price": 108,
+      "amount": 1296.0,
+      "detail": "12 × 20 kg = 240 kg (needs 226 kg)",
+      "source": "Median of 4 Bangkok store listings, Nov 2026 (99-127 THB a bag, VAT not stated); a producer quote to DRR on 10 Nov 2026 was 185 THB excl. VAT"
+     },
+     {
+      "key": "tack_coat",
+      "code": "LIQ",
+      "label": "Tack coat, CRS-2 emulsion",
+      "label_th": "ยางมะตอยน้ำ CRS-2",
+      "qty": 0.6,
+      "unit": "L",
+      "unit_price": 36.39,
+      "amount": 21.83,
+      "detail": "0.3 L/m² on the floor and cut sides, 1.99 m²",
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,386.67 THB/t excl. VAT, bulk, taken as 1 kg/L; stores sell cans at 48-60 THB/L"
+     }
+    ],
+    "subtotal": 1317.83,
+    "materials_cost": 1317.83,
+    "missing_prices": [],
+    "tools": [
+     "Asphalt cutter or jackhammer",
+     "Plate compactor",
+     "Shovel",
+     "Broom",
+     "Traffic cones × 4"
+    ],
+    "excludes": "Labour, equipment hire, transport, overheads and VAT are not included."
+   },
+   "severity": "high"
+  },
+  {
+   "no": 4,
+   "bill": {
+    "available": true,
+    "currency": "THB",
+    "symbol": "฿",
+    "method": "full_depth",
+    "method_label": "Deep patch: new base, then cold mix",
+    "depth_m": 0.122,
+    "area_m2": 2.59,
+    "cut_area_m2": 4.88,
+    "cut_w_m": 2.21,
+    "cut_l_m": 2.21,
+    "cut_edge_m": 0.3,
+    "asphalt_depth_m": 0.1,
+    "base_depth_m": 0.022,
+    "layers": 2,
+    "mix_kg": 977.4,
+    "bags": 49,
+    "tack_l": 0.3,
+    "prime_l": 4.9,
+    "base_m3": 0.11,
+    "lines": [
+     {
+      "key": "cold_mix",
+      "code": "BAG",
+      "label": "Premix cold asphalt",
+      "label_th": "ยางมะตอยสำเร็จรูป",
+      "qty": 49,
+      "unit": "bags",
+      "unit_price": 108,
+      "amount": 5292.0,
+      "detail": "49 × 20 kg = 980 kg (needs 977 kg)",
+      "source": "Median of 4 Bangkok store listings, Nov 2026 (99-127 THB a bag, VAT not stated); a producer quote to DRR on 10 Nov 2026 was 185 THB excl. VAT"
+     },
+     {
+      "key": "tack_coat",
+      "code": "LIQ",
+      "label": "Tack coat, CRS-2 emulsion",
+      "label_th": "ยางมะตอยน้ำ CRS-2",
+      "qty": 0.3,
+      "unit": "L",
+      "unit_price": 36.39,
+      "amount": 10.92,
+      "detail": "0.3 L/m² on the cut sides, 0.88 m²",
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,386.67 THB/t excl. VAT, bulk, taken as 1 kg/L; stores sell cans at 48-60 THB/L"
+     },
+     {
+      "key": "base",
+      "code": "AGG",
+      "label": "Crushed rock base",
+      "label_th": "หินคลุกพื้นทาง",
+      "qty": 0.11,
+      "unit": "m³",
+      "unit_price": 0,
+      "amount": null,
+      "detail": "2 cm under the cold mix",
+      "source": "No official or quoted price found (Nov 2026); set your local price"
+     },
+     {
+      "key": "prime_coat",
+      "code": "LIQ",
+      "label": "Prime coat, CSS-1 emulsion",
+      "label_th": "ยางมะตอยน้ำ CSS-1",
+      "qty": 4.9,
+      "unit": "L",
+      "unit_price": 36.45,
+      "amount": 178.61,
+      "detail": "1 L/m² on the new base",
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,453.33 THB/t excl. VAT, bulk, taken as 1 kg/L"
+     }
+    ],
+    "subtotal": 5481.53,
+    "materials_cost": 5481.53,
+    "missing_prices": [
+     "Crushed rock base"
+    ],
+    "tools": [
+     "Asphalt cutter or jackhammer",
+     "Plate compactor",
+     "Shovel",
+     "Wheelbarrow",
+     "Broom",
+     "Traffic cones × 6"
+    ],
+    "excludes": "Labour, equipment hire, transport, overheads and VAT are not included."
+   },
+   "severity": "high"
+  },
+  {
+   "no": 5,
+   "bill": {
+    "available": true,
+    "currency": "THB",
+    "symbol": "฿",
+    "method": "full_depth",
+    "method_label": "Deep patch: new base, then cold mix",
+    "depth_m": 0.15,
+    "area_m2": 3.22,
+    "cut_area_m2": 5.73,
+    "cut_w_m": 2.39,
+    "cut_l_m": 2.39,
+    "cut_edge_m": 0.3,
+    "asphalt_depth_m": 0.1,
+    "base_depth_m": 0.05,
+    "layers": 2,
+    "mix_kg": 1148.0,
+    "bags": 58,
+    "tack_l": 0.3,
+    "prime_l": 5.8,
+    "base_m3": 0.29,
+    "lines": [
+     {
+      "key": "cold_mix",
+      "code": "BAG",
+      "label": "Premix cold asphalt",
+      "label_th": "ยางมะตอยสำเร็จรูป",
+      "qty": 58,
+      "unit": "bags",
+      "unit_price": 108,
+      "amount": 6264.0,
+      "detail": "58 × 20 kg = 1160 kg (needs 1148 kg)",
+      "source": "Median of 4 Bangkok store listings, Nov 2026 (99-127 THB a bag, VAT not stated); a producer quote to DRR on 10 Nov 2026 was 185 THB excl. VAT"
+     },
+     {
+      "key": "tack_coat",
+      "code": "LIQ",
+      "label": "Tack coat, CRS-2 emulsion",
+      "label_th": "ยางมะตอยน้ำ CRS-2",
+      "qty": 0.3,
+      "unit": "L",
+      "unit_price": 36.39,
+      "amount": 10.92,
+      "detail": "0.3 L/m² on the cut sides, 0.96 m²",
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,386.67 THB/t excl. VAT, bulk, taken as 1 kg/L; stores sell cans at 48-60 THB/L"
+     },
+     {
+      "key": "base",
+      "code": "AGG",
+      "label": "Crushed rock base",
+      "label_th": "หินคลุกพื้นทาง",
+      "qty": 0.29,
+      "unit": "m³",
+      "unit_price": 0,
+      "amount": null,
+      "detail": "5 cm under the cold mix",
+      "source": "No official or quoted price found (Nov 2026); set your local price"
+     },
+     {
+      "key": "prime_coat",
+      "code": "LIQ",
+      "label": "Prime coat, CSS-1 emulsion",
+      "label_th": "ยางมะตอยน้ำ CSS-1",
+      "qty": 5.8,
+      "unit": "L",
+      "unit_price": 36.45,
+      "amount": 211.41,
+      "detail": "1 L/m² on the new base",
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,453.33 THB/t excl. VAT, bulk, taken as 1 kg/L"
+     }
+    ],
+    "subtotal": 6486.33,
+    "materials_cost": 6486.33,
+    "missing_prices": [
+     "Crushed rock base"
+    ],
+    "tools": [
+     "Asphalt cutter or jackhammer",
+     "Plate compactor",
+     "Shovel",
+     "Wheelbarrow",
+     "Broom",
+     "Traffic cones × 6"
+    ],
+    "excludes": "Labour, equipment hire, transport, overheads and VAT are not included."
+   },
+   "severity": "high"
+  },
+  {
+   "no": 6,
+   "bill": {
+    "available": true,
+    "currency": "THB",
+    "symbol": "฿",
+    "method": "full_depth",
+    "method_label": "Deep patch: new base, then cold mix",
+    "depth_m": 0.143,
+    "area_m2": 4.04,
+    "cut_area_m2": 6.81,
+    "cut_w_m": 2.61,
+    "cut_l_m": 2.61,
+    "cut_edge_m": 0.3,
+    "asphalt_depth_m": 0.1,
+    "base_depth_m": 0.043,
+    "layers": 2,
+    "mix_kg": 1364.0,
+    "bags": 69,
+    "tack_l": 0.4,
+    "prime_l": 6.9,
+    "base_m3": 0.3,
+    "lines": [
+     {
+      "key": "cold_mix",
+      "code": "BAG",
+      "label": "Premix cold asphalt",
+      "label_th": "ยางมะตอยสำเร็จรูป",
+      "qty": 69,
+      "unit": "bags",
+      "unit_price": 108,
+      "amount": 7452.0,
+      "detail": "69 × 20 kg = 1380 kg (needs 1364 kg)",
+      "source": "Median of 4 Bangkok store listings, Nov 2026 (99-127 THB a bag, VAT not stated); a producer quote to DRR on 10 Nov 2026 was 185 THB excl. VAT"
+     },
+     {
+      "key": "tack_coat",
+      "code": "LIQ",
+      "label": "Tack coat, CRS-2 emulsion",
+      "label_th": "ยางมะตอยน้ำ CRS-2",
+      "qty": 0.4,
+      "unit": "L",
+      "unit_price": 36.39,
+      "amount": 14.56,
+      "detail": "0.3 L/m² on the cut sides, 1.04 m²",
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,386.67 THB/t excl. VAT, bulk, taken as 1 kg/L; stores sell cans at 48-60 THB/L"
+     },
+     {
+      "key": "base",
+      "code": "AGG",
+      "label": "Crushed rock base",
+      "label_th": "หินคลุกพื้นทาง",
+      "qty": 0.3,
+      "unit": "m³",
+      "unit_price": 0,
+      "amount": null,
+      "detail": "4 cm under the cold mix",
+      "source": "No official or quoted price found (Nov 2026); set your local price"
+     },
+     {
+      "key": "prime_coat",
+      "code": "LIQ",
+      "label": "Prime coat, CSS-1 emulsion",
+      "label_th": "ยางมะตอยน้ำ CSS-1",
+      "qty": 6.9,
+      "unit": "L",
+      "unit_price": 36.45,
+      "amount": 251.51,
+      "detail": "1 L/m² on the new base",
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,453.33 THB/t excl. VAT, bulk, taken as 1 kg/L"
+     }
+    ],
+    "subtotal": 7718.07,
+    "materials_cost": 7718.07,
+    "missing_prices": [
+     "Crushed rock base"
+    ],
+    "tools": [
+     "Asphalt cutter or jackhammer",
+     "Plate compactor",
+     "Shovel",
+     "Wheelbarrow",
+     "Broom",
+     "Traffic cones × 6"
+    ],
+    "excludes": "Labour, equipment hire, transport, overheads and VAT are not included."
+   },
+   "severity": "medium"
+  },
+  {
+   "no": 7,
+   "bill": {
+    "available": true,
+    "currency": "THB",
+    "symbol": "฿",
+    "method": "full_depth",
+    "method_label": "Deep patch: new base, then cold mix",
+    "depth_m": 0.197,
+    "area_m2": 3.0,
+    "cut_area_m2": 5.44,
+    "cut_w_m": 2.33,
+    "cut_l_m": 2.33,
+    "cut_edge_m": 0.3,
+    "asphalt_depth_m": 0.1,
+    "base_depth_m": 0.097,
+    "layers": 2,
+    "mix_kg": 1089.0,
+    "bags": 55,
+    "tack_l": 0.3,
+    "prime_l": 5.5,
+    "base_m3": 0.53,
+    "lines": [
+     {
+      "key": "cold_mix",
+      "code": "BAG",
+      "label": "Premix cold asphalt",
+      "label_th": "ยางมะตอยสำเร็จรูป",
+      "qty": 55,
+      "unit": "bags",
+      "unit_price": 108,
+      "amount": 5940.0,
+      "detail": "55 × 20 kg = 1100 kg (needs 1089 kg)",
+      "source": "Median of 4 Bangkok store listings, Nov 2026 (99-127 THB a bag, VAT not stated); a producer quote to DRR on 10 Nov 2026 was 185 THB excl. VAT"
+     },
+     {
+      "key": "tack_coat",
+      "code": "LIQ",
+      "label": "Tack coat, CRS-2 emulsion",
+      "label_th": "ยางมะตอยน้ำ CRS-2",
+      "qty": 0.3,
+      "unit": "L",
+      "unit_price": 36.39,
+      "amount": 10.92,
+      "detail": "0.3 L/m² on the cut sides, 0.93 m²",
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,386.67 THB/t excl. VAT, bulk, taken as 1 kg/L; stores sell cans at 48-60 THB/L"
+     },
+     {
+      "key": "base",
+      "code": "AGG",
+      "label": "Crushed rock base",
+      "label_th": "หินคลุกพื้นทาง",
+      "qty": 0.53,
+      "unit": "m³",
+      "unit_price": 0,
+      "amount": null,
+      "detail": "10 cm under the cold mix",
+      "source": "No official or quoted price found (Nov 2026); set your local price"
+     },
+     {
+      "key": "prime_coat",
+      "code": "LIQ",
+      "label": "Prime coat, CSS-1 emulsion",
+      "label_th": "ยางมะตอยน้ำ CSS-1",
+      "qty": 5.5,
+      "unit": "L",
+      "unit_price": 36.45,
+      "amount": 200.48,
+      "detail": "1 L/m² on the new base",
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,453.33 THB/t excl. VAT, bulk, taken as 1 kg/L"
+     }
+    ],
+    "subtotal": 6151.4,
+    "materials_cost": 6151.4,
+    "missing_prices": [
+     "Crushed rock base"
+    ],
+    "tools": [
+     "Asphalt cutter or jackhammer",
+     "Plate compactor",
+     "Shovel",
+     "Wheelbarrow",
+     "Broom",
+     "Traffic cones × 6"
+    ],
+    "excludes": "Labour, equipment hire, transport, overheads and VAT are not included."
+   },
+   "severity": "high"
+  },
+  {
+   "no": 8,
+   "bill": {
+    "available": true,
+    "currency": "THB",
+    "symbol": "฿",
+    "method": "layered_patch",
+    "method_label": "Patch, cold mix in layers",
+    "depth_m": 0.074,
+    "area_m2": 0.06,
+    "cut_area_m2": 0.71,
+    "cut_w_m": 0.84,
+    "cut_l_m": 0.84,
+    "cut_edge_m": 0.3,
+    "asphalt_depth_m": 0.074,
+    "base_depth_m": 0.0,
+    "layers": 2,
+    "mix_kg": 105.8,
+    "bags": 6,
+    "tack_l": 0.3,
+    "prime_l": 0.0,
+    "base_m3": 0.0,
+    "lines": [
+     {
+      "key": "cold_mix",
+      "code": "BAG",
+      "label": "Premix cold asphalt",
+      "label_th": "ยางมะตอยสำเร็จรูป",
+      "qty": 6,
+      "unit": "bags",
+      "unit_price": 108,
+      "amount": 648.0,
+      "detail": "6 × 20 kg = 120 kg (needs 106 kg)",
+      "source": "Median of 4 Bangkok store listings, Nov 2026 (99-127 THB a bag, VAT not stated); a producer quote to DRR on 10 Nov 2026 was 185 THB excl. VAT"
+     },
+     {
+      "key": "tack_coat",
+      "code": "LIQ",
+      "label": "Tack coat, CRS-2 emulsion",
+      "label_th": "ยางมะตอยน้ำ CRS-2",
+      "qty": 0.3,
+      "unit": "L",
+      "unit_price": 36.39,
+      "amount": 10.92,
+      "detail": "0.3 L/m² on the floor and cut sides, 0.96 m²",
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,386.67 THB/t excl. VAT, bulk, taken as 1 kg/L; stores sell cans at 48-60 THB/L"
+     }
+    ],
+    "subtotal": 658.92,
+    "materials_cost": 658.92,
+    "missing_prices": [],
+    "tools": [
+     "Asphalt cutter or jackhammer",
+     "Plate compactor",
+     "Shovel",
+     "Broom",
+     "Traffic cones × 4"
+    ],
+    "excludes": "Labour, equipment hire, transport, overheads and VAT are not included."
+   },
+   "severity": "medium"
+  },
+  {
+   "no": 9,
+   "bill": {
+    "available": true,
+    "currency": "THB",
+    "symbol": "฿",
+    "method": "small_patch",
+    "method_label": "Small patch, cold mix in one layer",
+    "depth_m": 0.049,
+    "area_m2": 0.11,
+    "cut_area_m2": 0.87,
+    "cut_w_m": 0.93,
+    "cut_l_m": 0.93,
+    "cut_edge_m": 0.3,
+    "asphalt_depth_m": 0.049,
+    "base_depth_m": 0.0,
+    "layers": 1,
+    "mix_kg": 85.2,
+    "bags": 5,
+    "tack_l": 0.4,
+    "prime_l": 0.0,
+    "base_m3": 0.0,
+    "lines": [
+     {
+      "key": "cold_mix",
+      "code": "BAG",
+      "label": "Premix cold asphalt",
+      "label_th": "ยางมะตอยสำเร็จรูป",
+      "qty": 5,
+      "unit": "bags",
+      "unit_price": 108,
+      "amount": 540.0,
+      "detail": "5 × 20 kg = 100 kg (needs 85 kg)",
+      "source": "Median of 4 Bangkok store listings, Nov 2026 (99-127 THB a bag, VAT not stated); a producer quote to DRR on 10 Nov 2026 was 185 THB excl. VAT"
+     },
+     {
+      "key": "tack_coat",
+      "code": "LIQ",
+      "label": "Tack coat, CRS-2 emulsion",
+      "label_th": "ยางมะตอยน้ำ CRS-2",
+      "qty": 0.4,
+      "unit": "L",
+      "unit_price": 36.39,
+      "amount": 14.56,
+      "detail": "0.3 L/m² on the floor and cut sides, 1.05 m²",
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,386.67 THB/t excl. VAT, bulk, taken as 1 kg/L; stores sell cans at 48-60 THB/L"
+     }
+    ],
+    "subtotal": 554.56,
+    "materials_cost": 554.56,
+    "missing_prices": [],
+    "tools": [
+     "Asphalt cutter or chisel",
+     "Hand tamper",
+     "Shovel",
+     "Broom",
+     "Traffic cones × 4"
+    ],
+    "excludes": "Labour, equipment hire, transport, overheads and VAT are not included."
+   },
+   "severity": "low"
+  },
+  {
+   "no": 10,
+   "bill": {
+    "available": true,
+    "currency": "THB",
+    "symbol": "฿",
+    "method": "full_depth",
+    "method_label": "Deep patch: new base, then cold mix",
+    "depth_m": 0.182,
+    "area_m2": 0.27,
+    "cut_area_m2": 1.25,
+    "cut_w_m": 1.12,
+    "cut_l_m": 1.12,
+    "cut_edge_m": 0.3,
+    "asphalt_depth_m": 0.1,
+    "base_depth_m": 0.082,
+    "layers": 2,
+    "mix_kg": 251.0,
+    "bags": 13,
+    "tack_l": 0.2,
+    "prime_l": 1.3,
+    "base_m3": 0.11,
+    "lines": [
+     {
+      "key": "cold_mix",
+      "code": "BAG",
+      "label": "Premix cold asphalt",
+      "label_th": "ยางมะตอยสำเร็จรูป",
+      "qty": 13,
+      "unit": "bags",
+      "unit_price": 108,
+      "amount": 1404.0,
+      "detail": "13 × 20 kg = 260 kg (needs 251 kg)",
+      "source": "Median of 4 Bangkok store listings, Nov 2026 (99-127 THB a bag, VAT not stated); a producer quote to DRR on 10 Nov 2026 was 185 THB excl. VAT"
+     },
+     {
+      "key": "tack_coat",
+      "code": "LIQ",
+      "label": "Tack coat, CRS-2 emulsion",
+      "label_th": "ยางมะตอยน้ำ CRS-2",
+      "qty": 0.2,
+      "unit": "L",
+      "unit_price": 36.39,
+      "amount": 7.28,
+      "detail": "0.3 L/m² on the cut sides, 0.45 m²",
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,386.67 THB/t excl. VAT, bulk, taken as 1 kg/L; stores sell cans at 48-60 THB/L"
+     },
+     {
+      "key": "base",
+      "code": "AGG",
+      "label": "Crushed rock base",
+      "label_th": "หินคลุกพื้นทาง",
+      "qty": 0.11,
+      "unit": "m³",
+      "unit_price": 0,
+      "amount": null,
+      "detail": "8 cm under the cold mix",
+      "source": "No official or quoted price found (Nov 2026); set your local price"
+     },
+     {
+      "key": "prime_coat",
+      "code": "LIQ",
+      "label": "Prime coat, CSS-1 emulsion",
+      "label_th": "ยางมะตอยน้ำ CSS-1",
+      "qty": 1.3,
+      "unit": "L",
+      "unit_price": 36.45,
+      "amount": 47.39,
+      "detail": "1 L/m² on the new base",
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,453.33 THB/t excl. VAT, bulk, taken as 1 kg/L"
+     }
+    ],
+    "subtotal": 1458.67,
+    "materials_cost": 1458.67,
+    "missing_prices": [
+     "Crushed rock base"
+    ],
+    "tools": [
+     "Asphalt cutter or jackhammer",
+     "Plate compactor",
+     "Shovel",
+     "Wheelbarrow",
+     "Broom",
+     "Traffic cones × 6"
+    ],
+    "excludes": "Labour, equipment hire, transport, overheads and VAT are not included."
+   },
+   "severity": "high"
+  }
+ ],
+ "total": 40119.049999999996
+}

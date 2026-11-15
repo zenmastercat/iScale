@@ -1,0 +1,38 @@
+{
+  "_note": "Materials-only pothole repair estimate. Labour, equipment hire, transport, overheads and VAT are NOT included. Admins can override prices in Settings; these are the server defaults. Sources: Shared/Project_CIVIL/research/repair-cost-sources.md (Research Desk, 15 Nov 2026).",
+  "currency": "THB",
+  "symbol": "฿",
+  "cut_edge_m": 0.30,
+  "min_depth_m": 0.03,
+  "max_layer_m": 0.05,
+  "base_threshold_m": 0.10,
+  "surface_layer_m": 0.10,
+  "materials": {
+    "cold_mix": {
+      "label": "Premix cold asphalt", "label_th": "ยางมะตอยสำเร็จรูป", "code": "BAG",
+      "unit": "bag", "bag_kg": 20, "price": 108,
+      "density_kg_m3": 1944, "compaction_allowance": 0.03,
+      "source": "Median of 4 Bangkok store listings, Nov 2026 (99-127 THB a bag, VAT not stated); a producer quote to DRR on 10 Nov 2026 was 185 THB excl. VAT"
+    },
+    "tack_coat": {
+      "label": "Tack coat, CRS-2 emulsion", "label_th": "ยางมะตอยน้ำ CRS-2", "code": "LIQ",
+      "unit": "L", "price": 36.39, "rate_l_m2": 0.30,
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,386.67 THB/t excl. VAT, bulk, taken as 1 kg/L; stores sell cans at 48-60 THB/L"
+    },
+    "prime_coat": {
+      "label": "Prime coat, CSS-1 emulsion", "label_th": "ยางมะตอยน้ำ CSS-1", "code": "LIQ",
+      "unit": "L", "price": 36.45, "rate_l_m2": 1.0,
+      "source": "Commerce Ministry (TPSO) Bangkok-area list, Oct 2026: 36,453.33 THB/t excl. VAT, bulk, taken as 1 kg/L"
+    },
+    "base": {
+      "label": "Crushed rock base", "label_th": "หินคลุกพื้นทาง", "code": "AGG",
+      "unit": "m³", "price": 0, "compaction_allowance": 0.0,
+      "source": "No official or quoted price found (Nov 2026); set your local price"
+    }
+  },
+  "tools": {
+    "small_patch": ["Asphalt cutter or chisel", "Hand tamper", "Shovel", "Broom", "Traffic cones × 4"],
+    "layered_patch": ["Asphalt cutter or jackhammer", "Plate compactor", "Shovel", "Broom", "Traffic cones × 4"],
+    "full_depth": ["Asphalt cutter or jackhammer", "Plate compactor", "Shovel", "Wheelbarrow", "Broom", "Traffic cones × 6"]
+  }
+}

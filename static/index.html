@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f6f7f5" />
+  <title>Civil Scan</title>
+  <link rel="stylesheet" href="/static/vendor/maplibre-gl.css" />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script type="importmap">
+    { "imports": { "three": "/static/vendor/three/three.module.js" } }
+  </script>
+</head>
+<body>
+  <div class="login" id="login" hidden></div>
+  <div class="app" id="app" hidden>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Civil Scan home">
+        <svg viewBox="0 0 28 20" width="28" height="20" aria-hidden="true">
+          <rect x="0" y="8" width="7" height="4" fill="#3f9b6e"/><rect x="7" y="8" width="7" height="4" fill="#c9a100"/>
+          <rect x="14" y="8" width="7" height="4" fill="#d9730d"/><rect x="21" y="8" width="7" height="4" fill="#3f9b6e"/>
+          <path d="M10 4v12M24 4v12" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+        Civil Scan
+      </a>
+      <div class="crumbs">
+        <label><span class="sr-only">Project</span><select id="projectSelect" aria-label="Project"></select></label>
+        <span class="crumb-sep" aria-hidden="true">/</span>
+        <label><span class="sr-only">Survey</span><select id="surveySelect" aria-label="Survey"></select></label>
+        <span id="surveyStatus" class="status" hidden></span>
+      </div>
+      <div class="spacer"></div>
+      <span class="me" id="me"></span>
+      <button class="btn quiet" id="demoBtn" type="button">Load demo street</button>
+      <button class="btn quiet" id="newProjectBtn" type="button">New project</button>
+      <button class="btn primary" id="newSurveyBtn" type="button">Add survey</button>
+      <button class="btn quiet icon" id="chatToggle" type="button" aria-pressed="true" title="Questions panel" aria-label="Show or hide the questions panel">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 5h14v10H10l-5 4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+      </button>
+    </header>
+
+    <nav class="rail" aria-label="Views">
+      <button class="tab" data-view="map" aria-current="page">Map</button>
+      <button class="tab" data-view="scan">3D</button>
+      <button class="tab" data-view="inventory">Inventory</button>
+      <button class="tab" data-view="plan">Repairs</button>
+      <button class="tab" data-view="verify">Verification</button>
+      <button class="tab" data-view="video">Video</button>
+      <span class="rail-gap"></span>
+      <button class="tab" data-view="messages">Messages <span class="badge-n" id="unread" hidden></span></button>
+      <button class="tab" data-view="settings">Settings <span class="badge-n soft" id="setupLeft" hidden></span></button>
+      <button class="tab quiet-tab" id="signOut" type="button">Sign out</button>
+    </nav>
+
+    <main class="stage">
+      <!-- MAP -->
+      <section class="view" id="view-map" data-active>
+        <div class="map-head">
+          <p class="summary" id="summary">Load the demo street or add a survey to begin.</p>
+          <div class="strip" id="strip" aria-label="Condition along the route"></div>
+        </div>
+        <div class="map-wrap">
+          <div id="map" class="map" role="application" aria-label="Condition map"></div>
+          <div class="map-tools">
+            <label class="toggle"><input type="checkbox" data-layer="defects" checked> Defects</label>
+            <label class="toggle"><input type="checkbox" data-layer="assets" checked> Assets</label>
+            <button class="btn small" id="pinBtn" type="button" aria-pressed="false">Pin a pothole</button>
+            <button class="btn small quiet" id="pinHereBtn" type="button">Pin where I am</button>
+            <button class="btn quiet small" id="clearHighlight" type="button" hidden>Show everything</button>
+          </div>
+          <div class="legend" id="legend"></div>
+        </div>
+      </section>
+
+      <!-- 3D -->
+      <section class="view" id="view-scan">
+        <div id="viewer" class="viewer" aria-label="3D point cloud"></div>
+        <div class="viewer-tools">
+          <div class="seg" role="group" aria-label="Colour points by">
+            <button class="seg-btn" data-color="rgb" aria-pressed="true">Photo colour</button>
+            <button class="seg-btn" data-color="height" aria-pressed="false">Height</button>
+            <button class="seg-btn" data-color="intensity" aria-pressed="false">Grey</button>
+          </div>
+          <button class="btn small" id="tagModeBtn" type="button" aria-pressed="false">Tag an issue</button>
+          <button class="btn small" id="resetCamBtn" type="button">Reset view</button>
+          <span class="hint" id="viewerHint">Drag to orbit, right-drag to pan, scroll to zoom</span>
+        </div>
+        <div class="viewer-empty" id="viewerEmpty" hidden>This survey has no point cloud yet.</div>
+      </section>
+
+      <!-- INVENTORY -->
+      <section class="view pad" id="view-inventory">
+        <div class="page-head">
+          <h1>Inventory</h1>
+          <div class="toolbar">
+            <input class="input search" id="invSearch" type="search" placeholder="Search by id, type or segment" aria-label="Search inventory" />
+            <select class="input" id="invKind" aria-label="Kind">
+              <option value="">Defects and assets</option><option value="defect">Defects</option><option value="asset">Assets</option>
+            </select>
+            <select class="input" id="invSeverity" aria-label="Severity">
+              <option value="">Any severity</option><option>high</option><option>medium</option><option>low</option>
+            </select>
+            <select class="input" id="invStatus" aria-label="Status">
+              <option value="">Any status</option><option value="open">Open</option><option value="planned">Planned</option><option value="fixed">Fixed</option>
+              <option value="verified">Verified</option><option value="not_fixed">Not fixed</option><option value="dismissed">Dismissed</option>
+            </select>
+            <div class="spacer"></div>
+            <a class="btn quiet small" id="exportCsv" href="#" download>Export CSV</a>
+            <a class="btn quiet small" id="exportGeo" href="#" download>Export GeoJSON</a>
+            <button class="btn primary small" id="invMakeWo" type="button" disabled>Create work order</button>
+          </div>
+        </div>
+        <div class="table-wrap"><table class="table" id="invTable"></table></div>
+      </section>
+
+      <!-- REPAIRS -->
+      <section class="view pad" id="view-plan">
+        <div class="page-head">
+          <h1>Repairs</h1>
+          <div class="toolbar">
+            <div class="seg" role="group" aria-label="Plan type">
+              <button class="seg-btn" data-plan="spot" aria-pressed="true">Fix each defect</button>
+              <button class="seg-btn" data-plan="segment" aria-pressed="false">Treat whole segments</button>
+              <button class="seg-btn" data-plan="priority" aria-pressed="false">Fix first (traffic)</button>
+            </div>
+            <label class="field inline"><span>Budget</span><input class="input num" id="planBudget" type="number" min="0" step="100" placeholder="No limit" inputmode="decimal" /></label>
+          </div>
+        </div>
+        <div class="plan-grid">
+          <section class="panel">
+            <div class="panel-head"><h2>Proposed work</h2><p class="total" id="planTotal"></p></div>
+            <div class="table-wrap flush"><table class="table" id="planTable"></table></div>
+            <div class="panel-foot">
+              <p class="muted small" id="planDeferred"></p>
+              <button class="btn primary small" id="planMakeWo" type="button">Create work order</button>
+            </div>
+            <p class="note" id="planNote"></p>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><h2>Work orders</h2></div>
+            <div id="woList" class="wo-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- VERIFICATION -->
+      <section class="view pad" id="view-verify">
+        <div class="page-head">
+          <h1>Verification</h1>
+          <div class="toolbar">
+            <label class="field inline"><span>Before</span><select class="input" id="verBefore"></select></label>
+            <label class="field inline"><span>After</span><select class="input" id="verAfter"></select></label>
+            <label class="field inline"><span>Work order</span><select class="input" id="verWo"><option value="">All defects</option></select></label>
+            <button class="btn primary small" id="verRun" type="button">Compare surveys</button>
+          </div>
+        </div>
+        <p class="summary" id="verCounts"></p>
+        <div class="table-wrap"><table class="table" id="verTable"></table></div>
+      </section>
+
+      <!-- VIDEO -->
+      <section class="view pad" id="view-video">
+        <div class="page-head">
+          <h1>Video</h1>
+          <p class="muted">The pothole detector scans the whole drive. Each detection marks the 10 seconds before and after it, and only those clips are rebuilt in 3D.</p>
+        </div>
+        <div id="videoBody"></div>
+      </section>
+
+      <!-- MESSAGES -->
+      <section class="view" id="view-messages"></section>
+
+      <!-- SETTINGS -->
+      <section class="view pad" id="view-settings"></section>
+
+      <aside class="drawer" id="drawer" aria-live="polite" hidden></aside>
+    </main>
+
+    <aside class="chat" id="chat" aria-label="Questions about this survey">
+      <div class="chat-head">
+        <h2>Civil Helper</h2>
+        <p class="muted small" id="helperStatus">Survey questions, standards and repair methods</p>
+      </div>
+      <div class="chat-log" id="chatLog"></div>
+      <div class="chips" id="chatChips"></div>
+      <form class="chat-form" id="chatForm">
+        <input class="input" id="chatInput" autocomplete="off" placeholder="Ask Civil Helper" aria-label="Question" enterkeyhint="send" maxlength="2000" />
+        <button class="btn primary" type="submit">Ask</button>
+      </form>
+      <p class="chat-note">Questions about this survey are answered from its data by fixed rules. Other questions go to Civil Helper, which answers from your company's document library and names its sources.</p>
+    </aside>
+  </div>
+
+  <dialog id="surveyDialog" class="dialog">
+    <form method="dialog" id="surveyForm">
+      <h2>Add a survey</h2>
+      <label class="field"><span>Name</span><input class="input" name="name" required maxlength="120" value="Drive" /></label>
+      <label class="field"><span>Source</span><select class="input" name="decoder" id="decoderSelect"></select></label>
+      <p class="muted small" id="decoderHelp"></p>
+      <label class="field"><span>Files</span><input class="input" type="file" name="files" id="surveyFiles" multiple /></label>
+      <details class="adv">
+        <summary>Scale and placement</summary>
+        <div class="grid2">
+          <label class="field"><span>Camera height above the road (m)</span><input class="input num" name="camera_height_m" type="number" step="0.01" min="0.2" max="10" placeholder="1.4" /></label>
+          <label class="field"><span>Heading at the start (degrees)</span><input class="input num" name="heading_deg" type="number" step="1" min="0" max="360" placeholder="0 is north" /></label>
+          <label class="field"><span>Up axis</span><select class="input" name="up_axis"><option value="">Detect</option><option>z</option><option>y</option><option>-y</option></select></label>
+          <label class="check"><input type="checkbox" name="metric" /> <span>Coordinates are already in metres</span></label>
+        </div>
+        <p class="muted small">Include a <code>gps.csv</code> with t, lat and lon columns to get real-world scale and position. Without it, the camera height sets the scale and the heading places the drive.</p>
+      </details>
+      <div class="progress" id="uploadProgress" hidden><div></div></div>
+      <div class="dialog-actions">
+        <button class="btn quiet" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" id="surveySubmit" value="ok">Upload and process</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="projectDialog" class="dialog">
+    <form method="dialog" id="projectForm">
+      <h2>New project</h2>
+      <label class="field"><span>Name</span><input class="input" name="name" required maxlength="120" placeholder="District 4 pavement survey" /></label>
+      <div class="grid2">
+        <label class="field"><span>Reference latitude</span><input class="input num" name="origin_lat" type="number" step="any" required /></label>
+        <label class="field"><span>Reference longitude</span><input class="input num" name="origin_lon" type="number" step="any" required /></label>
+      </div>
+      <p class="muted small">Distances are measured from this point. Pick one near where your drives start.</p>
+      <div class="dialog-actions">
+        <button class="btn quiet" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="ok">Create project</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="/static/vendor/maplibre-gl.js"></script>
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>

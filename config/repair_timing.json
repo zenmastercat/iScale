@@ -1,0 +1,25 @@
+{
+  "_note": "Suggested repair windows by OpenStreetMap road class. A rule of thumb that the admin can change here; it is not a traffic forecast. No general Bangkok or DOH rule on lane-closure hours was found (Research Desk, 15 Nov 2026); BMA road repairs have been reported at 22:00-05:00.",
+  "classes": {
+    "major": {
+      "roads": ["motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link", "secondary", "secondary_link", "busway"],
+      "window": "22:00-05:00", "days": "Sunday to Thursday nights", "level": "low",
+      "reason": "Busy through road. Closing a lane in the day causes queues, so work at night when traffic is lightest, with lights and reflective signs. Bangkok (BMA) road repairs have been reported at these hours; check the road owner's own rule."
+    },
+    "collector": {
+      "roads": ["tertiary", "tertiary_link", "unclassified"],
+      "window": "10:00-15:00", "days": "Monday to Friday", "level": "medium",
+      "reason": "Local through road. Work between the morning and evening rush hours, in daylight."
+    },
+    "local": {
+      "roads": ["residential", "living_street", "service", "track", "pedestrian", "footway", "cycleway", "path"],
+      "window": "09:00-16:00", "days": "Monday to Friday", "level": "low",
+      "reason": "Quiet street. Daytime work is safer and easier to see; fewer parked cars while people are at work."
+    },
+    "unknown": {
+      "roads": [],
+      "window": "10:00-15:00", "days": "Monday to Friday", "level": "unknown",
+      "reason": "Road type not known yet (press Update traffic in Repairs). Between rush hours is the safe default."
+    }
+  }
+}
