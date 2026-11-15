@@ -1,4 +1,4 @@
-# civil-scan
+# iScale
 
 An original, self-hosted street-inspection platform built from the workflow shown in
 a city-infrastructure product video: **see it** (scan the street in 3D and inventory
