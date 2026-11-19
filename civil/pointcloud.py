@@ -171,25 +171,33 @@ def read_ply(path: Path) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | No
     return xyz, rgb, label
 
 
-def write_ply(path: Path, xyz: np.ndarray, rgb: np.ndarray | None = None, label: np.ndarray | None = None) -> None:
+def write_ply(path: Path, xyz: np.ndarray, rgb: np.ndarray | None = None, label: np.ndarray | None = None,
+              comments: list[str] | None = None, flags: dict[str, np.ndarray] | None = None) -> None:
+    """Binary PLY. `flags` adds one uchar column per name (e.g. detector=0/1); `comments` go in the header."""
     n = len(xyz)
+    flags = flags or {}
     fields = [("x", "<f4"), ("y", "<f4"), ("z", "<f4")]
     if rgb is not None:
         fields += [("red", "u1"), ("green", "u1"), ("blue", "u1")]
     if label is not None:
         fields += [("label", "<i4")]
+    fields += [(k, "u1") for k in flags]
     arr = np.empty(n, dtype=fields)
     arr["x"], arr["y"], arr["z"] = xyz[:, 0], xyz[:, 1], xyz[:, 2]
     if rgb is not None:
         arr["red"], arr["green"], arr["blue"] = rgb[:, 0], rgb[:, 1], rgb[:, 2]
     if label is not None:
         arr["label"] = label
-    header = ["ply", "format binary_little_endian 1.0", f"element vertex {n}",
-              "property float x", "property float y", "property float z"]
+    for k, v in flags.items():
+        arr[k] = v
+    header = ["ply", "format binary_little_endian 1.0"]
+    header += [f"comment {c}" for c in (comments or []) if "\n" not in c]
+    header += [f"element vertex {n}", "property float x", "property float y", "property float z"]
     if rgb is not None:
         header += ["property uchar red", "property uchar green", "property uchar blue"]
     if label is not None:
         header.append("property int label")
+    header += [f"property uchar {k}" for k in flags]
     header.append("end_header")
     with open(path, "wb") as f:
         f.write(("\n".join(header) + "\n").encode())

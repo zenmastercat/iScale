@@ -296,6 +296,10 @@ function renderAll() {
   if (a) viewer.setFindings(a.findings, state.catalog);
   $("#exportCsv").href = state.sid ? `/api/projects/${state.project.id}/surveys/${state.sid}/export.csv` : "#";
   $("#exportGeo").href = state.sid ? `/api/projects/${state.project.id}/surveys/${state.sid}/export.geojson` : "#";
+  const sv3 = state.surveys.find((s) => s.id === state.sid);
+  const has3d = !!(sv3 && sv3.status === "done" && !isVideoJob(sv3));
+  $("#exportPly").hidden = !has3d;
+  $("#exportPly").href = has3d ? `/api/projects/${state.project.id}/surveys/${state.sid}/export.ply` : "#";
 }
 
 function renderSummary() {
@@ -357,7 +361,7 @@ $("#strip").addEventListener("click", (e) => {
 
 function renderLegend() {
   if (!state.analysis) { $("#legend").innerHTML = ""; return; }
-  const bands = ["#8c1d2c", "#e0503a", "#ef8f36", "#e8c547", "#9fc84a", "#3fb37f"];
+  const bands = ["#8e2a35", "#D94B4B", "#E99B37", "#e6c54f", "#8cc084", "#329B76"];
   $("#legend").innerHTML =
     `<div>Condition of each segment</div>
      <div class="legend-scale">${bands.map((c) => `<span style="background:${c}"></span>`).join("")}</div>

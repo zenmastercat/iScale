@@ -135,6 +135,8 @@ def run_video_job(pid: str, sid: str, progress) -> dict:
             "clip_start": w["start"], "clip_fps": lb_fps,
             "max_depth": cfg["lingbot"].get("max_depth_units"),
             "analysis": {k: v for k, v in (cfg.get("analysis") or {}).items() if not k.startswith("_")}})
+        # keep the clip out of the worker queue until its input files are written
+        store.update_survey(pid, child["id"], status="preparing", stage="", error=None)
         cdir = store.survey_dir(pid, child["id"]) / "input"
         times = extract_clip(video, w["start"], w["end"], lb_fps, rows, cdir / "frames")
         # detector boxes -> clip frame index, in LingBot model-image pixels

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#f6f7f5" />
+  <meta name="theme-color" content="#102D50" />
   <title>iScale</title>
   <link rel="stylesheet" href="/static/vendor/maplibre-gl.css" />
   <link rel="stylesheet" href="/static/styles.css" />
@@ -13,12 +13,13 @@
 </head>
 <body>
   <div class="login" id="login" hidden></div>
+  <div class="lang-float" data-lang-switch></div>
   <div class="app" id="app" hidden>
     <header class="topbar">
-      <a class="brand" href="/" aria-label="iScale home">
+      <a class="brand top-brand" href="/" aria-label="iScale home">
         <svg viewBox="0 0 28 20" width="28" height="20" aria-hidden="true">
-          <rect x="0" y="8" width="7" height="4" fill="#3f9b6e"/><rect x="7" y="8" width="7" height="4" fill="#c9a100"/>
-          <rect x="14" y="8" width="7" height="4" fill="#d9730d"/><rect x="21" y="8" width="7" height="4" fill="#3f9b6e"/>
+          <rect x="0" y="8" width="7" height="4" fill="#329B76"/><rect x="7" y="8" width="7" height="4" fill="#347BC3"/>
+          <rect x="14" y="8" width="7" height="4" fill="#E99B37"/><rect x="21" y="8" width="7" height="4" fill="#329B76"/>
           <path d="M10 4v12M24 4v12" stroke="currentColor" stroke-width="1.6"/>
         </svg>
         iScale
@@ -30,7 +31,6 @@
         <span id="surveyStatus" class="status" hidden></span>
       </div>
       <div class="spacer"></div>
-      <span class="me" id="me"></span>
       <button class="btn quiet" id="demoBtn" type="button">Load demo street</button>
       <button class="btn quiet" id="newProjectBtn" type="button">New project</button>
       <button class="btn quiet" id="recordBtn" type="button" aria-label="Record a drive" title="Record a drive with the camera and GPS">
@@ -43,16 +43,27 @@
     </header>
 
     <nav class="rail" aria-label="Views">
-      <button class="tab" data-view="map" aria-current="page">Map</button>
-      <button class="tab" data-view="scan">3D</button>
-      <button class="tab" data-view="inventory">Inventory</button>
-      <button class="tab" data-view="plan">Repairs</button>
-      <button class="tab" data-view="verify">Verification</button>
-      <button class="tab" data-view="video">Video</button>
+      <a class="brand rail-brand" href="/" aria-label="iScale home">
+        <span class="rail-mark" aria-hidden="true"><svg viewBox="0 0 28 20" width="22" height="16"><rect x="0" y="8" width="7" height="4" fill="#5FC59F"/><rect x="7" y="8" width="7" height="4" fill="#7FB2E5"/><rect x="14" y="8" width="7" height="4" fill="#F2B45E"/><rect x="21" y="8" width="7" height="4" fill="#5FC59F"/><path d="M10 4v12M24 4v12" stroke="#fff" stroke-width="1.6"/></svg></span>
+        <span class="rail-name">iScale<small>Road infrastructure</small></span>
+      </a>
+      <p class="rail-label">Workspace</p>
+      <button class="tab" data-view="map" aria-current="page"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg><span class="tab-l">Map</span></button>
+      <button class="tab" data-view="scan"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3zM4 7.5l8 4.5 8-4.5M12 12v9"/></svg><span class="tab-l">3D</span></button>
+      <button class="tab" data-view="inventory"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg><span class="tab-l">Inventory</span></button>
+      <button class="tab" data-view="plan"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3.5 17.5l3 3 5.8-5.8a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg><span class="tab-l">Repairs</span></button>
+      <button class="tab" data-view="verify"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6l8-3z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg><span class="tab-l">Verification</span></button>
+      <button class="tab" data-view="video"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10.5l5-3v9l-5-3"/></svg><span class="tab-l">Video</span></button>
+      <p class="rail-label">Team</p>
+      <button class="tab" data-view="messages"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10H10l-5 4z"/></svg><span class="tab-l">Messages</span> <span class="badge-n" id="unread" hidden></span></button>
+      <p class="rail-label">Management</p>
+      <button class="tab" data-view="settings"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span class="tab-l">Settings</span> <span class="badge-n soft" id="setupLeft" hidden></span></button>
       <span class="rail-gap"></span>
-      <button class="tab" data-view="messages">Messages <span class="badge-n" id="unread" hidden></span></button>
-      <button class="tab" data-view="settings">Settings <span class="badge-n soft" id="setupLeft" hidden></span></button>
-      <button class="tab quiet-tab" id="signOut" type="button">Sign out</button>
+      <div class="rail-foot">
+        <span class="me" id="me" data-no-i18n></span>
+        <div class="rail-lang" data-lang-switch></div>
+        <button class="tab quiet-tab" id="signOut" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h11"/></svg><span class="tab-l">Sign out</span></button>
+      </div>
     </nav>
 
     <main class="stage">
@@ -113,6 +124,8 @@
             <div class="spacer"></div>
             <a class="btn quiet small" id="exportCsv" href="#" download>Export CSV</a>
             <a class="btn quiet small" id="exportGeo" href="#" download>Export GeoJSON</a>
+            <a class="btn quiet small" id="exportPly" href="#" download hidden
+               title="The full LingBot-Map point cloud in metres, with the detector's points marked. Opens in CloudCompare or MeshLab">3D point cloud (.ply)</a>
             <button class="btn primary small" id="invMakeWo" type="button" disabled>Create work order</button>
           </div>
         </div>
@@ -241,6 +254,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
   <script src="/static/vendor/maplibre-gl.js"></script>
+  <script type="module" src="/static/i18n.js"></script>
   <script type="module" src="/static/app.js"></script>
 </body>
 </html>

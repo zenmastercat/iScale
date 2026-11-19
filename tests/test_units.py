@@ -190,3 +190,28 @@ def test_pothole_depth_ignores_stray_points_and_refuses_reflections():
     m = wet[0]["metrics"]
     assert m["depth_max_m"] is None and m["depth_unreliable"] is True
     assert 0.03 < m["depth_median_m"] < 0.1 and "water" in wet[0]["evidence"]
+
+
+def test_upright_camera_decides_up_when_a_denser_layer_above_wins_the_plane_fit():
+    """LingBot clips: a dense far/sky layer can be the biggest plane. The cameras' own "down"
+    axis (OpenCV y) must then decide which way is up, or the export comes out upside down."""
+    rng = np.random.default_rng(3)
+    road = np.c_[rng.uniform(-3, 3, 20000), rng.uniform(0, 60, 20000), rng.normal(0, 0.005, 20000)]
+    sky = np.c_[rng.uniform(-15, 15, 60000), rng.uniform(0, 60, 60000), 3.0 + rng.normal(0, 0.005, 60000)]
+    pts = np.r_[road, sky]
+    # upright OpenCV camera looking north (+y): x right = east, y down = -up, z forward = north
+    r_cam = np.array([[1.0, 0, 0], [0, 0, 1], [0, -1, 0]])
+    poses = np.repeat(np.eye(4)[None], 30, 0)
+    poses[:, :3, :3] = r_cam
+    poses[:, :3, 3] = np.c_[np.zeros(30), np.linspace(0, 50, 30), np.full(30, 1.1)]
+    # the decoder's frame is upside down: 180 deg about the driving direction
+    flip = np.diag([-1.0, 1.0, -1.0])
+    pts = pts @ flip.T
+    poses[:, :3, :3] = flip @ poses[:, :3, :3]
+    poses[:, :3, 3] = poses[:, :3, 3] @ flip.T
+    rec = Reconstruction(points=pts.astype(np.float32), poses=poses,
+                         meta={"metric": True, "up_axis": "auto", "camera_convention": "opencv"})
+    align(rec, 14.0, 102.0, {})
+    cam_z = float(np.median(rec.trajectory()[:, 2]))
+    assert abs(cam_z - 1.1) < 0.1                     # ground at 0, cameras 1.1 m above it
+    assert np.median(rec.points[len(road):, 2]) > cam_z  # the sky layer is above the cameras

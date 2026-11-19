@@ -49,6 +49,10 @@ def free_gpu_gb() -> float | None:
 
 
 def lingbot_ready(lb: dict) -> tuple[bool, str]:
+    from ..worker import takes
+
+    if takes("lingbot_clip"):  # CIVIL_3D=remote: the GPU worker runs LingBot-Map, not this server
+        return True, ""
     for key in ("python", "repo", "model"):
         if not Path(lb.get(key, "")).exists():
             return False, f"lingbot.{key} not found: {lb.get(key)} (config/video.json)"
@@ -130,7 +134,8 @@ class LingbotClipDecoder(Decoder):
             from ..pointcloud import read_gps_csv
 
             rec.gps = read_gps_csv(input_dir / "gps.csv")
-        rec.meta.update({"metric": False, "up_axis": "auto", "decoder": self.name, "lingbot": info,
+        rec.meta.update({"metric": False, "up_axis": "auto", "camera_convention": "opencv",
+                         "decoder": self.name, "lingbot": info,
                          "camera_height_m": params.get("camera_height_m")})
         return rec
 

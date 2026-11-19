@@ -3,6 +3,7 @@
   civil serve [--host 127.0.0.1] [--port 8765]     run the web app
   civil demo                                        build the demo project (no server)
   civil decoders                                    list decoders and whether they can run
+  civil worker --server URL --token-file FILE       do a remote server's 3D jobs on this (GPU) computer
   civil calibrate VIDEO [--t 5] [--src x,y x,y x,y x,y] [--width-m 3.5 --length-m 12 --near-m 4] [--save]
         draw the road-plane calibration on a frame and write a bird's-eye preview;
         --src takes the 4 road corners as fractions of the frame (TL BL BR TR);
@@ -23,6 +24,11 @@ def main() -> None:
     s.add_argument("--port", type=int, default=8765)
     sub.add_parser("demo")
     sub.add_parser("decoders")
+    w = sub.add_parser("worker", help="run 3D jobs for a server that has CIVIL_3D=remote")
+    w.add_argument("--server", required=True, help="the iScale server, for example http://192.168.1.135:8765")
+    w.add_argument("--token-file", required=True, help="file holding the server's CIVIL_WORKER_TOKEN")
+    w.add_argument("--poll", type=float, default=15.0, help="seconds between checks when there is no job")
+    w.add_argument("--once", action="store_true", help="do at most one job, then exit")
     c = sub.add_parser("calibrate")
     c.add_argument("video")
     c.add_argument("--t", type=float, default=5.0, help="time of the frame to use (s)")
@@ -62,6 +68,13 @@ def main() -> None:
             pipeline.run_survey(proj["id"], sv["id"])
             print(json.dumps(store.get_survey(proj["id"], sv["id"]), indent=1))
         print("project", proj["id"])
+    elif a.cmd == "worker":
+        from pathlib import Path
+
+        from .worker import run_worker
+
+        token = Path(a.token_file).read_text().strip()
+        run_worker(a.server, token, poll_s=a.poll, once=a.once)
     elif a.cmd == "calibrate":
         calibrate(a)
     elif a.cmd == "decoders":

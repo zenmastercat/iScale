@@ -1,7 +1,7 @@
 /* Condition map: segments coloured by condition index, findings as dots. */
 const maplibregl = window.maplibregl;
 
-const SEV_COLOR = ["match", ["get", "severity"], "high", "#b42318", "medium", "#d9730d", "low", "#c9a100", "#4a7a9b"];
+const SEV_COLOR = ["match", ["get", "severity"], "high", "#D94B4B", "medium", "#E99B37", "low", "#329B76", "#6a7fa0"];
 
 export function webglAvailable() {
   try {
@@ -39,7 +39,7 @@ function createGlMap(el, { onSelect, onSegment, onPin, onMapClick }) {
         },
       },
       layers: [
-        { id: "bg", type: "background", paint: { "background-color": "#eef1ee" } },
+        { id: "bg", type: "background", paint: { "background-color": "#eef2f7" } },
         {
           id: "osm", type: "raster", source: "osm",
           paint: { "raster-saturation": -0.9, "raster-brightness-min": 0.08, "raster-contrast": -0.15, "raster-opacity": 0.75 },
@@ -66,13 +66,13 @@ function createGlMap(el, { onSelect, onSegment, onPin, onMapClick }) {
     map.addSource("pins", { type: "geojson", data: empty });
     map.addSource("me", { type: "geojson", data: empty });
     map.addLayer({ id: "seg-hl", type: "line", source: "segments", filter: ["==", ["get", "hl"], true],
-      layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#1e4f8f", "line-width": 16, "line-opacity": 0.25 } });
+      layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#102D50", "line-width": 16, "line-opacity": 0.25 } });
     map.addLayer({ id: "seg-case", type: "line", source: "segments",
       layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": 9 } });
     map.addLayer({ id: "seg", type: "line", source: "segments",
       layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": ["get", "color"], "line-width": 5.5 } });
     map.addLayer({ id: "f-hl", type: "circle", source: "findings", filter: ["==", ["get", "hl"], true],
-      paint: { "circle-radius": 11, "circle-color": "rgba(0,0,0,0)", "circle-stroke-color": "#1e4f8f", "circle-stroke-width": 2.2 } });
+      paint: { "circle-radius": 11, "circle-color": "rgba(0,0,0,0)", "circle-stroke-color": "#102D50", "circle-stroke-width": 2.2 } });
     map.addLayer({ id: "f", type: "circle", source: "findings",
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 14, ["case", ["==", ["get", "kind"], "asset"], 2.5, 3.5], 19, ["case", ["==", ["get", "kind"], "asset"], 6, 8]],
@@ -86,16 +86,16 @@ function createGlMap(el, { onSelect, onSegment, onPin, onMapClick }) {
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 5, 19, 10],
         "circle-color": SEV_COLOR,
-        "circle-stroke-color": "#1d2622",
+        "circle-stroke-color": "#102D50",
         "circle-stroke-width": ["case", ["get", "hl"], 3.5, 2],
         "circle-opacity": ["case", ["==", ["get", "status"], "open"], 1, 0.35],
       } });
     // "you are here": accuracy ring (a real-size circle polygon) and a blue dot, under nothing else
     map.addLayer({ id: "me-acc", type: "fill", source: "me", filter: ["==", ["get", "part"], "acc"],
-      paint: { "fill-color": "#1e6fd9", "fill-opacity": 0.12, "fill-outline-color": "#1e6fd9" } });
+      paint: { "fill-color": "#347BC3", "fill-opacity": 0.12, "fill-outline-color": "#347BC3" } });
     // the dot sits above pins so it is never hidden; the ring stays underneath
     map.addLayer({ id: "me-dot", type: "circle", source: "me", filter: ["==", ["get", "part"], "dot"],
-      paint: { "circle-radius": 7, "circle-color": ["case", ["get", "stale"], "#8a96a3", "#1e6fd9"],
+      paint: { "circle-radius": 7, "circle-color": ["case", ["get", "stale"], "#8a96a3", "#347BC3"],
         "circle-stroke-color": "#ffffff", "circle-stroke-width": 2.5 } });
     map.on("click", "pin", (e) => {
       const f = e.features[0];
@@ -246,7 +246,7 @@ function createGlMap(el, { onSelect, onSegment, onPin, onMapClick }) {
 /* ---------------------------------------------------------------------------
    Fallback map without WebGL: segments and findings drawn as SVG over plain
    OpenStreetMap raster tiles (images need no WebGL). Same API as the WebGL map. */
-const SEV_HEX = { high: "#b42318", medium: "#d9730d", low: "#c9a100" };
+const SEV_HEX = { high: "#D94B4B", medium: "#E99B37", low: "#329B76" };
 const NS = "http://www.w3.org/2000/svg";
 
 function createSvgMap(el, { onSelect, onSegment, onPin, onMapClick }) {
@@ -293,10 +293,10 @@ function createSvgMap(el, { onSelect, onSegment, onPin, onMapClick }) {
     const [x, y] = proj(me.lon, me.lat);
     const ring = document.createElementNS(NS, "circle");
     ring.setAttribute("cx", x); ring.setAttribute("cy", y); ring.setAttribute("r", Math.max(8, (me.acc || 0) * view.s));
-    ring.setAttribute("fill", "rgba(30,111,217,0.12)"); ring.setAttribute("stroke", "#1e6fd9"); ring.setAttribute("stroke-width", 1);
+    ring.setAttribute("fill", "rgba(52,123,195,0.12)"); ring.setAttribute("stroke", "#347BC3"); ring.setAttribute("stroke-width", 1);
     const dot = document.createElementNS(NS, "circle");
     dot.setAttribute("cx", x); dot.setAttribute("cy", y); dot.setAttribute("r", 7);
-    dot.setAttribute("fill", me.stale ? "#8a96a3" : "#1e6fd9"); dot.setAttribute("stroke", "#ffffff"); dot.setAttribute("stroke-width", 2.5);
+    dot.setAttribute("fill", me.stale ? "#8a96a3" : "#347BC3"); dot.setAttribute("stroke", "#ffffff"); dot.setAttribute("stroke-width", 2.5);
     const t = document.createElementNS(NS, "title");
     t.textContent = `You are here (±${Math.round(me.acc || 0)} m)`;
     dot.appendChild(t);
@@ -310,8 +310,8 @@ function createSvgMap(el, { onSelect, onSegment, onPin, onMapClick }) {
       const [x, y] = proj(p.lon, p.lat);
       const c = document.createElementNS(NS, "circle");
       c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 7.5);
-      c.setAttribute("fill", SEV_HEX[p.severity] || "#c9a100");
-      c.setAttribute("stroke", "#1d2622"); c.setAttribute("stroke-width", hl.has(p.id) ? 3.5 : 2);
+      c.setAttribute("fill", SEV_HEX[p.severity] || "#329B76");
+      c.setAttribute("stroke", "#102D50"); c.setAttribute("stroke-width", hl.has(p.id) ? 3.5 : 2);
       if (p.status !== "open") c.setAttribute("opacity", 0.35);
       c.style.cursor = "pointer";
       c.addEventListener("click", (e) => { if (!pinMode) { e.stopPropagation(); onPin && onPin(p.id); } });
@@ -363,7 +363,7 @@ function createSvgMap(el, { onSelect, onSegment, onPin, onMapClick }) {
     for (const s of analysis.segments) {
       if (!s.coords) continue;
       const d = s.coords.map((c, i) => `${i ? "L" : "M"}${proj(c[0], c[1]).map((v) => v.toFixed(1)).join(",")}`).join("");
-      for (const [w, col, op] of hlSeg.has(s.id) ? [[18, "#1e4f8f", 0.25]] : []) {
+      for (const [w, col, op] of hlSeg.has(s.id) ? [[18, "#102D50", 0.25]] : []) {
         const p = document.createElementNS(NS, "path");
         p.setAttribute("d", d); p.setAttribute("stroke", col); p.setAttribute("stroke-width", w); p.setAttribute("opacity", op);
         p.setAttribute("fill", "none"); p.setAttribute("stroke-linecap", "round"); g.appendChild(p);
@@ -387,12 +387,12 @@ function createSvgMap(el, { onSelect, onSegment, onPin, onMapClick }) {
       if (hl.has(f.id)) {
         const r = document.createElementNS(NS, "circle");
         r.setAttribute("cx", x); r.setAttribute("cy", y); r.setAttribute("r", 10);
-        r.setAttribute("fill", "none"); r.setAttribute("stroke", "#1e4f8f"); r.setAttribute("stroke-width", 2);
+        r.setAttribute("fill", "none"); r.setAttribute("stroke", "#102D50"); r.setAttribute("stroke-width", 2);
         g.appendChild(r);
       }
       const c = document.createElementNS(NS, "circle");
       c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", kind === "asset" ? 4 : 5.5);
-      c.setAttribute("fill", kind === "asset" ? "#4a7a9b" : SEV_HEX[f.severity] || "#c9a100");
+      c.setAttribute("fill", kind === "asset" ? "#6a7fa0" : SEV_HEX[f.severity] || "#329B76");
       c.setAttribute("stroke", "#ffffff"); c.setAttribute("stroke-width", 1.2);
       if (["verified", "dismissed", "fixed"].includes(f.status)) c.setAttribute("opacity", 0.35);
       c.style.cursor = "pointer";

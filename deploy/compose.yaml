@@ -1,0 +1,45 @@
+# iScale on a CasaOS home server, public through Tailscale Funnel.
+# Files on the box: /DATA/AppData/iscale/{data,tailscale,iscale.env}; the image is built from this
+# repository (deploy/Dockerfile) as iscale:local. iscale.env holds CIVIL_ALLOWED_HOSTS, CIVIL_3D,
+# CIVIL_WORKER_TOKEN and ROBOFLOW_API_KEY; keep it chmod 600 and out of git.
+name: iscale
+services:
+  iscale:
+    image: iscale:local
+    container_name: iscale
+    restart: unless-stopped
+    env_file: /DATA/AppData/iscale/iscale.env
+    volumes:
+      - /DATA/AppData/iscale/data:/data
+    ports:
+      - "8765:8765"            # the home network (and the 3D worker) reach it at http://<box>:8765
+    deploy:
+      resources:
+        limits:
+          memory: 2600M        # the box has 3.8 GB; leave room for CasaOS and Nextcloud
+  tailscale:
+    image: tailscale/tailscale:stable
+    container_name: iscale-tailscale
+    # no `hostname: iscale` here: inside Docker that name must point at the app, not at this proxy
+    # (the tailnet name comes from TS_HOSTNAME)
+    restart: unless-stopped
+    environment:
+      TS_HOSTNAME: iscale
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_USERSPACE: "true"
+    volumes:
+      - /DATA/AppData/iscale/tailscale:/var/lib/tailscale
+      - /DATA/AppData/iscale/tailscale-config:/config
+    depends_on:
+      - iscale
+x-casaos:
+  architectures: [amd64]
+  main: iscale
+  author: zenmastercat
+  category: Utilities
+  description:
+    en_us: iScale road-inspection platform (pothole detection, 3D surveys, repair planning, encrypted chat).
+  title:
+    en_us: iScale
+  port_map: "8765"

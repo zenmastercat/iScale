@@ -101,3 +101,26 @@ def test_pothole_mask_ignores_unlabelled_points():
     rec = Reconstruction(points=np.zeros((4, 3)), labels=np.array([-1, 0, 1, 1]), label_names={1: "pothole", 0: "sign_stop"})
     assert check3d.pothole_mask(rec).tolist() == [False, False, True, True]
     assert check3d.pothole_mask(Reconstruction(points=np.zeros((2, 3)))) is None
+
+
+def test_the_point_cloud_downloads_as_a_ply_with_the_detector_marks(labelled_survey, tmp_path):
+    from civil import store
+    from civil.check3d import pothole_mask
+    from civil.pointcloud import read_ply
+
+    a, pid, sid, _, _ = labelled_survey
+    r = a.get(f"/api/projects/{pid}/surveys/{sid}/export.ply")
+    assert r.status_code == 200 and r.content.startswith(b"ply\n")
+    assert f'filename="iscale-3d-{sid}.ply"' in r.headers["content-disposition"]
+    head = r.content[: r.content.index(b"end_header")].decode()
+    assert "property uchar detector" in head and "comment origin_lat" in head
+    (tmp_path / "c.ply").write_bytes(r.content)
+    xyz, rgb, _ = read_ply(tmp_path / "c.ply")
+    rec = Reconstruction.load(store.recon_path(pid, sid))
+    assert len(xyz) == rec.n and rgb is not None             # every point, not the thinned view
+    assert np.allclose(xyz, rec.points, atol=1e-4)
+    n_hdr = len(r.content[: r.content.index(b"end_header\n") + 11])
+    rows = np.frombuffer(r.content[n_hdr:], dtype=[("x", "<f4"), ("y", "<f4"), ("z", "<f4"),
+                                                   ("red", "u1"), ("green", "u1"), ("blue", "u1"),
+                                                   ("detector", "u1")])
+    assert (rows["detector"].astype(bool) == pothole_mask(rec)).all() and rows["detector"].sum() > 0

@@ -99,7 +99,7 @@ const UI = {
 };
 // Thai for Thai browsers, English otherwise; the person's last choice wins
 let lang = (navigator.language || "").toLowerCase().startsWith("th") ? "th" : "en";
-try { lang = localStorage.getItem("iscale-agreement-lang") || lang; } catch { /* private mode */ }
+try { lang = localStorage.getItem("iscale-lang") || localStorage.getItem("iscale-agreement-lang") || lang; } catch { /* private mode */ }
 
 /* The agreement body with a ไทย / English switch; returns [html, wire(dialog)]. */
 function agreementBody(withActions, footExtra = "") {

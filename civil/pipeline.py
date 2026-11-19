@@ -48,6 +48,11 @@ def run_survey(pid: str, sid: str) -> None:
             stats = run_video_job(pid, sid, lambda msg: store.update_survey(pid, sid, stage=msg))
             store.update_survey(pid, sid, status="done", stage="", stats=stats, kind="video")
             return
+        from .worker import WAITING, takes
+
+        if takes(sv["decoder"]):  # this server hands 3D work to a GPU worker (civil/worker.py)
+            store.update_survey(pid, sid, status="queued", stage=WAITING, error=None)
+            return
         dec = get_decoder(sv["decoder"])
         params = dict(sv.get("params") or {})
         params.setdefault("origin_lat", proj["origin_lat"])

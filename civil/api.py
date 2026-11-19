@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 
-from . import auth, catalog, chat, check3d, helper, groups, jobcard, location, materials, pins, pipeline, planning, priority, settings, store, xmpp
+from . import auth, catalog, chat, check3d, helper, worker, groups, jobcard, location, materials, pins, pipeline, planning, priority, settings, store, xmpp
 from .analysis.condition import score_segments
 from .config import ALLOWED_HOSTS, DEFAULT_ORIGIN, MAX_UPLOAD_BYTES, STATIC_DIR, unit_costs
 from .decoders import registry
@@ -43,6 +43,7 @@ app.include_router(jobcard.router)
 app.include_router(xmpp.router)
 app.include_router(location.router)
 app.include_router(check3d.router)
+app.include_router(worker.router)
 
 # A web page on another site must not drive this local API:
 # - Host check stops DNS-rebinding (a hostile domain resolving to 127.0.0.1);
@@ -65,7 +66,7 @@ async def guard(request: Request, call_next):
             size = request.headers.get("content-length")
             if size and size.isdigit() and int(size) > MAX_UPLOAD_BYTES + 1_000_000:
                 return JSONResponse({"detail": "upload too large"}, status_code=413)
-        if path not in PUBLIC_API:
+        if path not in PUBLIC_API and not path.startswith("/api/worker/"):  # the worker routes check their own token
             user = auth.session_user(request)
             if user is None:
                 return JSONResponse({"detail": "sign in first"}, status_code=401)
@@ -440,7 +441,42 @@ def export(pid: str, sid: str, fmt: str):
                         f.get("segment_id") or "", f"{f['lat']:.7f}", f"{f['lon']:.7f}", f["source"], f["evidence"]])
         return Response(buf.getvalue(), media_type="text/csv",
                         headers={"Content-Disposition": f'attachment; filename="findings-{sid}.csv"'})
-    raise HTTPException(400, "format must be geojson or csv")
+    if fmt == "ply":
+        return _export_ply(pid, sid)
+    raise HTTPException(400, "format must be geojson, csv or ply")
+
+
+def _export_ply(pid: str, sid: str):
+    """The full LingBot-Map point cloud after alignment, for checking in CloudCompare, MeshLab etc.
+
+    Every point (not the thinned web view), in metres: x east, y north, z up from the project origin.
+    `detector` = 1 for points inside the pothole detector's boxes. Cached until the survey is re-run.
+    """
+    from .check3d import pothole_mask
+    from .pointcloud import write_ply
+
+    src = store.recon_path(pid, sid)
+    if not src.exists():
+        raise HTTPException(404, "this survey has no 3D reconstruction")
+    out = store.survey_dir(pid, sid) / "work" / "export" / "cloud.ply"
+    with store.lock(pid):
+        if not out.exists() or out.stat().st_mtime < src.stat().st_mtime:
+            rec = Reconstruction.load(src)
+            proj = store.get_project(pid)
+            sv = store.get_survey(pid, sid)
+            det = pothole_mask(rec)
+            rgb = rec.colors if rec.colors is not None else np.full((rec.n, 3), 180, np.uint8)
+            comments = ["iScale 3D point cloud (LingBot-Map reconstruction, aligned)",
+                        f"survey {sid} {' '.join(str(sv.get('name', '')).split())[:80]}",
+                        "units metres; x east, y north, z up (ENU)",
+                        f"origin_lat {proj['origin_lat']:.7f}", f"origin_lon {proj['origin_lon']:.7f}",
+                        "detector 1 = point inside a pothole detector box"]
+            out.parent.mkdir(parents=True, exist_ok=True)
+            tmp = out.with_suffix(".tmp")
+            write_ply(tmp, rec.points, rgb, comments=comments,
+                      flags={"detector": (det if det is not None else np.zeros(rec.n, bool)).astype(np.uint8)})
+            tmp.replace(out)
+    return FileResponse(out, media_type="application/octet-stream", filename=f"iscale-3d-{sid}.ply")
 
 
 # --- planning & work orders -------------------------------------------------------------------------

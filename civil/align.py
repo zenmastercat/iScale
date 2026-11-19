@@ -113,12 +113,20 @@ def align(rec: Reconstruction, origin_lat: float, origin_lon: float, params: dic
         extent = np.ptp(sample, axis=0).max()
         n, d, _ = ransac_plane(sample, thresh=max(0.01 * extent, 0.02))
         traj = rec.trajectory()
-        if traj is not None and len(traj):
-            above = np.median(traj @ n + d)
+        cam_up = _camera_up(rec)
+        if cam_up is not None and abs(float(n @ cam_up)) < math.cos(math.radians(30)):
+            # the biggest plane is not the ground (e.g. a far or sky layer): trust the upright cameras
+            up = cam_up
+            notes.append("up axis from the cameras' orientation (the dominant plane is not level)")
         else:
-            above = np.median(sample @ n + d)
-        up = n if above > 0 else -n
-        notes.append("up axis estimated from the dominant (ground) plane")
+            if cam_up is not None:
+                above = float(n @ cam_up)
+            elif traj is not None and len(traj):
+                above = np.median(traj @ n + d)
+            else:
+                above = np.median(sample @ n + d)
+            up = n if above > 0 else -n
+            notes.append("up axis estimated from the dominant (ground) plane")
     _apply(rec, 1.0, rotation_between(up, np.array([0.0, 0.0, 1.0])), np.zeros(3))
 
     # 2+3. scale and georeference --------------------------------------------
@@ -174,6 +182,16 @@ def align(rec: Reconstruction, origin_lat: float, origin_lon: float, params: dic
     rec.meta["aligned"] = True
     rec.meta["align_notes"] = notes
     return notes
+
+
+def _camera_up(rec: Reconstruction) -> np.ndarray | None:
+    """World up from the cameras' mean "up" axis, for decoders whose poses follow the OpenCV
+    convention (x right, y down, z forward) with a camera held roughly upright, like a dash cam."""
+    if rec.meta.get("camera_convention") != "opencv" or rec.poses is None or len(rec.poses) == 0:
+        return None
+    v = -np.asarray(rec.poses, dtype=np.float64)[:, :3, 1].mean(0)
+    norm = float(np.linalg.norm(v))
+    return v / norm if norm > 0.5 else None  # cameras pointing every which way: no hint
 
 
 def _ground_z(rec: Reconstruction) -> float:
