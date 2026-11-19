@@ -2,6 +2,11 @@
 
 (Formerly Civil Scan. The project folder, the Python package `civil` and the `civil` command keep their old names.)
 
+**Live server: [iscale.tailf3c854.ts.net](https://iscale.tailf3c854.ts.net)**. This is the project's own iScale
+server, published over HTTPS with Tailscale Funnel, so it opens from any network with no VPN app. You need an
+account: sign in, or ask the server's admin for a username or a company join code. To try iScale without an
+account, run it locally (see [Quick start](#quick-start)) and press *Load demo street*.
+
 An original, self-hosted street-inspection platform built from the workflow shown in
 a city-infrastructure product video: **see it** (scan the street in 3D and inventory
 every defect and asset), **plan it** (condition scores, repair plans and costs),
