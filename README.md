@@ -78,6 +78,74 @@ Then:
 
 Deep links: `/#map`, `/#scan`, `/#inventory`, `/#plan`, `/#verify`, `/#video`.
 
+## Example: the demo street
+
+Everything below comes from the built-in synthetic demo (*Load demo street*, or `uv run civil demo`
+without a server), so it runs on any computer with no camera, GPS or API key. The numbers are the
+demo's, not a field result.
+
+**1. Two drives go in.** `uv run civil demo` decodes a baseline drive and an after-repairs drive of the
+same L-shaped street:
+
+```text
+"name": "After repairs",  "status": "done",
+"notes": ["up axis from metadata: y", "georeferenced to GPS track (scale 1.0000, median residual 0.38 m)"],
+"stats": {"points": 970432, "findings": 30, "segments": 10, "length_m": 241.5, "analysis_s": 8.92}
+```
+
+**2. The map says what matters in one sentence**, colours every 25 m segment by its condition index
+and marks each finding (red = high, amber = medium, green = low, grey-blue = roadside asset):
+
+> 242 m of road scored **89 out of 100**. There are **10** open defects, **4** of them high severity, and
+> fixing them is estimated at **USD 2,585**. 26 assets are on record.
+
+![Map view of the demo street](docs/screenshots/map.png)
+
+**3. Every finding says what was measured.** Inventory rows read like
+`Pothole · High · S001 · depression 7.8 cm deep, 0.87 m across, 31.1 L missing material · ฿1,645 materials`.
+The materials figure opens the pothole's job card (photo, address, Navigate, bill of materials by the DOH
+method, best time to work, repair steps). Here is the Inventory with the language switch on ไทย:
+
+![Inventory in Thai](docs/screenshots/inventory-thai.png)
+
+**4. Repairs turn findings into a priced plan** (fix each defect, treat whole segments, or fix first where
+traffic is heaviest; optional budget), then a work order:
+
+![Repairs plan](docs/screenshots/repairs.png)
+
+**5. Ask about the survey.** The questions panel answers from the survey data with fixed rules:
+
+```text
+Q: Which 3 segments are worst?
+A: The 3 lowest-scoring segments:
+   - S007: index 68.8 (fair), 2 defects, 24 m
+   - S001: index 77.6 (satisfactory), 1 defects, 24 m
+   - S008: index 78.4 (satisfactory), 1 defects, 24 m
+
+Q: What will it cost to fix the potholes?
+A: Spot repairs for all open defects: USD 2,585 for 10 repairs (incl. USD 1,200 mobilisation).
+   - Pothole patch (cut, clean, fill, compact): 5 jobs, 2.77 m2, USD 263
+   - Manhole frame adjustment: 1 jobs, 1.0 each, USD 750
+   ...
+   Unit costs are placeholders from config/unit_costs.json until you set your own rates.
+```
+
+Other questions (repair methods, standards) go to Civil Helper, which answers from your own documents
+and names its sources.
+
+**6. Prove the fix.** After a work order is marked completed, *Verification* compares the after-repairs
+drive with the baseline. Each repaired defect comes back verified, still present, or not covered.
+
+**On a phone and in 3D.** The same app on a phone (bottom tab bar), and the point cloud with a box on
+every finding. The 3D and job-card screenshots were taken before the 2026-11 restyle:
+
+<p>
+  <img src="docs/screenshots/phone-repairs.png" alt="Repairs on a phone" width="260">
+  <img src="docs/screenshots/jobcard-phone-2-cost.png" alt="Pothole job card on a phone: bill of materials" width="260">
+</p>
+
+![3D point cloud with findings](docs/screenshots/3d.png)
+
 ## How it works
 
 ```mermaid
