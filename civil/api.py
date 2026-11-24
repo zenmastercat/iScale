@@ -242,8 +242,16 @@ async def create_survey(pid: str, request: Request, name: str = Form(...), decod
     allowed = {"repaired", "density", "seed", "metric", "up_axis", "camera_height_m", "heading_deg",
                "start_east_m", "start_north_m", "analysis", "forge"}
     prm = {k: v for k, v in prm.items() if k in allowed}
-    if "forge" in prm and not isinstance(prm["forge"], dict):
-        raise HTTPException(400, "params.forge must be a JSON object")
+    if "forge" in prm and decoder != "forge_slam":
+        prm.pop("forge")  # only the FORGE decoder reads these
+    if "forge" in prm:
+        if not isinstance(prm["forge"], dict):
+            raise HTTPException(400, "params.forge must be a JSON object")
+        from .forge.types import validate_forge_params  # pure Python: no gtsam/small_gicp import
+        try:
+            prm["forge"] = validate_forge_params(prm["forge"])
+        except ValueError as e:
+            raise HTTPException(400, f"params.forge: {e}") from None
     if recorded:
         prm["recorded"] = True
     if track:

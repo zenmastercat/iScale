@@ -118,3 +118,49 @@ class ForgeResult:
 
     def to_reconstruction(self) -> Reconstruction:
         return self.reconstruction
+
+
+# Knobs a survey upload may set (params.forge) and their allowed ranges. Anything else is refused: the pipeline
+# runs on the server's single survey worker, so an extreme value would stall or exhaust it for everyone.
+FORGE_PARAM_LIMITS: dict[str, tuple[type, float, float]] = {
+    "keyframe_dist_m": (float, 0.2, 10.0),
+    "keyframe_angle_deg": (float, 1.0, 90.0),
+    "voxel_size_m": (float, 0.02, 1.0),
+    "max_ram_bytes": (int, 16 * 1024 * 1024, 2 * 1024 * 1024 * 1024),
+    "tile_size_m": (float, 5.0, 200.0),
+    "min_free_gpu_gb": (float, 1.0, 16.0),
+    "max_gaussians": (int, 1_000, 500_000),
+    "num_threads": (int, 1, 8),
+    "sc_distance_thresh": (float, 0.05, 1.0),
+    "loop_min_time_s": (float, 1.0, 3600.0),
+    "loop_min_dist_m": (float, 1.0, 1000.0),
+    "sensor_height_m": (float, 0.2, 5.0),
+    "enable_dynamic_filter": (bool, 0, 1),
+    "enable_loop_closure": (bool, 0, 1),
+    "enable_thermal": (bool, 0, 1),
+    "enable_gsplat": (bool, 0, 1),
+}
+
+
+def validate_forge_params(params: dict) -> dict:
+    """Checked ForgeConfig keyword arguments from user params; ValueError names the first bad knob."""
+    import math
+
+    out = {}
+    for k, v in params.items():
+        if k not in FORGE_PARAM_LIMITS:
+            raise ValueError(f"unknown forge parameter {k!r}")
+        kind, lo, hi = FORGE_PARAM_LIMITS[k]
+        if kind is bool:
+            if not isinstance(v, bool):
+                raise ValueError(f"forge parameter {k} must be true or false")
+            out[k] = v
+            continue
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+            raise ValueError(f"forge parameter {k} must be a finite number")
+        if kind is int and v != int(v):
+            raise ValueError(f"forge parameter {k} must be a whole number")
+        if not lo <= v <= hi:
+            raise ValueError(f"forge parameter {k} must be between {lo:g} and {hi:g}")
+        out[k] = kind(v)
+    return out

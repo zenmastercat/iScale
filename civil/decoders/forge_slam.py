@@ -29,7 +29,7 @@ class ForgeSlamDecoder(Decoder):
     def decode(self, input_dir: Path, work_dir: Path, params: dict) -> Reconstruction:
         from ..forge.io import preflight_check
         from ..forge.pipeline import run_forge_slam
-        from ..forge.types import ForgeConfig
+        from ..forge.types import ForgeConfig, validate_forge_params
 
         ok, why = self.available()
         if not ok:
@@ -38,30 +38,9 @@ class ForgeSlamDecoder(Decoder):
         if not pf["ok"]:
             raise DecoderError("FORGE SLAM input preflight failed: " + "; ".join(pf["issues"]))
 
-        forge_params = dict((params or {}).get("forge") or {})
-        cfg = ForgeConfig(
-            **{
-                k: forge_params[k]
-                for k in (
-                    "keyframe_dist_m",
-                    "keyframe_angle_deg",
-                    "voxel_size_m",
-                    "max_ram_bytes",
-                    "tile_size_m",
-                    "enable_dynamic_filter",
-                    "enable_loop_closure",
-                    "enable_thermal",
-                    "enable_gsplat",
-                    "min_free_gpu_gb",
-                    "max_gaussians",
-                    "num_threads",
-                    "sc_distance_thresh",
-                    "loop_min_time_s",
-                    "loop_min_dist_m",
-                    "sensor_height_m",
-                )
-                if k in forge_params
-            }
-        )
+        try:
+            cfg = ForgeConfig(**validate_forge_params(dict((params or {}).get("forge") or {})))
+        except ValueError as e:
+            raise DecoderError(f"FORGE SLAM parameters: {e}") from None
         res = run_forge_slam(input_dir, work_dir, config=cfg)
         return res.to_reconstruction()
