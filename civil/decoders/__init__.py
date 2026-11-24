@@ -3,12 +3,22 @@ from __future__ import annotations
 from .base import Decoder, DecoderError
 from .demo import DemoDecoder
 from .external import load_external
+from .forge_slam import ForgeSlamDecoder
 from .lingbot_clip import LingbotClipDecoder, PotholeVideoDecoder
 from .ply_import import PlyImportDecoder
 
 
 def registry() -> dict[str, Decoder]:
-    decs: dict[str, Decoder] = {d.name: d for d in (PotholeVideoDecoder(), DemoDecoder(), PlyImportDecoder(), LingbotClipDecoder())}
+    decs: dict[str, Decoder] = {
+        d.name: d
+        for d in (
+            PotholeVideoDecoder(),
+            DemoDecoder(),
+            PlyImportDecoder(),
+            LingbotClipDecoder(),
+            ForgeSlamDecoder(),
+        )
+    }
     for ext in load_external():
         if ext.name in decs:
             continue

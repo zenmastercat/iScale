@@ -35,7 +35,7 @@ from . import store
 
 router = APIRouter(prefix="/api/worker")
 
-REMOTE_DECODERS = {"lingbot_clip"}
+REMOTE_DECODERS = {"lingbot_clip", "forge_slam"}
 WAITING = "waiting for the 3D worker"
 LEASE_S = 3 * 3600
 MAX_RESULT_BYTES = 2 * 1024 ** 3

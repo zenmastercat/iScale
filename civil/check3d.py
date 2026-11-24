@@ -87,12 +87,15 @@ def _evidence(rec: Reconstruction, f: dict) -> dict:
         raise HTTPException(404, "too few 3D points around this finding to show a check")
     p = rec.points[idx].astype(np.float64)
     col = rec.colors[idx] if rec.colors is not None else np.full((len(idx), 3), 150, np.uint8)
+    temps = rec.temperatures_c[idx].astype(np.float32) if rec.temperatures_c is not None else None
     det = pothole_mask(rec)
     det = det[idx] if det is not None else np.zeros(len(idx), bool)
     # keep the road surface only: drop cars, poles and stray points far from the finding's height
     road = np.abs(p[:, 2] - float(f.get("z", np.median(p[:, 2])))) < max(0.4, 3 * float(m.get("depth_max_m") or 0.1))
     if road.sum() >= 50:
         p, col, det = p[road], col[road], det[road]
+        if temps is not None:
+            temps = temps[road]
     r = np.hypot(p[:, 0] - cx, p[:, 1] - cy)
     r_in = max(diam / 2 + 0.15, 0.3)
     ring = (r > r_in) & (r < half)
@@ -119,7 +122,20 @@ def _evidence(rec: Reconstruction, f: dict) -> dict:
     c_ring = np.bincount(inv, weights=ring.astype(float)) / np.bincount(inv) > 0.5
     ring_noise = float(np.std(cmean[c_ring])) if c_ring.sum() > 5 else float(np.std(rel[ring])) if ring.any() else 0.0
     dip = float(-np.percentile(cmean[c_in], 5)) if c_in.sum() >= 5 else None  # 5th percentile: ignore stray cells
-    return {"p": p, "col": col, "det": det, "rel": rel, "cx": cx, "cy": cy, "half": half, "diam": diam,
+    thermal_stats = None
+    if temps is not None and len(temps) > 0:
+        amb = float(np.median(temps[ring])) if ring.any() else float(np.median(temps))
+        in_t = temps[inside] if inside.any() else temps
+        mean_in = float(np.mean(in_t))
+        thermal_stats = {
+            "min_c": round(float(np.min(temps)), 2),
+            "max_c": round(float(np.max(temps)), 2),
+            "mean_c": round(mean_in, 2),
+            "road_ambient_c": round(amb, 2),
+            "delta_c": round(mean_in - amb, 2),
+        }
+    return {"p": p, "col": col, "det": det, "rel": rel, "temps": temps, "thermal_stats": thermal_stats,
+            "cx": cx, "cy": cy, "half": half, "diam": diam,
             "dip_m": dip, "ring_noise_m": ring_noise, "det_points": int(det.sum()),
             "det_inside": int((det & inside).sum()), "points": int(len(p))}
 
@@ -196,9 +212,35 @@ def _scalebar(img: np.ndarray, ev: dict) -> None:
 
 
 PANELS = ("top", "height", "section")
+ALL_PANELS = ("top", "height", "section", "thermal")
+_THERM_ANCH = np.array(
+    [[20, 11, 52], [84, 15, 109], [140, 41, 129], [196, 60, 117], [237, 105, 37], [251, 180, 26], [252, 255, 164]],
+    float,
+)
+THERMAL_LUT = np.stack(
+    [np.interp(np.linspace(0, 6, 256), np.arange(7), _THERM_ANCH[:, k]) for k in range(3)], 1
+)[:, ::-1].astype(np.uint8)
 
 
 def render(f: dict, ev: dict, panel: str = "top") -> bytes:
+    if panel == "thermal":
+        temps = ev.get("temps")
+        if temps is None or len(temps) == 0:
+            raise HTTPException(404, "this survey has no radiometric thermal data")
+        th, tm = _coarse(ev, temps.astype(float), 0.04)
+        tmin = float(np.percentile(temps, 2))
+        tmax = max(tmin + 0.5, float(np.percentile(temps, 98)))
+        tnorm = np.clip((th[:, :, 0] - tmin) / (tmax - tmin), 0, 1)
+        timg = THERMAL_LUT[(tnorm * 255).astype(np.uint8)]
+        timg[~tm] = 245
+        _outline(timg, ev, f)
+        _scalebar(timg, ev)
+        tkey = np.full((34, PANEL, 3), 255, np.uint8)
+        tkey[6:18, 84:PANEL - 96] = cv2.resize(THERMAL_LUT[None, :, :], (PANEL - 180, 12), interpolation=cv2.INTER_LINEAR)
+        cv2.putText(tkey, f"{tmin:.1f} C", (6, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.33 * FS, (80, 80, 80), 1, cv2.LINE_AA)
+        cv2.putText(tkey, f"{tmax:.1f} C", (PANEL - 88, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.33 * FS, (80, 80, 80), 1, cv2.LINE_AA)
+        ok, png = cv2.imencode(".png", np.vstack([timg, tkey]))
+        return png.tobytes()
     depth = m3(f).get("depth_max_m") or 0.0
     lim = max(0.05, 1.4 * max(depth, ev["dip_m"] or 0))
     # 1. photo colour from above, the detector's points on top
@@ -271,19 +313,22 @@ def get_check(pid: str, sid: str, fid: str):
     if rev:
         who = auth.person(rev.get("by")) or {}
         rev = {**{k: rev[k] for k in ("verdict", "note", "at") if k in rev}, "by": who.get("username"), "by_name": who.get("display_name")}
+    has_thermal = ev.get("temps") is not None
+    panel_keys = ALL_PANELS if has_thermal else PANELS
     return {"id": f["id"], "type": f["type"], "severity": f.get("severity"), "source": f.get("source"),
             "verdict": verdict(f, ev), "detector_points": ev["det_points"], "detector_points_inside": ev["det_inside"],
             "points": ev["points"], "measured_depth_m": m.get("depth_max_m"), "area_m2": m.get("area_m2"),
             "diameter_m": round(ev["diam"], 2), "lowest_below_plane_m": round(ev["dip_m"], 3) if ev["dip_m"] is not None else None,
             "road_noise_m": round(ev["ring_noise_m"], 3), "view_m": round(2 * ev["half"], 1), "review": rev,
+            "has_thermal": has_thermal, "thermal_stats": ev.get("thermal_stats"),
             "images": {k: f"/api/projects/{pid}/surveys/{sid}/findings/{fid}/check.png?panel={k}&v={int(store.recon_path(pid, sid).stat().st_mtime)}-{RENDER_VERSION}"
-                       for k in PANELS}}
+                       for k in panel_keys}}
 
 
 @router.get("/check.png")
 def get_check_png(pid: str, sid: str, fid: str, panel: str = "top"):
-    if panel not in PANELS:
-        raise HTTPException(400, "panel must be top, height or section")
+    if panel not in ALL_PANELS:
+        raise HTTPException(400, "panel must be top, height, section or thermal")
     an_path = store.survey_dir(pid, sid) / "analysis.json"
     _finding(pid, sid, fid)  # 404 for an unknown finding before touching the cache
     safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in fid)[:64]

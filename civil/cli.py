@@ -38,6 +38,15 @@ def main() -> None:
     c.add_argument("--near-m", type=float)
     c.add_argument("--out", default="calibration")
     c.add_argument("--save", action="store_true")
+    fg = sub.add_parser("forge", help="FORGE SLAM pre-flight check, standalone run, or benchmark evaluation")
+    fg_sub = fg.add_subparsers(dest="forge_cmd", required=True)
+    fg_chk = fg_sub.add_parser("check", help="validate a multi-sensor sequence directory or bag")
+    fg_chk.add_argument("input", help="path to FORGE sequence folder or ROS bag")
+    fg_run = fg_sub.add_parser("run", help="run FORGE SLAM standalone on an input folder")
+    fg_run.add_argument("input", help="path to FORGE sequence folder")
+    fg_run.add_argument("--work", required=True, help="working directory for tiles, diagnostics, and recon.npz")
+    fg_eval = fg_sub.add_parser("eval", help="run public dataset quantitative evaluation and write docs/FORGE-RESULTS.md")
+    fg_eval.add_argument("--datasets-dir", default="", help="override path to iScale-datasets directory")
     a = ap.parse_args()
     if a.cmd == "serve":
         import uvicorn
@@ -82,6 +91,29 @@ def main() -> None:
 
         for d in registry().values():
             print(json.dumps(d.describe()))
+    elif a.cmd == "forge":
+        from pathlib import Path
+
+        if a.forge_cmd == "check":
+            from .forge.io import preflight_check
+
+            res = preflight_check(Path(a.input))
+            print(json.dumps(res, indent=2))
+            if not res["ok"]:
+                raise SystemExit(1)
+        elif a.forge_cmd == "run":
+            from .forge.pipeline import run_forge_slam
+
+            wdir = Path(a.work)
+            res = run_forge_slam(Path(a.input), wdir)
+            res.reconstruction.save(wdir / "recon.npz")
+            print(json.dumps(res.diagnostics, indent=2))
+        elif a.forge_cmd == "eval":
+            from .forge.eval import run_full_evaluation
+
+            ds = Path(a.datasets_dir) if a.datasets_dir else None
+            report = run_full_evaluation(datasets_dir=ds)
+            print(json.dumps(report["summary"], indent=2))
 
 
 def calibrate(a) -> None:

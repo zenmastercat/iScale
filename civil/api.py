@@ -240,8 +240,10 @@ async def create_survey(pid: str, request: Request, name: str = Form(...), decod
     except ValueError:
         raise HTTPException(400, "params must be a JSON object")
     allowed = {"repaired", "density", "seed", "metric", "up_axis", "camera_height_m", "heading_deg",
-               "start_east_m", "start_north_m", "analysis"}
+               "start_east_m", "start_north_m", "analysis", "forge"}
     prm = {k: v for k, v in prm.items() if k in allowed}
+    if "forge" in prm and not isinstance(prm["forge"], dict):
+        raise HTTPException(400, "params.forge must be a JSON object")
     if recorded:
         prm["recorded"] = True
     if track:

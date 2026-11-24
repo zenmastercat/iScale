@@ -177,7 +177,7 @@ def scale_summary(sv: dict) -> dict:
         elif "scale unknown" in notes:
             sc = {"method": "unknown"}
         else:
-            sc = {"method": "metric" if sv.get("decoder") in ("demo",) else "unknown"}
+            sc = {"method": "metric" if sv.get("decoder") in ("demo", "forge_slam") else "unknown"}
     m = sc.get("method", "unknown")
     if m == "scene":
         n = len([r for r in sc.get("refs") or [] if not r.get("outlier") and "error" not in r]) or len(sc.get("refs") or [])

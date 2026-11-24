@@ -33,6 +33,8 @@ function html(c) {
         <figcaption>Height against a road surface fitted around it: red is below the road, blue above.</figcaption></figure>
       <figure class="wide"><img src="${esc(c.images.section)}" alt="Cross-section through the finding" loading="lazy" decoding="async">
         <figcaption>Cross-section west to east along the black line. Grey dots: 3D points; black: the average surface. LingBot-Map often stacks the road in thin layers.</figcaption></figure>
+      ${c.has_thermal && c.images.thermal ? `<figure><img src="${esc(c.images.thermal)}" alt="Radiometric thermal (°C) map around the finding" loading="lazy" decoding="async">
+        <figcaption>Radiometric thermal (°C): ${c.thermal_stats ? `${c.thermal_stats.min_c.toFixed(1)}–${c.thermal_stats.max_c.toFixed(1)} °C (ΔT ${c.thermal_stats.delta_c >= 0 ? "+" : ""}${c.thermal_stats.delta_c.toFixed(1)} °C vs. road ambient ${c.thermal_stats.road_ambient_c.toFixed(1)} °C)` : "registered LWIR temperature"}.</figcaption></figure>` : ""}
     </div>
     <dl class="chk-nums">
       <dt>Detector points nearby</dt><dd>${c.detector_points.toLocaleString()} (${c.detector_points_inside.toLocaleString()} inside the outline)</dd>
