@@ -1,0 +1,152 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+ * iScale design tokens. Light theme only.
+ * Use the Tailwind names (bg-brand, text-sev-high-fg, bg-cond-good, font-mono ...) in components,
+ * never raw hex. Condition colours match civil/analysis/condition.py exactly.
+ */
+@theme {
+  /* brand */
+  --color-brand: #102d50;
+  --color-brand-700: #1b3d66;
+  --color-brand-50: #e8eef6;
+  --color-accent-blue: #347bc3;
+  --color-link: #1f5f9e; /* accent darkened for 4.5:1 text on white */
+
+  /* neutral greys */
+  --color-grey-50: #f4f5f7;
+  --color-grey-100: #eceef2;
+  --color-grey-200: #e1e4ea;
+  --color-grey-300: #c9ced7;
+  --color-grey-500: #6b7280;
+  --color-grey-600: #535b68;
+  --color-grey-700: #3d4450;
+  --color-grey-900: #161b22;
+
+  /* severity: base (marks, icons), fg (text), bg (badge fill). fg on bg is >= 4.5:1 */
+  --color-sev-high: #c2361f;
+  --color-sev-high-fg: #a32a17;
+  --color-sev-high-bg: #fbe4df;
+  --color-sev-medium: #c27a12;
+  --color-sev-medium-fg: #8a4f00;
+  --color-sev-medium-bg: #fcefd6;
+  --color-sev-low: #23775a;
+  --color-sev-low-fg: #1d6b50;
+  --color-sev-low-bg: #ddf2ea;
+
+  /* condition bands (civil/analysis/condition.py BANDS) */
+  --color-cond-good: #3fb37f;
+  --color-cond-satisfactory: #9fc84a;
+  --color-cond-fair: #e8c547;
+  --color-cond-poor: #ef8f36;
+  --color-cond-very-poor: #e0503a;
+  --color-cond-failed: #8c1d2c;
+  --color-cond-none: #6b7280;
+
+  /* fonts (variables set by next/font in app/layout.tsx) */
+  --font-sans: var(--font-plex-sans), var(--font-plex-thai), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-heading: var(--font-sans);
+}
+
+/* shadcn/ui semantic tokens mapped onto the iScale palette */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --radius: 6px;
+  --background: #f4f5f7;
+  --foreground: #161b22;
+  --card: #ffffff;
+  --card-foreground: #161b22;
+  --popover: #ffffff;
+  --popover-foreground: #161b22;
+  --primary: #102d50;
+  --primary-foreground: #ffffff;
+  --secondary: #eceef2;
+  --secondary-foreground: #161b22;
+  --muted: #eceef2;
+  --muted-foreground: #535b68;
+  --accent: #e8eef6;
+  --accent-foreground: #102d50;
+  --destructive: #c2361f;
+  --border: #e1e4ea;
+  --input: #c9ced7;
+  --ring: #347bc3;
+  --chart-1: #102d50;
+  --chart-2: #347bc3;
+  --chart-3: #3fb37f;
+  --chart-4: #c27a12;
+  --chart-5: #c2361f;
+  --sidebar: #102d50;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #347bc3;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgb(255 255 255 / 0.14);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 0.12);
+  --sidebar-ring: #347bc3;
+}
+
+/* numbers: Plex Mono with tabular figures. Use class="num" on any figure. */
+@utility num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    color-scheme: light;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent-blue);
+    outline-offset: 2px;
+  }
+}
