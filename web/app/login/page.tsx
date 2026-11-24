@@ -53,8 +53,16 @@ function LoginInner() {
   const [busy, setBusy] = useState(false);
 
   const next = (() => {
+    // only same-origin paths: resolve and compare origins ("/\evil.com" and "//evil.com" resolve elsewhere)
     const n = params.get("next");
-    return n && n.startsWith("/") && !n.startsWith("//") && !n.startsWith("/login") ? n : "/";
+    if (!n || typeof window === "undefined") return "/";
+    try {
+      const u = new URL(n, window.location.origin);
+      if (u.origin !== window.location.origin || u.pathname.startsWith("/login")) return "/";
+      return u.pathname + u.search + u.hash;
+    } catch {
+      return "/";
+    }
   })();
 
   useEffect(() => {
