@@ -21,6 +21,7 @@ staff account (admin or engineer).
 from __future__ import annotations
 
 import copy
+import io
 import json
 import re
 import time
@@ -33,7 +34,7 @@ from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from . import auth, db, materials, measure, pins, store
+from . import auth, db, images, materials, measure, pins, store
 from .config import DATA_DIR
 
 router = APIRouter(prefix="/api")
@@ -285,6 +286,10 @@ async def _save_photo(up: UploadFile, path) -> dict:
         data += chunk
         if len(data) > MAX_PHOTO_BYTES:
             raise HTTPException(413, f"the photo is larger than {MAX_PHOTO_BYTES // (1024 * 1024)} MB")
+    try:
+        images.check_pixels(io.BytesIO(bytes(data)))
+    except ValueError as e:
+        raise HTTPException(413, f"the photo is too large: {e}") from None
     img = cv2.imdecode(np.frombuffer(bytes(data), np.uint8), cv2.IMREAD_COLOR)
     if img is None:
         raise HTTPException(400, "not a JPEG, PNG or WebP photo")
