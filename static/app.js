@@ -8,6 +8,8 @@ import { openJobCard, moneyFmt } from "./jobcard.js";
 import * as loc from "./location.js";
 import { mountCheck } from "./check3d.js";
 import { openRecorder } from "./recorder.js";
+import { openMeasure, startMeasure } from "./measure.js";
+import { openSceneScale } from "./scene_scale.js";
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -58,7 +60,7 @@ const stateTag = (s) => `<span class="state ${esc(s)}">${esc(STATE_LABEL[s] || s
 const sevTag = (s) => (s ? `<span class="sev ${esc(s)}">${esc(s[0].toUpperCase() + s.slice(1))}</span>` : `<span class="sev">Asset</span>`);
 const METRIC_LABEL = {
   area_m2: ["Area", "m²"], depth_max_m: ["Deepest point", "m"], depth_median_m: ["Typical depth", "m"], volume_m3: ["Volume", "m³"],
-  diameter_m: ["Width", "m"], circularity: ["Roundness", ""], flat_share: ["Flat floor share", ""], bowl: ["Bowl curvature", ""],
+  diameter_m: ["Width", "m"], width_m: ["Width", "m"], length_m: ["Length", "m"], perimeter_m: ["Perimeter", "m"], circularity: ["Roundness", ""], flat_share: ["Flat floor share", ""], bowl: ["Bowl curvature", ""],
   height_max_m: ["Height", "m"], texture_std_mm: ["Texture deviation", "mm"], step_m: ["Step", "m"], direction: ["Direction", ""],
   height_m: ["Height", "m"], trunk_width_m: ["Post width", "m"], top_span_m: ["Reach at top", "m"], canopy_m: ["Canopy", "m"],
   plate_points: ["Plate points", ""], points: ["3D points", ""], detector_points: ["Detector points", ""],
@@ -69,6 +71,11 @@ const chainage = (m) => `${Math.floor(m / 1000)}+${String(Math.round(m % 1000)).
 const costChip = (c, attrs = "") => (c
   ? `<button class="cost-chip" type="button" ${attrs} title="Materials only, no labour. Open the full job card">${esc(moneyFmt(c.materials_cost, c.symbol))}<small>materials${c.missing_prices ? "*" : ""}</small></button>`
   : "");
+// "Scaled by: lane width ×2, ±4%" / "Scale: camera height guess": where a 3D-measured size comes from (static/scene_scale.js)
+const scaledTag = (f) => (f.scaled_by ? `<span class="scl-tag ${f.scaled_by.startsWith("Scaled by") ? "scene" : "guess"}" title="${esc(f.scaled_by)}">${esc(f.scaled_by.startsWith("Scaled by") ? "scene scale" : "scale guessed")}</span>` : "");
+// "measured with A4 sheet ±4%": a reference-object measurement (static/measure.js)
+const measuredText = (m) => (m ? `Size measured with ${m.ref}${m.pct != null ? ` ±${Math.round(m.pct)}%` : ""}` : "");
+const measuredTag = (m) => (m ? `<span class="meas-tag" title="${esc(measuredText(m))} (10th to 90th percentile)">${esc(m.ref)}${m.pct != null ? ` ±${esc(Math.round(m.pct))}%` : ""}</span>` : "");
 const mmss = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
 function md(text) {
@@ -222,6 +229,7 @@ async function selectSurvey(sid) {
   renderAll();
   if (isVideoJob(sv) && state.view !== "video") setView("video");
   if (state.view === "scan") ensurePoints();
+  renderScaleTools();
 }
 
 function renderStatus(sv) {
@@ -403,7 +411,7 @@ function renderInventory() {
   <tbody>${rows.length ? rows.map((f) => `<tr data-id="${esc(f.id)}" class="${state.selected.has(f.id) ? "sel" : ""}">
     <td><input type="checkbox" aria-label="Select ${esc(f.id)}" ${state.selected.has(f.id) ? "checked" : ""} ${kindOf(f.type) === "defect" ? "" : "disabled"}></td>
     <td>${esc(label(f.type))}</td><td>${sevTag(f.severity)}</td><td>${stateTag(f.status)}</td>
-    <td class="num">${costChip(f.cost, `data-card="${esc(f.id)}"`)}</td><td>${esc(f.segment_id || "")}</td><td class="ev">${esc(f.evidence)}</td><td class="id">${esc(f.id)}</td></tr>`).join("")
+    <td class="num">${costChip(f.cost, `data-card="${esc(f.id)}"`)}${measuredTag(f.measured)}${scaledTag(f)}</td><td>${esc(f.segment_id || "")}</td><td class="ev">${esc(f.evidence)}</td><td class="id">${esc(f.id)}</td></tr>`).join("")
     : `<tr><td colspan="8" class="empty">Nothing matches these filters.</td></tr>`}</tbody>`;
   updateWoButton();
 }
@@ -432,7 +440,7 @@ $("#invMakeWo").addEventListener("click", () => createWorkOrder([...state.select
 function showCard(ref) {
   openJobCard(ref, {
     toast, canEdit: state.user?.role === "admin",
-    onChanged: () => loadPins(),
+    onChanged: () => { loadPins(); if (state.analysis && ref.kind === "finding" && ref.survey === state.sid) refreshAnalysis().catch(() => {}); },
     onAction: async (a, c) => {
       if (a === "ask") {
         const b = c.cost.available ? `${c.cost.area_m2} m², ${Math.round(c.cost.depth_m * 100)} cm deep` : "size not measured";
@@ -468,7 +476,7 @@ function openDrawer(id) {
   const f = findById(id);
   if (!f) return;
   const d = $("#drawer");
-  const metrics = Object.entries(f.metrics || {}).filter(([k]) => METRIC_LABEL[k]).map(([k, v]) => {
+  const metrics = Object.entries(f.metrics || {}).filter(([k]) => METRIC_LABEL[k] && !(k === "diameter_m" && f.metrics.width_m)).map(([k, v]) => {
     const [l, u] = METRIC_LABEL[k];
     if (v === null || v === undefined) return k === "depth_max_m" ? `<dt>${esc(l)}</dt><dd>not measurable (water or reflection?)</dd>` : "";
     return `<dt>${esc(l)}</dt><dd>${fmtNum(v)}${u ? " " + u : ""}</dd>`;
@@ -481,6 +489,8 @@ function openDrawer(id) {
     <div class="sub">${sevTag(f.severity)}${stateTag(f.status)}<span>Segment ${esc(f.segment_id || "none")}</span><span>${esc(src)}</span></div>
     ${isDefect ? `<div class="row">${f.cost ? costChip(f.cost, 'data-act="card"') : ""}<button class="btn small" data-act="card" type="button">Full details</button></div>` : ""}
     <p class="ev">${esc(f.evidence)}</p>
+    ${f.measured ? `<p class="ev meas">${esc(measuredText(f.measured))}${f.measured.by ? ` <span class="muted small">@${esc(f.measured.by)}</span>` : ""}</p>` : ""}
+    ${f.scaled_by ? `<p class="ev scl ${f.scaled_by.startsWith("Scaled by") ? "scene" : "guess"}">${esc(f.scaled_by)}</p>` : ""}
     ${f.verification ? `<p class="ev">${stateTag(f.verification.status)}: ${esc(f.verification.evidence)}</p>` : ""}
     <dl class="meta">${metrics}<dt>Location</dt><dd>${f.lat.toFixed(6)}, ${f.lon.toFixed(6)}</dd><dt>ID</dt><dd>${esc(f.id)}</dd></dl>
     ${isDefect ? `<section class="chk" id="drawerCheck" aria-label="3D check"></section>` : ""}
@@ -772,6 +782,48 @@ $("#verRun").addEventListener("click", async (e) => {
   btn.disabled = false;
 });
 
+// ---------------------------------------------------------------- scale of 3D clips (static/scene_scale.js)
+// "Scale: camera height guess" / "Scale: 3 scene references ±4%" on a clip
+const scaleTag = (sc) => `<span class="scale-tag ${esc(sc.method)}" title="${esc(sc.label || "How the size of this 3D clip was set")}">Scale: ${esc(sc.text)}</span>`;
+async function fixScale(sid, title = "") {
+  try {
+    await openSceneScale({
+      project: state.project.id, survey: sid, title, toast,
+      onApplied: async () => {
+        const proj = await api(`/api/projects/${state.project.id}`);
+        state.project = proj; state.surveys = proj.survey_list;
+        if (state.sid === sid) {
+          await refreshAnalysis();
+          state.pointsFor = null;
+          viewer.clear();
+          if (state.view === "scan") ensurePoints();
+        }
+        renderScaleTools();
+        if (state.view === "video") renderVideo();
+      },
+    });
+  } catch (err) { toast(err.message, true); }
+}
+let scaleToken = 0;
+async function renderScaleTools() {
+  const tag = $("#scaleTag"), btn = $("#sceneScaleBtn");
+  const sv = state.surveys.find((s) => s.id === state.sid);
+  tag.hidden = btn.hidden = true;
+  if (!sv || sv.status !== "done" || sv.decoder !== "lingbot_clip") return;
+  const t = ++scaleToken;
+  try {
+    const sc = await api(`/api/projects/${state.project.id}/surveys/${sv.id}/scale`);
+    if (t !== scaleToken) return;
+    tag.outerHTML = scaleTag(sc).replace("<span ", '<span id="scaleTag" ');
+    $("#sceneScaleBtn").hidden = !sc.available;
+    $("#sceneScaleBtn").title = sc.available ? "Tap objects of known size in the clip's frames to set the real-world scale" : sc.why;
+  } catch { /* no scale info: leave the tools hidden */ }
+}
+$("#sceneScaleBtn").addEventListener("click", () => {
+  const sv = state.surveys.find((s) => s.id === state.sid);
+  if (sv) fixScale(sv.id, sv.name);
+});
+
 // ---------------------------------------------------------------- video jobs
 let videoRenderToken = 0;
 async function renderVideo() {
@@ -782,10 +834,12 @@ async function renderVideo() {
     return;
   }
   const token = ++videoRenderToken;
+  state.videoRecs = {};
   const parts = [];
   for (const j of jobs.slice().reverse()) {
     let v = null;
     try { v = await api(`/api/projects/${state.project.id}/surveys/${j.id}/video`); } catch { /* not started yet */ }
+    if (v) state.videoRecs[j.id] = v;
     parts.push(renderJob(j, v));
   }
   if (token === videoRenderToken) body.innerHTML = parts.join("");
@@ -800,16 +854,19 @@ function renderJob(j, v) {
       ${v.windows.map((w) => `<div class="tl-win" style="left:${pct(w.start)};width:${pct(w.end - w.start)}" title="Clip ${w.index + 1}: ${mmss(w.start)} to ${mmss(w.end)}"></div>`).join("")}
       ${v.detections.map((d) => `<span class="tl-hit" style="left:${pct(d.t)}" title="Pothole at ${mmss(d.t)}, confidence ${(d.conf * 100).toFixed(0)}%"></span>`).join("")}
       <span class="tl-t start" style="left:0">0:00</span><span class="tl-t end" style="left:100%">${mmss(dur)}</span></div>`;
-  const dets = v.detections.slice(0, 24).map((d) => `<figure class="det">
+  const dets = v.detections.slice(0, 24).map((d, k) => `<figure class="det">
       <div class="det-imgs"><img loading="lazy" src="${base}${esc(d.image)}" alt="Video frame at ${mmss(d.t)} with the detection box"><img loading="lazy" src="${base}${esc(d.bev_image)}" alt="Top-down view of the same frame"></div>
-      <figcaption class="det-body"><b>${mmss(d.t)}</b><span>Confidence ${(d.conf * 100).toFixed(0)}%. ${d.bev_valid && d.calibrated ? `About ${d.bev_width_m} m wide and ${d.distance_ahead_m} m ahead.` : d.calibrated ? "This box falls outside the calibrated road area, so it has no size estimate." : "Calibrate the camera to get a size estimate from this view."}</span></figcaption></figure>`).join("");
+      <figcaption class="det-body"><b>${mmss(d.t)}</b><span>Confidence ${(d.conf * 100).toFixed(0)}%. ${d.bev_valid && d.calibrated ? `About ${d.bev_width_m} m wide and ${d.distance_ahead_m} m ahead.` : d.calibrated ? "This box falls outside the calibrated road area, so it has no size estimate." : "Calibrate the camera to get a size estimate from this view."}</span>
+        <button class="btn small" type="button" data-measure="${esc(j.id)}:${k}">Measure</button></figcaption></figure>`).join("");
   const clips = v.children.map((c) => {
     const s = c.survey || {};
     const w = v.windows[c.window];
     const act = s.status === "error" ? `<button class="btn small" data-retry="${esc(c.survey_id)}" type="button">Try again</button>`
-      : s.status === "done" ? `<button class="btn small primary" data-open="${esc(c.survey_id)}" type="button">Open in map and 3D</button>` : "";
+      : s.status === "done" ? `<button class="btn small" data-scale="${esc(c.survey_id)}" data-title="Clip ${c.window + 1}" type="button">Fix scale with scene objects</button>
+        <button class="btn small primary" data-open="${esc(c.survey_id)}" type="button">Open in map and 3D</button>` : "";
     return `<div class="clip-row"><b>Clip ${c.window + 1}</b><span>${mmss(w.start)} to ${mmss(w.end)}, ${c.frames} frames</span>${stateTag(s.status || "queued")}
-      <span class="muted small">${esc(s.status === "error" ? s.error : s.status === "done" ? `${s.stats.findings} findings` : s.stage || "")}</span><span class="spacer"></span>${act}</div>`;
+      <span class="muted small">${esc(s.status === "error" ? s.error : s.status === "done" ? `${s.stats.findings} findings` : s.stage || "")}</span>
+      ${s.status === "done" && c.scale ? scaleTag(c.scale) : ""}<span class="spacer"></span>${act}</div>`;
   }).join("");
   const summary = v.detections.length
     ? `${v.detections.length} pothole ${v.detections.length === 1 ? "detection" : "detections"} in ${mmss(dur)} of video, grouped into ${v.windows.length} ${v.windows.length === 1 ? "clip" : "clips"} for 3D.`
@@ -817,8 +874,35 @@ function renderJob(j, v) {
   return `<section class="job"><div class="job-head"><h2>${esc(j.name)}</h2>${stateTag(j.status)}<span class="muted">${esc(j.status === "running" ? j.stage : summary)}</span></div>
     ${tl}${dets ? `<div class="det-grid">${dets}</div>` : ""}${clips ? `<div>${clips}</div>` : ""}</section>`;
 }
+async function measureDetection(jid, k) {
+  const pid = state.project.id, v = state.videoRecs?.[jid], d = v?.detections[k];
+  if (!d) return;
+  const child = v.children.find((c) => c.window === d.window);
+  let targets = [];
+  if (child?.survey?.status === "done") {
+    try {
+      const an = await api(`/api/projects/${pid}/surveys/${child.survey_id}/analysis`);
+      targets = an.findings.filter((f) => f.type === "pothole" || f.type === "depression").map((f) => ({
+        target: { kind: "finding", project: pid, survey: child.survey_id, id: f.id },
+        label: `${f.id} · ${label(f.type)}${f.metrics?.area_m2 ? ` · ${f.metrics.area_m2} m²` : ""}`,
+      }));
+    } catch { /* no analysis: preview only */ }
+  }
+  const base = `/api/projects/${pid}/surveys/${jid}/video/image/`;
+  openMeasure({
+    image: base + d.image, imageRef: { kind: "detection", survey: jid, file: d.image, t: d.t }, box: d.box, targets,
+    title: `${mmss(d.t)}`, toast,
+    onSaved: () => { if (child && state.sid === child.survey_id) refreshAnalysis().catch(() => {}); },
+  }).catch((err) => toast(err.message, true));
+}
 $("#videoBody").addEventListener("click", async (e) => {
-  const r = e.target.closest("[data-retry]"), o = e.target.closest("[data-open]");
+  const r = e.target.closest("[data-retry]"), o = e.target.closest("[data-open]"), mb = e.target.closest("[data-measure]");
+  const sc = e.target.closest("[data-scale]");
+  if (sc) return fixScale(sc.dataset.scale, sc.dataset.title);
+  if (mb) {
+    const [jid, k] = mb.dataset.measure.split(":");
+    return measureDetection(jid, Number(k));
+  }
   if (r) {
     try {
       await api(`/api/projects/${state.project.id}/surveys/${r.dataset.retry}/retry`, { method: "POST" });
@@ -1103,6 +1187,8 @@ function openPin(id) {
     <div class="sub">${sevTag(p.severity)}${stateTag(p.status)}<span>Shared pin</span></div>
     <div class="row">${p.cost ? costChip(p.cost, 'data-pin-act="card"') : `<button class="cost-chip none" type="button" data-pin-act="card">Add size for a cost</button>`}<button class="btn small" data-pin-act="card" type="button">Full details</button></div>
     ${p.note ? `<p class="ev">${esc(p.note)}</p>` : ""}
+    ${p.measured ? `<p class="ev meas">${esc(measuredText(p.measured))}</p>` : ""}
+    <div class="row">${p.photo ? `<button class="btn small" data-pin-act="measure" type="button">Measure on the photo</button>` : ""}<button class="btn small${p.photo ? " quiet" : ""}" data-pin-act="photo" type="button">${p.photo ? "New photo & measure" : "Add photo & measure"}</button></div>
     <dl class="meta">
       <dt>Pinned by</dt><dd>${esc(p.reporter_name)} (@${esc(p.reporter)}), ${esc(p.reporter_company || "")}</dd>
       <dt>When</dt><dd>${new Date(p.created * 1000).toLocaleString()}</dd>
@@ -1131,6 +1217,12 @@ $("#drawer").addEventListener("click", async (e) => {
   const p = state.pins.find((x) => x.id === id);
   const a = b.dataset.pinAct;
   if (a === "card") return pinCard(id);
+  if (a === "measure" || a === "photo") {
+    return startMeasure({
+      target: { kind: "pin", id }, photo: p.photo, newPhoto: a === "photo", title: `${p.label} ${p.id}`, toast,
+      onSaved: async (out) => { await loadPins(); if (!out?.photoOnly) openPin(id); },
+    });
+  }
   try {
     if (a === "send") return shareInChat({ kind: "pin", pin: { id: p.id, label: p.label, severity: p.severity, note: p.note, lat: p.lat, lon: p.lon } });
     if (a === "confirm") await api(`/api/pins/${id}/confirm`, { method: "POST", body: "{}" });

@@ -61,6 +61,12 @@ def _recon(pid: str, sid: str) -> Reconstruction:
     return rec
 
 
+def m3(f: dict) -> dict:
+    """The finding's 3D metrics: after a reference-object measurement (civil/measure_api.py) they are kept
+    under metrics_3d, and this check stays about the 3D."""
+    return (f.get("metrics_3d") if "metrics_3d" in f else f.get("metrics")) or {}
+
+
 def pothole_mask(rec: Reconstruction) -> np.ndarray | None:
     """Points that came from inside the detector's boxes (labels are class ids; -1 = none)."""
     if rec.labels is None:
@@ -71,7 +77,7 @@ def pothole_mask(rec: Reconstruction) -> np.ndarray | None:
 
 def _evidence(rec: Reconstruction, f: dict) -> dict:
     """Crop the cloud around the finding, fit the road plane around it, and compute the numbers."""
-    m = f.get("metrics") or {}
+    m = m3(f)
     diam = float(m.get("diameter_m") or 0) or max(0.3, float(np.hypot(f["bbox"][3] - f["bbox"][0], f["bbox"][4] - f["bbox"][1])))
     half = max(1.0, diam * 1.2 + 0.5)                    # half the side of the square we look at
     cx, cy = float(f["x"]), float(f["y"])
@@ -120,7 +126,7 @@ def _evidence(rec: Reconstruction, f: dict) -> dict:
 
 def verdict(f: dict, ev: dict) -> dict:
     src = f.get("source") or ""
-    depth = (f.get("metrics") or {}).get("depth_max_m")
+    depth = m3(f).get("depth_max_m")
     if src == "detector+geometry":
         code, text = "both", (f"Both agree: the detector marked this spot ({ev['det_points']:,} 3D points from its boxes) "
                               f"and the 3D surface dips {depth * 100:.1f} cm here." if depth else
@@ -142,7 +148,7 @@ def verdict(f: dict, ev: dict) -> dict:
         warn.append(f"Re-measured here, the dip is {ev['dip_m'] * 100:.1f} cm against the survey's {depth * 100:.1f} cm.")
     if ev["ring_noise_m"] > 0.03:
         warn.append(f"The road around it is rough or noisy in 3D (±{ev['ring_noise_m'] * 100:.1f} cm), so small depths are uncertain.")
-    if (f.get("metrics") or {}).get("not_measurable"):
+    if m3(f).get("not_measurable"):
         warn.append("Depth was too large to trust (water or stray points); the typical depth is used for cost.")
     return {"code": code, "text": text, "warnings": warn}
 
@@ -193,7 +199,7 @@ PANELS = ("top", "height", "section")
 
 
 def render(f: dict, ev: dict, panel: str = "top") -> bytes:
-    depth = (f.get("metrics") or {}).get("depth_max_m") or 0.0
+    depth = m3(f).get("depth_max_m") or 0.0
     lim = max(0.05, 1.4 * max(depth, ev["dip_m"] or 0))
     # 1. photo colour from above, the detector's points on top
     rgb, filled = _coarse(ev, ev["col"][:, ::-1].astype(float), 0.015)       # colours are RGB; OpenCV draws BGR
@@ -260,7 +266,7 @@ def render(f: dict, ev: dict, panel: str = "top") -> bytes:
 def get_check(pid: str, sid: str, fid: str):
     _, f = _finding(pid, sid, fid)
     ev = _evidence(_recon(pid, sid), f)
-    m = f.get("metrics") or {}
+    m = m3(f)
     rev = f.get("review")
     if rev:
         who = auth.person(rev.get("by")) or {}

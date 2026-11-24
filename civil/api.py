@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 
-from . import auth, catalog, chat, check3d, helper, worker, groups, jobcard, location, materials, pins, pipeline, planning, priority, settings, store, xmpp
+from . import auth, catalog, chat, check3d, helper, worker, groups, jobcard, location, materials, measure_api, pins, pipeline, planning, priority, scene_scale_api, settings, store, xmpp
 from .analysis.condition import score_segments
 from .config import ALLOWED_HOSTS, DEFAULT_ORIGIN, MAX_UPLOAD_BYTES, STATIC_DIR, unit_costs
 from .decoders import registry
@@ -44,6 +44,8 @@ app.include_router(xmpp.router)
 app.include_router(location.router)
 app.include_router(check3d.router)
 app.include_router(worker.router)
+app.include_router(measure_api.router)
+app.include_router(scene_scale_api.router)
 
 # A web page on another site must not drive this local API:
 # - Host check stops DNS-rebinding (a hostile domain resolving to 127.0.0.1);
@@ -280,6 +282,7 @@ def get_video(pid: str, sid: str):
     for c in rec.get("children", []):
         try:
             c["survey"] = store.get_survey(pid, c["survey_id"])
+            c["scale"] = scene_scale_api.scale_summary(c["survey"])   # "Scale: camera height guess" on the clip row
         except KeyError:
             c["survey"] = None
     return rec
@@ -312,8 +315,12 @@ def get_analysis(pid: str, sid: str, request: Request):
     an = store.get_analysis(pid, sid)
     an.pop("path", None)
     cfg = materials.config(request.state.user["company_id"])
+    sc = scene_scale_api.scale_summary(store.get_survey(pid, sid))
+    an["scale"] = {k: sc[k] for k in ("method", "text", "label", "pct", "factor", "range", "mark", "provisional")}
     for f in an["findings"]:
         f["cost"] = jobcard.cost_summary(f, cfg)
+        f["measured"] = measure_api.summary(f.get("measurement"))
+        f["scaled_by"] = scene_scale_api.finding_mark(f, sc["mark"])
     for s in an["segments"]:
         s.pop("line", None)
     return an
@@ -433,12 +440,20 @@ def export(pid: str, sid: str, fmt: str):
         return Response(json.dumps({"type": "FeatureCollection", "features": feats}), media_type="application/geo+json",
                         headers={"Content-Disposition": f'attachment; filename="findings-{sid}.geojson"'})
     if fmt == "csv":
+        mark = scene_scale_api.scale_mark(store.get_survey(pid, sid))
         buf = io.StringIO()
         w = csv.writer(buf)
-        w.writerow(["id", "type", "label", "severity", "status", "segment", "lat", "lon", "source", "evidence"])
+        w.writerow(["id", "type", "label", "severity", "status", "segment", "lat", "lon", "source", "evidence",
+                    "area_m2", "width_m", "length_m", "depth_m", "size_from"])
         for f in an["findings"]:
+            m, rec = f.get("metrics") or {}, f.get("measurement")
+            depth = m.get("depth_max_m") if m.get("depth_max_m") is not None else m.get("depth_median_m")
+            size_from = (f"{rec['ref']['label']} ±{rec['pct']['area_m2']:g}%" if rec and (rec.get("pct") or {}).get("area_m2") is not None
+                         else rec["ref"]["label"] if rec else ("" if not m.get("area_m2") else "tagged by hand" if f.get("source") == "manual"
+                                                         else f"3D; {mark}" if mark else "3D"))
             w.writerow([f["id"], f["type"], catalog.CATALOG[f["type"]].label, f.get("severity") or "", f.get("status"),
-                        f.get("segment_id") or "", f"{f['lat']:.7f}", f"{f['lon']:.7f}", f["source"], f["evidence"]])
+                        f.get("segment_id") or "", f"{f['lat']:.7f}", f"{f['lon']:.7f}", f["source"], f["evidence"],
+                        m.get("area_m2", ""), m.get("width_m", ""), m.get("length_m", ""), "" if depth is None else depth, size_from])
         return Response(buf.getvalue(), media_type="text/csv",
                         headers={"Content-Disposition": f'attachment; filename="findings-{sid}.csv"'})
     if fmt == "ply":

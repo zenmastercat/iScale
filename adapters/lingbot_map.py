@@ -10,6 +10,7 @@ Two modes:
   convert  Turn LingBot-Map's per-frame predictions into what civil-scan reads:
            python adapters/lingbot_map.py convert --pred-dir out/street --out decoded/
            -> decoded/points.ply (back-projected depth, coloured) + decoded/poses.json
+              (camera-to-world poses and the per-frame intrinsics)
 
   run      Run LingBot-Map's batch_demo.py, then convert (used by the external decoder
            slot in config/decoders.json):
@@ -110,7 +111,7 @@ def convert(pred_dir: Path, out: Path, stride: int = 2, conf_drop_pct: float = 3
         files = cands
     out.mkdir(parents=True, exist_ok=True)
     direction = _pose_direction(files) if pose == "auto" else pose
-    pts_all, col_all, lab_all, poses, times = [], [], [], [], []
+    pts_all, col_all, lab_all, poses, times, intr = [], [], [], [], [], []
     boxes = boxes or {}
     per_frame_budget = max(1000, max_points // len(files))
     rng = np.random.default_rng(0)
@@ -134,6 +135,7 @@ def convert(pred_dir: Path, out: Path, stride: int = 2, conf_drop_pct: float = 3
         else:
             c2w[:3, :4] = w2c
         poses.append(c2w)
+        intr.append(k.tolist())  # model-image pixels; civil/scene_scale.py casts rays through tapped frame pixels
         times.append(t0 + i / fps)
         h, w = depth.shape
         vv, uu = np.mgrid[0:h:stride, 0:w:stride]
@@ -176,8 +178,9 @@ def convert(pred_dir: Path, out: Path, stride: int = 2, conf_drop_pct: float = 3
     write_ply(out / "points.ply", xyz, rgb, labels if has_lab else None)
     if has_lab:
         (out / "labels.json").write_text(json.dumps({"1": "pothole"}))
-    (out / "poses.json").write_text(json.dumps({"poses": [p.tolist() for p in poses], "times": times,
-                                                "convention": "camera-to-world, OpenCV axes, LingBot-Map relative scale"}))
+    (out / "poses.json").write_text(json.dumps({"poses": [p.tolist() for p in poses], "times": times, "intrinsics": intr,
+                                                "convention": "camera-to-world, OpenCV axes, LingBot-Map relative scale; "
+                                                              "intrinsics 3x3 per frame in model-image pixels"}))
     info = {"frames": len(files), "points": int(len(xyz)), "metric": False, "pose_direction": direction,
             "detector_points": int((labels == 1).sum())}
     (out / "lingbot_convert.json").write_text(json.dumps(info, indent=2))

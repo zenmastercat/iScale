@@ -167,8 +167,11 @@ async def job_result(pid: str, sid: str, request: Request, recon: UploadFile = F
         if not proj.get("baseline") or store.get_survey(pid, proj["baseline"]).get("kind") == "video":
             proj["baseline"] = sid
             store.save_project(proj)
+    scale = info.get("scale") if isinstance(info.get("scale"), dict) else None
     store.update_survey(pid, sid, status="done", stage="", lease=None,
-                        notes=list(info.get("notes") or [])[:50], stats=dict(info.get("stats") or {}))
+                        notes=list(info.get("notes") or [])[:50], stats=dict(info.get("stats") or {}),
+                        **({"scale": {k: scale[k] for k in ("method", "factor", "pct", "refs", "label") if k in scale} | {"history": []}}
+                           if scale else {}))
     return {"ok": True}
 
 
@@ -242,7 +245,8 @@ def _run_one(c, server: str, job: dict, pipeline) -> None:
         with open(store.recon_path(pid, sid), "rb") as rf, open(sdir / "analysis.json", "rb") as af:
             r = c.post(f"{base}/result", files={"recon": ("recon.npz", rf, "application/octet-stream"),
                                                 "analysis": ("analysis.json", af, "application/json")},
-                       data={"meta": json.dumps({"notes": done.get("notes"), "stats": done.get("stats")})})
+                       data={"meta": json.dumps({"notes": done.get("notes"), "stats": done.get("stats"),
+                                                       "scale": done.get("scale")})})
         r.raise_for_status()
         print(f"  done: {done.get('stats')}", flush=True)
     except Exception as e:  # noqa: BLE001 - report and keep the worker alive

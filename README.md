@@ -194,6 +194,57 @@ On the demo the rules recover every planted defect and asset except the flush co
 which is undetectable by design. Real scans will need the thresholds in
 `config/analysis.json` tuned to your sensor's noise.
 
+## Measuring a pothole with a reference object
+
+Without GPS the 3D scale comes from a guessed camera height, so a pothole's size and depth can be wrong or
+missing, and then it has no materials cost. A photo with an object of known size lying next to the hole
+fixes that. Press **Measure** on the pothole's job card (on its photo), on a detection frame in **Video**,
+or **Add photo & measure** on a job card or a shared pin, then:
+
+1. choose the reference: **A4 sheet** (21 × 29.7 cm), **A3 sheet** (29.7 × 42 cm), **ID card or bank card**
+   (ISO/IEC 7810 ID-1, 8.56 × 5.398 cm), a **custom rectangle** (type W × L in cm), or a **ruler or tape**
+   (tap the two ends of a known length; only for a photo taken straight down at the hole);
+2. tap its 4 corners, in any order (drag to adjust; a magnifier shows the spot under your finger; zoom with + and −);
+3. tap round the edge of the hole, or use the detector's box (an upper bound);
+4. type the depth you measured on site with a ruler, or, when the finding has a 3D depth, **rescale the 3D
+   depth**: depth × k with k = √(area measured here ÷ 3D area), refused outside 0.2–5. With neither there is
+   no depth, and the cost says it needs one: no depth is ever made up.
+
+The panel shows width × length, area, perimeter, depth and volume with their ranges, any warnings, and the
+materials bill, live. **Save** puts the numbers on the finding (the old ones are kept for **Undo**); the job
+card, cost chips, Repairs plan and exports use them, and the finding says "Measured with A4 sheet ±x%".
+The cut for the bill is the measured width × length plus 30 cm on every side (DOH).
+
+**Taking the photo.** Lay the reference flat on the road right next to the hole, on the same surface, with
+all of it in the picture. Keep the hole and the reference close together and both in focus, stand over
+them and take the photo as much from above as you can, and fill the frame with them. Tap the corners with
+the magnifier, zoomed in.
+
+**Accuracy** (`tests/test_measure.py`, synthetic photos from a pinhole camera 1.5 m above the road,
+a 0.36 m² hole about 0.6 m from the reference). With exact taps the area, width and length come back within
+0.1 % (the tests require 2 %) at every tilt and rotation tried, and with the 2-point ruler on a straight-down
+photo. Tap errors matter much more than the maths; the area error for taps off by up to 1 px and 3 px:
+
+| Photo | Reference on screen | ±1 px taps: median / 90 % | ±3 px taps: median / 90 % |
+|---|---|---|---|
+| A4, straight down from 1.5 m | 210 px | 0.9 % / 2.1 % | 2.6 % / 5.7 % |
+| A3, tilted 70° | 187 px | 2.7 % / 6.9 % | 9.6 % / 22 % |
+| A4, tilted 70° | 133 px | 4.9 % / 12 % | 17 % / 41 % |
+| A4, tilted 45° | 88 px | 7.4 % / 20 % | 26 % / 78 % |
+| ID card, tilted 70° | 35 px | 48 % / over 100 % | unusable |
+
+The ± range is the 10th-90th percentile of 200 re-measurements with every tapped point moved by up to
+3 px (fixed seed). In the same trials it contained the true area 60 times in 60 with ±1 px taps and 43-48
+times in 60 with ±3 px taps.
+
+**Limits.** The reference and the hole must lie on one flat plane; a crowned or rutted road, a sheet that is
+not flat, or a hole on a slope adds error the range does not show. Phone lens distortion is not corrected.
+The hole's edge is where you tap it. An ID card is only good for a close-up. The 2-point ruler has no
+perspective at all. The sheet warns when the hole is more than 4 × the reference's size away from it, when
+the reference is under 40 px on screen, when the range is wider than ±20 %, and when it can't tell the
+reference's long side (use **Swap long side**). Re-running a survey's analysis replaces its findings, and
+with them their measurements.
+
 ## Inputs
 
 | File | Format |
@@ -210,6 +261,7 @@ upload a GPS track or set the camera height in *Scale and placement*.
 
 - `config/video.json`: detector, window length, clip frame rate, LingBot paths and GPU settings, camera calibration.
 - `config/decoders.json`: other external decoders (command, outputs, metadata). Disabled until you set paths.
+- `config/measure_refs.json`: reference objects for measuring a pothole in a photo (exact standard sizes only).
 - `config/materials.json`: materials-only pothole estimate: method thresholds, DOH rates (tack 0.30 L/m², prime 1.0 L/m², cold mix 1,944 kg/m³, 30 cm cut margin) and default THB prices with their sources (Nov 2026). Admins override prices in Settings, Material prices. Crushed-rock base has no default price.
 - `config/repair_timing.json`: suggested repair window per road class (a rule of thumb, editable).
 - `config/unit_costs.json`: **placeholder** unit rates and segment treatments. Replace them with your own contract rates; every plan says so.
@@ -223,7 +275,9 @@ upload a GPS track or set the camera height in *Scale and placement*.
 `GET …/surveys/{sid}/analysis` · `GET …/surveys/{sid}/points.bin` ·
 `POST|PATCH …/surveys/{sid}/findings` · `GET …/surveys/{sid}/plan?mode=spot|segment&budget=` ·
 `GET …/surveys/{sid}/export.csv|geojson` · `POST|PATCH /api/projects/{pid}/workorders` ·
-`POST /api/projects/{pid}/verify` · `POST /api/projects/{pid}/chat`.
+`POST /api/projects/{pid}/verify` · `POST /api/projects/{pid}/chat` ·
+`POST /api/measure/preview` · `POST …/findings/{fid}/measurement` (and `/undo`) · `POST|GET …/findings/{fid}/photo` ·
+`POST|GET /api/pins/{id}/photo` · `POST /api/pins/{id}/measurement` (and `/undo`).
 Interactive docs: <http://127.0.0.1:8765/docs>.
 
 ## Layout

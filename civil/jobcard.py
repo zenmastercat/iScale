@@ -122,15 +122,17 @@ def best_frame(pid: str, sid: str, f: dict) -> dict | None:
     i = int(np.argmin(score))
     geo = meta.get("geometry")
     boxes = [_box_to_frame(b, geo) for b in all_boxes.get(str(i), [])]
-    return {"url": f"/api/projects/{pid}/surveys/{sid}/frames/{i}", "frame": i, "distance_m": round(float(dist[i]), 1),
+    return {"url": f"/api/projects/{pid}/surveys/{sid}/frames/{i}", "kind": "frame", "frame": i, "distance_m": round(float(dist[i]), 1),
             "boxes": boxes, "note": f"Video frame {i}, taken about {dist[i]:.0f} m before the pothole"}
 
 
 def _box_to_frame(b: list[float], geo: dict | None) -> list[float]:
-    """Detector boxes are saved in LingBot's model-image pixels (civil/video/frames.box_to_model); undo that."""
+    """Detector boxes are saved in LingBot's model-image pixels (civil/video/frames.box_to_model); undo that.
+    The clip frames on disk are already cut to the band (rows y0..y1, frames.extract_clip), so the result is
+    in the frame file's pixels: no + y0 (that would push boxes down on portrait videos)."""
     if not geo:
         return [round(v, 1) for v in b]
-    fy = lambda y: (y + geo["crop_top"]) / geo["sy"] + geo["y0"]  # noqa: E731
+    fy = lambda y: (y + geo["crop_top"]) / geo["sy"]  # noqa: E731
     return [round(b[0] / geo["sx"], 1), round(fy(b[1]), 1), round(b[2] / geo["sx"], 1), round(fy(b[3]), 1)]
 
 
@@ -186,8 +188,18 @@ def build(kind: str, f: dict, *, company_id: str, lang: str, photo: dict | None,
     urg, urg_code = URGENCY.get(sev, URGENCY["low"])
     it = catalog.CATALOG.get(f["type"])
     m = f.get("metrics") or {}
-    tiles = [(k, lbl, unit) for k, lbl, unit in (("area_m2", "Size", "m²"), ("depth_max_m", "Depth", "m"),
-                                                  ("volume_m3", "Volume", "m³"), ("diameter_m", "Width", "m")) if m.get(k) is not None]
+    rec = f.get("measurement")
+    rng = (rec or {}).get("ranges") or {}
+    tiles = [{"key": "area_m2", "label": "Size", "value": m["area_m2"], "unit": "m²", "range": rng.get("area_m2")}] if m.get("area_m2") else []
+    if m.get("width_m") and m.get("length_m"):
+        tiles.append({"key": "dims", "label": "Width × length", "value": [m["width_m"], m["length_m"]], "unit": "m"})
+    for k, lbl, unit in (("depth_max_m", "Depth", "m"), ("volume_m3", "Volume", "m³")):
+        if m.get(k) is not None:
+            tiles.append({"key": k, "label": lbl, "value": m[k], "unit": unit})
+    if m.get("diameter_m") is not None and not (m.get("width_m") and m.get("length_m")):
+        tiles.append({"key": "diameter_m", "label": "Width", "value": m["diameter_m"], "unit": "m"})
+    from .measure_api import summary, three_d
+
     return {
         "kind": kind, "id": f["id"], "type": f["type"], "label": it.label if it else f["type"], "severity": sev,
         "status": f.get("status", "open"),
@@ -195,10 +207,14 @@ def build(kind: str, f: dict, *, company_id: str, lang: str, photo: dict | None,
             "lat": f["lat"], "lon": f["lon"], "address": address(f["lat"], f["lon"], company_id, lang),
             "road_name": (t or {}).get("road_name"), "nav_url": _nav_url(f["lat"], f["lon"]),
             "maps_url": pins.maps_url(f["lat"], f["lon"]), "photo": photo, "reported": reported, "survey": survey_name,
-            "tiles": [{"key": k, "label": lbl, "value": m[k], "unit": unit} for k, lbl, unit in tiles],
+            "tiles": tiles,
             "evidence": f.get("evidence") or f.get("note") or "",
         },
         "cost": b,
+        "measured": summary(rec),
+        "measure": {"three_d": three_d(f) if kind == "finding" else None,
+                    "can_undo": "metrics_prev" in f if kind == "finding" else bool(f.get("can_undo_measure")),
+                    "box": ((photo or {}).get("boxes") or [None])[0]},
         "timing": timing(t),
         "plan": {"urgency": urg, "urgency_code": urg_code, "warning": _warning(b, f["type"]),
                  "method": b.get("method_label"), "steps": materials.steps(b),
@@ -221,12 +237,21 @@ def finding_card(pid: str, sid: str, fid: str, request: Request):
     seg = next((s for s in an["segments"] if s["id"] == f.get("segment_id")), None)
     t = traffic.live_info(f["lat"], f["lon"], (seg or {}).get("traffic")) if seg and seg.get("traffic") else None
     sv = store.get_survey(pid, sid)
-    try:
-        photo = best_frame(pid, sid, f)
-    except (OSError, ValueError, KeyError):
-        photo = None
-    return build("finding", f, company_id=me["company_id"], lang=_lang(request), photo=photo, t=t,
+    from .measure_api import finding_photo_path, photo_info
+
+    photo = photo_info(finding_photo_path(pid, sid, fid), f"/api/projects/{pid}/surveys/{sid}/findings/{fid}/photo",
+                       "Photo added on site")
+    if photo is None:
+        try:
+            photo = best_frame(pid, sid, f)
+        except (OSError, ValueError, KeyError):
+            photo = None
+    from .scene_scale_api import finding_mark, scale_mark
+
+    card = build("finding", f, company_id=me["company_id"], lang=_lang(request), photo=photo, t=t,
                  reported=sv.get("created"), survey_name=sv.get("name"))
+    card["scaled_by"] = finding_mark(f, scale_mark(sv))
+    return card
 
 
 @router.get("/pins/{pin_id}/card")
@@ -237,10 +262,12 @@ def pin_card(pin_id: str, request: Request):
     if row is None:
         raise HTTPException(404, "not found")
     p = pins._out(row)
+    mrec = json.loads(row["measure"]).get("measurement") if row.get("measure") else None
     f = {"id": p["id"], "type": p["type"], "severity": p["severity"], "status": p["status"], "lat": p["lat"], "lon": p["lon"],
-         "metrics": p.get("metrics") or {}, "note": p["note"], "evidence": p["note"]}
+         "metrics": p.get("metrics") or {}, "note": p["note"], "evidence": p["note"], "measurement": mrec,
+         "can_undo_measure": p.get("can_undo_measure")}
     t = traffic.live_info(p["lat"], p["lon"], p["traffic"]) if p.get("traffic") else None
-    card = build("pin", f, company_id=me["company_id"], lang=_lang(request), photo=None, t=t, reported=p["created"])
+    card = build("pin", f, company_id=me["company_id"], lang=_lang(request), photo=p.get("photo"), t=t, reported=p["created"])
     card["location"]["reporter"] = p.get("reporter_name")
     return card
 

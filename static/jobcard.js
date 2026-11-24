@@ -1,6 +1,7 @@
 /* Pothole job card: Location, Cost & materials, Best time, Repair plan.
    Full-screen sheet on phones and tablets, a centred two-column window on a computer. */
 import { mountCheck } from "./check3d.js";
+import { startMeasure, undoMeasure } from "./measure.js";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const HDR = { "X-Civil-Scan": "1" };
@@ -13,7 +14,19 @@ const ICON = {
   tool: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-.5-.5-2.5z"/></svg>',
   alert: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17v.01"/></svg>',
   list: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>',
+  ruler: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 16.5 16.5 3 21 7.5 7.5 21z"/><path d="m7 13 1.5 1.5M10 10l2.5 2.5M13 7l1.5 1.5"/></svg>',
+  camera: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
 };
+
+/** "Measured with A4 sheet ±4%", with who and when, and Undo. */
+function measuredHtml(c) {
+  const m = c.measured;
+  if (!m) return "";
+  return `<div class="jc-measured"><p>${ICON.ruler}<span>Measured with ${esc(m.ref)}${m.pct != null ? ` ±${esc(Math.round(m.pct))}%` : ""}</span></p>
+    <small>${m.by ? `@${esc(m.by)}, ` : ""}${esc(ago(m.at))}${m.depth_source === "3d_rescaled" ? `; 3D depth × k ${esc(Number(m.k).toFixed(2))}` : m.depth_source === "typed" ? "; depth typed on site" : "; no depth yet"}</small>
+    ${m.warnings?.length ? `<small class="jc-warn">${esc(m.warnings[0])}</small>` : ""}
+    ${c.measure?.can_undo ? `<button class="btn small quiet" type="button" data-jc-m="undo">Undo measurement</button>` : ""}</div>`;
+}
 
 export function moneyFmt(x, sym = "฿", digits = 0) {
   return `${sym}${Number(x || 0).toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
@@ -29,6 +42,7 @@ function ago(t) {
 }
 
 const fmtTile = (t) => {
+  if (t.key === "dims") return [`${Number(t.value[0]).toFixed(2)} × ${Number(t.value[1]).toFixed(2)}`, t.unit];
   if (t.key === "depth_max_m") return [`${(t.value * 100).toFixed(t.value < 0.1 ? 1 : 0)}`, "cm"];
   if (t.key === "volume_m3") return [`${Math.round(t.value * 1000)}`, "L"];
   return [Number(t.value).toFixed(t.value < 10 ? 2 : 1), t.unit];
@@ -52,7 +66,8 @@ function photoHtml(c) {
     return `<figure class="jc-hero">
       <img src="${esc(L.photo.url)}" alt="Road photo near the pothole" decoding="async" data-boxes='${esc(JSON.stringify(L.photo.boxes || []))}'>
       <svg class="jc-boxes" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${boxes}</svg>
-      ${badge}<figcaption>${esc(L.photo.note)}</figcaption></figure>`;
+      ${badge}<figcaption>${esc(L.photo.note)}</figcaption>
+      <button class="btn small jc-measure" type="button" data-jc-m="measure">${ICON.ruler}Measure</button></figure>`;
   }
   const t = tileFor(L.lat, L.lon);
   return `<figure class="jc-hero map" style="--fx:${t.fx};--fy:${t.fy}">
@@ -73,8 +88,12 @@ function locationHtml(c) {
       ${sub ? `<p class="jc-addr2">${esc(sub)}</p>` : ""}
       <button class="jc-coords" type="button" data-copy="${L.lat.toFixed(6)}, ${L.lon.toFixed(6)}" title="Copy coordinates">${ICON.pin}<span>${L.lat.toFixed(6)}, ${L.lon.toFixed(6)}</span></button>
       <a class="btn primary jc-nav" href="${esc(L.nav_url)}" target="_blank" rel="noopener noreferrer">${ICON.nav}Navigate to the repair site</a>
-      ${L.tiles.length ? `<p class="jc-label">Measured damage</p><div class="jc-tiles">${L.tiles.map((t) => { const [v, u] = fmtTile(t); return `<div class="jc-tile"><span>${esc(t.label)}</span><b>${esc(v)}<small> ${esc(u)}</small></b></div>`; }).join("")}</div>`
+      ${L.tiles.length ? `<p class="jc-label">Measured damage</p><div class="jc-tiles">${L.tiles.map((t) => { const [v, u] = fmtTile(t); return `<div class="jc-tile ${esc(t.key)}"><span>${esc(t.label)}</span><b>${esc(v)}<small> ${esc(u)}</small></b>${t.range ? `<small class="jc-range">${esc(Number(t.range[0]).toFixed(2))}–${esc(Number(t.range[1]).toFixed(2))}</small>` : ""}</div>`; }).join("")}</div>`
         : `<p class="jc-label">No size measured yet</p>`}
+      ${measuredHtml(c)}
+      ${c.scaled_by ? `<p class="jc-scaled ${c.scaled_by.startsWith("Scaled by") ? "scene" : "guess"}">${ICON.ruler}<span>${esc(c.scaled_by)}</span></p>` : ""}
+      <div class="jc-mrow">${L.photo ? `<button class="btn small" type="button" data-jc-m="measure">${ICON.ruler}Measure with a reference object</button>` : ""}
+        <button class="btn small${L.photo ? " quiet" : ""}" type="button" data-jc-m="photo">${ICON.camera}${L.photo?.kind === "photo" ? "New photo & measure" : "Add photo & measure"}</button></div>
       ${L.evidence ? `<p class="muted small">${esc(L.evidence)}</p>` : ""}
     </div></section>`;
 }
@@ -241,7 +260,28 @@ export async function openJobCard(ref, opts = {}) {
   }
 }
 
+function measureRef(ref) {
+  return ref.kind === "pin" ? { kind: "pin", id: ref.id } : { kind: "finding", project: ref.project, survey: ref.survey, id: ref.id };
+}
+
+async function onMeasure(a) {
+  const { ref, card: c } = current;
+  const target = measureRef(ref);
+  const reload = async () => { hooks.onChanged?.(); if (dlg.open) await openJobCard(ref, hooks); };
+  if (a === "undo") {
+    try { await undoMeasure(target); hooks.toast?.("Measurement undone"); await reload(); } catch (err) { hooks.toast?.(err.message, true); }
+    return;
+  }
+  const photo = c.location.photo;
+  await startMeasure({
+    target, photo, box: c.measure?.box || null, newPhoto: a === "photo", title: `${c.label} ${c.id}`, toast: hooks.toast,
+    onSaved: (out) => (out?.photoOnly ? openJobCard(ref, hooks) : reload()),
+  });
+}
+
 function onClick(e) {
+  const jm = e.target.closest("[data-jc-m]");
+  if (jm && current) return onMeasure(jm.dataset.jcM);
   const go = e.target.closest("[data-go]");
   if (go) {
     setCurrent(go.dataset.go);

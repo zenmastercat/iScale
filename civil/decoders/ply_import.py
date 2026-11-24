@@ -29,9 +29,15 @@ def load_outputs(folder: Path, points_name: str | None = None, poses_name: str |
         raise DecoderError(f"no point cloud found in {folder.name} (expected a .ply file)")
     xyz, rgb, lab = read_ply(ply)
     poses = times = gps = None
+    meta: dict = {}
     pose_file = folder / poses_name if poses_name else (kinds["poses"][0] if kinds["poses"] else None)
     if pose_file is not None and pose_file.is_file():
         poses, times = read_poses(pose_file)
+        if pose_file.suffix.lower() == ".json":
+            obj = json.loads(pose_file.read_text())
+            ks = obj.get("intrinsics") if isinstance(obj, dict) else None
+            if ks is not None and np.asarray(ks, dtype=np.float64).shape in ((len(poses), 3, 3), (3, 3)):
+                meta["intrinsics"] = np.asarray(ks, dtype=np.float64).tolist()   # per-frame K (civil/scene_scale.py)
     gps_file = folder / gps_name if gps_name else (kinds["gps"][0] if kinds["gps"] else None)
     if gps_file is not None and gps_file.is_file():
         gps = read_gps_csv(gps_file)
@@ -41,7 +47,7 @@ def load_outputs(folder: Path, points_name: str | None = None, poses_name: str |
         raw = json.loads(lab_file.read_text())
         label_names = {int(k): v for k, v in raw.items() if v in CATALOG}
     return Reconstruction(points=xyz, colors=rgb, poses=poses, times=times, gps=gps,
-                          labels=lab if label_names else None, label_names=label_names)
+                          labels=lab if label_names else None, label_names=label_names, meta=meta)
 
 
 class PlyImportDecoder(Decoder):

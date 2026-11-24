@@ -36,6 +36,48 @@ def _segments_to_geo(segs: list[dict], lat0: float, lon0: float) -> None:
         s["coords"] = [[float(a), float(b)] for a, b in zip(lon, lat)]
 
 
+def analyse(rec: Reconstruction, params: dict, proj: dict, sid: str) -> dict:
+    """The analysis of an aligned recon, with finding ids, lat/lon and segment coordinates (not saved)."""
+    an = analyze(rec, (params or {}).get("analysis"))
+    prefix = "F" + sid[:3].upper() + "-"
+    _finalize_findings(an["findings"], proj["origin_lat"], proj["origin_lon"], prefix)
+    _segments_to_geo(an["segments"], proj["origin_lat"], proj["origin_lon"])
+    an["survey_id"] = sid
+    return an
+
+
+def survey_stats(rec: Reconstruction, an: dict) -> dict:
+    return {"points": rec.n, "findings": len(an["findings"]), "segments": len(an["segments"]),
+            "length_m": round(sum(s["length_m"] for s in an["segments"]), 1), "analysis_s": an["seconds"]}
+
+
+def _scale_record(rec: Reconstruction, params: dict) -> dict:
+    """How this survey's scale was set, for survey.json (civil/scene_scale_api.py adds to it later)."""
+    info = dict(rec.meta.get("scale_info") or {})
+    if info.get("method") == "scene":
+        info["refs"] = list((params or {}).get("scene_refs") or [])
+    info.setdefault("method", "unknown")
+    info["history"] = []
+    return info
+
+
+def finish(pid: str, sid: str, rec: Reconstruction, params: dict, proj: dict) -> None:
+    """Align a decoded recon, analyse it and mark the survey done."""
+    store.update_survey(pid, sid, stage="aligning")
+    notes = align(rec, proj["origin_lat"], proj["origin_lon"], params)
+    rec.save(store.recon_path(pid, sid))
+    store.update_survey(pid, sid, stage="analysing", notes=notes, scale=_scale_record(rec, params))
+    an = analyse(rec, params, proj, sid)
+    store.save_analysis(pid, sid, an)
+    stats = survey_stats(rec, an)
+    with store.lock(pid):
+        proj = store.get_project(pid)
+        if not proj.get("baseline") or store.get_survey(pid, proj["baseline"]).get("kind") == "video":
+            proj["baseline"] = sid
+            store.save_project(proj)
+    store.update_survey(pid, sid, status="done", stage="", stats=stats)
+
+
 def run_survey(pid: str, sid: str) -> None:
     try:
         proj = store.get_project(pid)
@@ -58,25 +100,7 @@ def run_survey(pid: str, sid: str) -> None:
         params.setdefault("origin_lat", proj["origin_lat"])
         params.setdefault("origin_lon", proj["origin_lon"])
         rec: Reconstruction = dec.decode(d / "input", d / "work", params)
-        store.update_survey(pid, sid, stage="aligning")
-        notes = align(rec, proj["origin_lat"], proj["origin_lon"], params)
-        rec.save(store.recon_path(pid, sid))
-        store.update_survey(pid, sid, stage="analysing", notes=notes)
-        an = analyze(rec, params.get("analysis"))
-        prefix = "F" + sid[:3].upper() + "-"
-        _finalize_findings(an["findings"], proj["origin_lat"], proj["origin_lon"], prefix)
-        _segments_to_geo(an["segments"], proj["origin_lat"], proj["origin_lon"])
-        an["survey_id"] = sid
-        store.save_analysis(pid, sid, an)
-        stats = {"points": rec.n, "findings": len(an["findings"]), "segments": len(an["segments"]),
-                 "length_m": round(sum(s["length_m"] for s in an["segments"]), 1),
-                 "analysis_s": an["seconds"]}
-        with store.lock(pid):
-            proj = store.get_project(pid)
-            if not proj.get("baseline") or store.get_survey(pid, proj["baseline"]).get("kind") == "video":
-                proj["baseline"] = sid
-                store.save_project(proj)
-        store.update_survey(pid, sid, status="done", stage="", stats=stats)
+        finish(pid, sid, rec, params, proj)
     except (DecoderError, ValueError, KeyError, OSError) as e:
         store.update_survey(pid, sid, status="error", stage="", error=str(e))
     except Exception as e:  # keep the worker alive, record the failure

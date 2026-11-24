@@ -19,7 +19,7 @@ import numpy as np
 from .. import store
 from ..config import CONFIG_DIR
 from .detector import make_detector
-from .frames import band, box_to_model, extract_clip, model_geometry, sample, video_info
+from .frames import band, box_to_model, extract_clip, model_geometry, sample, video_info, video_rotation
 from .perspective import RoadPlane
 from .windows import events, windows
 
@@ -68,6 +68,16 @@ def run_video_job(pid: str, sid: str, progress) -> dict:
         progress("preparing the recording")
         fixed = d / "input" / "recording-cfr.mp4"
         normalize_recording(video, fixed)
+        video.unlink()
+        video = fixed
+    elif video.name != "upright.mp4" and video_rotation(video):
+        # an uploaded phone video stores upright footage as landscape pixels plus a rotation flag;
+        # OpenCV ignores the flag, so the detector and LingBot-Map would see the road sideways
+        from .normalize import normalize_recording
+
+        progress("turning the video upright")
+        fixed = d / "input" / "upright.mp4"
+        normalize_recording(video, fixed, fps=video_info(video)["fps"] or 30.0)
         video.unlink()
         video = fixed
     info = video_info(video)

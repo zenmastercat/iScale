@@ -102,7 +102,6 @@ class LingbotClipDecoder(Decoder):
         frames = input_dir / "frames"
         if not frames.is_dir() or len(list(frames.glob("*.jpg"))) < 2:
             raise DecoderError("clip has fewer than 2 frames")
-        meta = json.loads((input_dir / "boxes.json").read_text())
         raw = work_dir / "lingbot_raw"
         raw.mkdir(parents=True, exist_ok=True)
         if lb.get("bf16_weights"):  # wrapper that runs batch_demo.py with bfloat16 weights (16 GB GPUs)
@@ -124,6 +123,11 @@ class LingbotClipDecoder(Decoder):
         if r.returncode != 0:
             tail = log.read_text(errors="replace")[-600:]
             raise DecoderError(f"LingBot-Map exited with code {r.returncode}; see work/decoder.log. Last lines: {tail}")
+        return self.convert(raw, input_dir, work_dir, params)
+
+    def convert(self, raw: Path, input_dir: Path, work_dir: Path, params: dict) -> Reconstruction:
+        """LingBot-Map's saved predictions (raw/frame_*.npz) -> the clip's Reconstruction."""
+        meta = json.loads((input_dir / "boxes.json").read_text())
         boxes = {int(k): v for k, v in meta.get("boxes", {}).items()}
         conv = work_dir / "decoded"
         info = _adapter().convert(raw, conv, fps=float(params.get("clip_fps", 10)), boxes=boxes,
@@ -136,6 +140,8 @@ class LingbotClipDecoder(Decoder):
             rec.gps = read_gps_csv(input_dir / "gps.csv")
         rec.meta.update({"metric": False, "up_axis": "auto", "camera_convention": "opencv",
                          "decoder": self.name, "lingbot": info,
-                         "camera_height_m": params.get("camera_height_m")})
+                         "camera_height_m": params.get("camera_height_m"),
+                         # stored frame pixels -> model-image pixels, for taps on the frames (civil/scene_scale.py)
+                         "frame_geometry": meta.get("geometry")})
         return rec
 

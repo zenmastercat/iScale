@@ -16,7 +16,10 @@ Method by depth (thresholds are app settings; DOH gives no number for "reaches t
   full_depth     deeper                      crushed-rock base, prime coat, then surface_layer_m of cold mix
 
 Quantities:
-  cut          (W + 2 x cut_edge) x (L + 2 x cut_edge), W x L = the measured area
+  cut          (W + 2 x cut_edge) x (L + 2 x cut_edge). W x L is the measured width x length when the
+               metrics have them (a reference-object measurement: the smallest rectangle round the
+               hole, so the cut goes 30 cm past all of it); otherwise a rectangle with the measured
+               area and the 3D bounding box's aspect ratio (or a square)
   cold mix     cut area x asphalt depth x 1,944 kg/m3 x (1 + allowance)
   bags         ceil(cold mix / bag weight)
   tack coat    0.30 L/m2 x (cut area + perimeter x asphalt depth)   floor and sides
@@ -73,8 +76,11 @@ def _depth(m: dict) -> float | None:
     return float(d) if d is not None else None
 
 
-def _dims(area: float, bbox: list | None) -> tuple[float, float]:
-    """Width x length of the damage with the measured area, keeping the defect's own aspect ratio when known."""
+def _dims(area: float, bbox: list | None, m: dict | None = None) -> tuple[float, float]:
+    """Width x length of the damage: measured when known, else the measured area with the defect's own aspect ratio."""
+    m = m or {}
+    if m.get("width_m") and m.get("length_m") and float(m["width_m"]) > 0 and float(m["length_m"]) > 0:
+        return float(m["width_m"]), float(m["length_m"])
     if bbox and len(bbox) == 6:
         w, l = abs(bbox[3] - bbox[0]), abs(bbox[4] - bbox[1])
         if w > 0.05 and l > 0.05:
@@ -100,8 +106,9 @@ def bill(metrics: dict | None, cfg: dict | None = None, bbox: list | None = None
     m = metrics or {}
     area, depth = m.get("area_m2"), _depth(m)
     if not area or depth is None:
-        return {"available": False, "reason": "No size or depth measured yet. Add them to estimate materials.",
-                "currency": cfg["currency"], "symbol": cfg["symbol"]}
+        reason = ("The size is measured, but it needs a depth to estimate materials. Type the depth measured on site."
+                  if area else "No size or depth measured yet. Add them to estimate materials.")
+        return {"available": False, "reason": reason, "currency": cfg["currency"], "symbol": cfg["symbol"]}
     area = float(area)
     depth = max(float(depth), float(cfg["min_depth_m"]))
     max_layer, base_thr = float(cfg["max_layer_m"]), float(cfg["base_threshold_m"])
@@ -109,7 +116,7 @@ def bill(metrics: dict | None, cfg: dict | None = None, bbox: list | None = None
     asphalt_d = min(depth, float(cfg["surface_layer_m"])) if method == "full_depth" else depth
     base_d = depth - asphalt_d if method == "full_depth" else 0.0
     edge = float(cfg["cut_edge_m"])
-    dw, dl = _dims(area, bbox)
+    dw, dl = _dims(area, bbox, m)
     w, l = dw + 2 * edge, dl + 2 * edge
     cut_area = w * l
     mats = cfg["materials"]

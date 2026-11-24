@@ -5,7 +5,8 @@ only up-to-scale, few are georeferenced.  This module makes no assumption about 
 model; it uses only geometry and whatever metadata/GPS the survey provides:
 
 1. up axis    meta["up_axis"] ("z", "y", "-y", ...) or estimated from the dominant plane
-2. scale      meta["metric"] true, else GPS track similarity, else known camera height
+2. scale      meta["metric"] true, else GPS track similarity, else objects of known size tapped in
+              the clip's frames (params["scene_refs"], civil/scene_scale.py), else known camera height
 3. georef     GPS track (Umeyama similarity on the horizontal plane), else heading +
               start offset from the survey parameters
 """
@@ -151,18 +152,41 @@ def align(rec: Reconstruction, origin_lat: float, origin_lon: float, params: dic
             gps_used = True
             resid = np.linalg.norm(rec.trajectory()[:, :2] - dst, axis=1)
             notes.append(f"georeferenced to GPS track (scale {s:.4f}, median residual {np.median(resid):.2f} m)")
+    if gps_used:
+        meta["scale_info"] = {"method": "gps"}
+    elif metric:
+        meta["scale_info"] = {"method": "metric"}
     if not gps_used:
-        if not metric:
-            cam_h = params.get("camera_height_m") or meta.get("camera_height_m")
-            if cam_h and traj is not None:
-                ground = _ground_z(rec)
-                h = float(np.median(rec.trajectory()[:, 2]) - ground)
-                if h > 1e-6:
-                    s = float(cam_h) / h
-                    _apply(rec, s, np.eye(3), np.zeros(3))
-                    notes.append(f"scale from camera height {cam_h} m (factor {s:.4f})")
-            else:
-                notes.append("WARNING: scale unknown (no GPS, no camera height, decoder not metric); measurements are relative")
+        scene_done = False
+        if not metric and params.get("scene_refs") and traj is not None:
+            # objects of known size tapped in the clip's frames (civil/scene_scale.py): preferred over the camera height
+            from .scene_scale import ScaleError, cameras_from_rec, describe, estimate
+
+            try:
+                est = estimate(rec.points, cameras_from_rec(rec), params["scene_refs"], draws=60)
+                c = est["combined"]
+                _apply(rec, c["scale"], np.eye(3), np.zeros(3))
+                ok = [r for r in est["refs"] if "error" not in r and not r.get("outlier")]
+                text = describe(params["scene_refs"], [r["index"] for r in ok])
+                notes.append(f"scale from {text}: factor {c['scale']:.4f} ±{c['pct']:.0f}%")
+                meta["scale_info"] = {"method": "scene", "factor": c["scale"], "pct": c["pct"], "label": text}
+                scene_done = True
+            except ScaleError as e:
+                notes.append(f"scene references could not be used ({e}); camera height used instead")
+        cam_h = params.get("camera_height_m") or meta.get("camera_height_m")
+        if scene_done or metric:
+            pass
+        elif cam_h and traj is not None:
+            ground = _ground_z(rec)
+            h = float(np.median(rec.trajectory()[:, 2]) - ground)
+            if h > 1e-6:
+                s = float(cam_h) / h
+                _apply(rec, s, np.eye(3), np.zeros(3))
+                notes.append(f"scale from camera height {cam_h} m (factor {s:.4f})")
+                meta["scale_info"] = {"method": "camera_height", "camera_height_m": float(cam_h), "factor": s}
+        else:
+            notes.append("WARNING: scale unknown (no GPS, no camera height, decoder not metric); measurements are relative")
+            meta["scale_info"] = {"method": "unknown"}
         heading = float(params.get("heading_deg", meta.get("heading_deg", 0.0)))
         traj = rec.trajectory()
         if traj is not None and len(traj) >= 2:

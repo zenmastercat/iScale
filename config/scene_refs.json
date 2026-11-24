@@ -1,0 +1,374 @@
+{
+ "_note": "Standard-size objects for fixing a 3D clip's scale (civil/scene_scale.py). Built 2026-11-20 from Research Desk's catalog (Project_CIVIL/research/scene-scale-references.json, as of 2026-11-20) by picking Thai rows: Verified sizes from DOH, DRR, BMA, TISI, DLT and UN documents, plus derived (Inference) ones marked in source_note. A size with no rel_error or tolerance gets a cautious ±10 % in the app. CIVIL_SCENE_REFS can point to another file. vertical: true marks a height.",
+ "objects": [
+  {
+   "id": "th_lane_width_unknown",
+   "group": "road_markings",
+   "name_en": "Lane width (road type unknown)",
+   "name_th": "ความกว้างช่องจราจร (ไม่ทราบประเภทถนน)",
+   "dimension_name": "Lane width when the road class is unknown (any paved Thai road with lane lines)",
+   "value_m": 3.25,
+   "rel_error": 0.0769,
+   "plane": "flat",
+   "visibility": 4,
+   "region": "TH",
+   "source_note": "Inference (Research Desk TH-LANE-3)",
+   "source_urls": [
+    "https://kb.psu.ac.th/psukb/bitstream/2016/13759/1/%e0%b8%9b%e0%b8%a3%e0%b8%b0%e0%b8%81%e0%b8%b2%e0%b8%a8%e0%b8%81%e0%b8%a3%e0%b8%a1%e0%b8%97%e0%b8%b2%e0%b8%87%e0%b8%ab%e0%b8%a5%e0%b8%a7%e0%b8%87%e0%b8%8a%e0%b8%99%e0%b8%9a%e0%b8%97%20%e0%b8%9b%e0%b8%b5%202550%20%e0%b9%80%e0%b8%a3%e0%b8%b7%e0%b9%88%e0%b8%ad%e0%b8%87%e0%b8%97%e0%b8%b5%e0%b9%88%e0%b8%88%e0%b8%ad%e0%b8%94%e0%b8%a3%e0%b8%96.pdf",
+    "https://kb.psu.ac.th/psukb/bitstream/2016/13770/1/%e0%b8%a1%e0%b8%b2%e0%b8%95%e0%b8%a3%e0%b8%90%e0%b8%b2%e0%b8%99%e0%b8%97%e0%b8%b2%e0%b8%87%e0%b8%ab%e0%b8%a5%e0%b8%a7%e0%b8%87%e0%b8%97%e0%b9%89%e0%b8%ad%e0%b8%87%e0%b8%96%e0%b8%b4%e0%b9%88%e0%b8%99%e0%b9%81%e0%b8%a5%e0%b8%b0%e0%b8%81%e0%b8%b2%e0%b8%a3%e0%b8%9b%e0%b8%a3%e0%b8%b0%e0%b8%a2%e0%b8%b8%e0%b8%81%e0%b8%95%e0%b9%8c%e0%b9%83%e0%b8%8a%e0%b9%89%e0%b8%87%e0%b8%b2%e0%b8%99%202558.pdf",
+    "https://data.yotathai.org/d/b8v7v3.pdf"
+   ],
+   "source_dates": [
+    "2007-10-18 (๑๘ ตุลาคม ๒๕๕๐)",
+    "2015 (PDF created 2015-06-05; file name ...2558)",
+    "2015 revision (PDF created 2016-07-15)"
+   ],
+   "notes": "Best reference. Tap the centres of two lane lines straight across the lane."
+  },
+  {
+   "id": "th_lane_width_drr",
+   "group": "road_markings",
+   "name_en": "Lane width, DRR local road",
+   "name_th": "ความกว้างช่องจราจร ทางหลวงท้องถิ่น (ทช.)",
+   "dimension_name": "Lane width, DRR local highway (ทางหลวงท้องถิ่น) by class - legal minimums",
+   "value_m": 3.25,
+   "rel_error": 0.04,
+   "plane": "flat",
+   "visibility": 4,
+   "region": "TH",
+   "source_note": "Verified (Research Desk TH-LANE-2)",
+   "source_urls": [
+    "https://kb.psu.ac.th/psukb/bitstream/2016/13759/1/%e0%b8%9b%e0%b8%a3%e0%b8%b0%e0%b8%81%e0%b8%b2%e0%b8%a8%e0%b8%81%e0%b8%a3%e0%b8%a1%e0%b8%97%e0%b8%b2%e0%b8%87%e0%b8%ab%e0%b8%a5%e0%b8%a7%e0%b8%87%e0%b8%8a%e0%b8%99%e0%b8%9a%e0%b8%97%20%e0%b8%9b%e0%b8%b5%202550%20%e0%b9%80%e0%b8%a3%e0%b8%b7%e0%b9%88%e0%b8%ad%e0%b8%87%e0%b8%97%e0%b8%b5%e0%b9%88%e0%b8%88%e0%b8%ad%e0%b8%94%e0%b8%a3%e0%b8%96.pdf",
+    "https://kb.psu.ac.th/psukb/bitstream/2016/13770/1/%e0%b8%a1%e0%b8%b2%e0%b8%95%e0%b8%a3%e0%b8%90%e0%b8%b2%e0%b8%99%e0%b8%97%e0%b8%b2%e0%b8%87%e0%b8%ab%e0%b8%a5%e0%b8%a7%e0%b8%87%e0%b8%97%e0%b9%89%e0%b8%ad%e0%b8%87%e0%b8%96%e0%b8%b4%e0%b9%88%e0%b8%99%e0%b9%81%e0%b8%a5%e0%b8%b0%e0%b8%81%e0%b8%b2%e0%b8%a3%e0%b8%9b%e0%b8%a3%e0%b8%b0%e0%b8%a2%e0%b8%b8%e0%b8%81%e0%b8%95%e0%b9%8c%e0%b9%83%e0%b8%8a%e0%b9%89%e0%b8%87%e0%b8%b2%e0%b8%99%202558.pdf"
+   ],
+   "source_dates": [
+    "2007-10-18 (๑๘ ตุลาคม ๒๕๕๐)",
+    "2015 (PDF created 2015-06-05; file name ...2558)"
+   ],
+   "notes": "Rural roads of the Department of Rural Roads. Tap line centre to line centre."
+  },
+  {
+   "id": "th_zebra_pitch",
+   "group": "road_markings",
+   "name_en": "Zebra crossing, stripe to next stripe",
+   "name_th": "ทางม้าลาย ระยะจากขอบแถบถึงขอบแถบถัดไป",
+   "dimension_name": "Stripe pitch E+F (stripe edge to next stripe edge)",
+   "value_m": 1.4,
+   "rel_error": 0.03,
+   "tolerance_m": 0.042,
+   "plane": "flat",
+   "visibility": 3,
+   "region": "TH",
+   "source_note": "Inference (Research Desk TH-ZEBRA-3)",
+   "source_urls": [
+    "https://data.yotathai.org/d/k2yqfy.pdf",
+    "https://data.yotathai.org/d/g3zdgy.pdf"
+   ],
+   "source_dates": [
+    "drawing dated 2015-10; set 'Edition 2018'; PDF created 2020-05-27",
+    "no date shown (PDF created 2009-07-22; cites TIS 543-2550)"
+   ],
+   "notes": "Tap the same edge of two neighbouring stripes. Several pitches across the road average the tap error."
+  },
+  {
+   "id": "th_zebra_stripe",
+   "group": "road_markings",
+   "name_en": "Zebra crossing, one stripe width",
+   "name_th": "ทางม้าลาย ความกว้างแถบขาว 1 แถบ",
+   "dimension_name": "Zebra stripe width E (measured across the road)",
+   "value_m": 0.6,
+   "rel_error": 0.05,
+   "tolerance_m": 0.03,
+   "plane": "flat",
+   "visibility": 3,
+   "region": "TH",
+   "source_note": "Verified (Research Desk TH-ZEBRA-1)",
+   "source_urls": [
+    "https://data.yotathai.org/d/k2yqfy.pdf",
+    "https://data.yotathai.org/d/33vh79.pdf",
+    "https://data.yotathai.org/d/g3zdgy.pdf"
+   ],
+   "source_dates": [
+    "drawing dated 2015-10; set 'Edition 2018'; PDF created 2020-05-27",
+    "2018-03 (มีนาคม 2561, first printing)",
+    "no date shown (PDF created 2009-07-22; cites TIS 543-2550)"
+   ],
+   "notes": "Tap across one white stripe."
+  },
+  {
+   "id": "th_dash_cycle_rural",
+   "group": "road_markings",
+   "name_en": "Dashed line cycle, rural road (dash + gap)",
+   "name_th": "เส้นประ นอกเมือง (เส้น+ช่องว่าง)",
+   "dimension_name": "Rural broken line: cycle (dash start to next dash start)",
+   "value_m": 12,
+   "rel_error": 0.005,
+   "tolerance_m": 0.06,
+   "plane": "flat",
+   "visibility": 3,
+   "region": "TH",
+   "source_note": "Inference (Research Desk TH-DASH-3)",
+   "source_urls": [
+    "https://data.yotathai.org/d/k2yqfy.pdf",
+    "https://data.yotathai.org/d/g3zdgy.pdf",
+    "https://data.yotathai.org/d/dt7x25.pdf"
+   ],
+   "source_dates": [
+    "drawing dated 2015-10; set 'Edition 2018'; PDF created 2020-05-27",
+    "no date shown (PDF created 2009-07-22; cites TIS 543-2550)",
+    "drawings dated OCT 2015; PDF created 2016-08-05"
+   ],
+   "notes": "Tap the start of one dash and the start of the next, along the road."
+  },
+  {
+   "id": "th_dash_rural",
+   "group": "road_markings",
+   "name_en": "Dashed line, one dash, rural road",
+   "name_th": "เส้นประ นอกเมือง ความยาว 1 เส้น",
+   "dimension_name": "Rural broken centre/lane line: dash length",
+   "value_m": 3,
+   "rel_error": 0.01,
+   "tolerance_m": 0.03,
+   "plane": "flat",
+   "visibility": 3,
+   "region": "TH",
+   "source_note": "Verified (Research Desk TH-DASH-1)",
+   "source_urls": [
+    "https://data.yotathai.org/d/k2yqfy.pdf",
+    "https://data.yotathai.org/d/g3zdgy.pdf"
+   ],
+   "source_dates": [
+    "drawing dated 2015-10; set 'Edition 2018'; PDF created 2020-05-27",
+    "no date shown (PDF created 2009-07-22; cites TIS 543-2550)"
+   ],
+   "notes": "Tap both ends of the same dash."
+  },
+  {
+   "id": "th_dash_cycle_urban",
+   "group": "road_markings",
+   "name_en": "Dashed line cycle, city road (dash + gap)",
+   "name_th": "เส้นประ ในเมือง (เส้น+ช่องว่าง)",
+   "dimension_name": "Urban broken line: cycle",
+   "value_m": 4,
+   "rel_error": 0.0105,
+   "tolerance_m": 0.042,
+   "plane": "flat",
+   "visibility": 3,
+   "region": "TH",
+   "source_note": "Inference (Research Desk TH-DASH-6)",
+   "source_urls": [
+    "https://data.yotathai.org/d/k2yqfy.pdf",
+    "https://data.yotathai.org/d/g3zdgy.pdf"
+   ],
+   "source_dates": [
+    "drawing dated 2015-10; set 'Edition 2018'; PDF created 2020-05-27",
+    "no date shown (PDF created 2009-07-22; cites TIS 543-2550)"
+   ],
+   "notes": "Tap the start of one dash and the start of the next."
+  },
+  {
+   "id": "th_dash_urban",
+   "group": "road_markings",
+   "name_en": "Dashed line, one dash, city road",
+   "name_th": "เส้นประ ในเมือง ความยาว 1 เส้น",
+   "dimension_name": "Urban broken centre/lane line: dash length",
+   "value_m": 1,
+   "rel_error": 0.03,
+   "tolerance_m": 0.03,
+   "plane": "flat",
+   "visibility": 3,
+   "region": "TH",
+   "source_note": "Verified (Research Desk TH-DASH-4)",
+   "source_urls": [
+    "https://data.yotathai.org/d/k2yqfy.pdf",
+    "https://data.yotathai.org/d/g3zdgy.pdf"
+   ],
+   "source_dates": [
+    "drawing dated 2015-10; set 'Edition 2018'; PDF created 2020-05-27",
+    "no date shown (PDF created 2009-07-22; cites TIS 543-2550)"
+   ],
+   "notes": "Short: only close to the camera."
+  },
+  {
+   "id": "th_edge_line_width",
+   "group": "road_markings",
+   "name_en": "Edge line width",
+   "name_th": "ความกว้างเส้นขอบทาง",
+   "dimension_name": "Edge line width",
+   "value_m": 0.1,
+   "rel_error": 0.075,
+   "tolerance_m": 0.0075,
+   "plane": "flat",
+   "visibility": 3,
+   "region": "TH",
+   "source_note": "Verified (Research Desk TH-LINEW-2)",
+   "source_urls": [
+    "https://data.yotathai.org/d/k2yqfy.pdf",
+    "https://data.yotathai.org/d/33vh79.pdf",
+    "https://data.yotathai.org/d/g3zdgy.pdf"
+   ],
+   "source_dates": [
+    "drawing dated 2015-10; set 'Edition 2018'; PDF created 2020-05-27",
+    "2018-03 (มีนาคม 2561, first printing)",
+    "no date shown (PDF created 2009-07-22; cites TIS 543-2550)"
+   ],
+   "notes": "Short: only on a close, sharp frame. Tap across the line."
+  },
+  {
+   "id": "th_concrete_joint",
+   "group": "road_markings",
+   "name_en": "Concrete road joint spacing (agency unknown)",
+   "name_th": "ระยะรอยต่อถนนคอนกรีต (ไม่ทราบหน่วยงาน)",
+   "dimension_name": "one cross joint to the next, along the road (10.00 m DOH/DRR, 10.15 m BMA)",
+   "value_m": 10.075,
+   "tolerance_m": 0.075,
+   "plane": "flat",
+   "visibility": 3,
+   "region": "TH",
+   "source_note": "Inference from two Verified rows (Research Desk TH-JOINT-1, TH-JOINT-3): midpoint, ± half the agency difference",
+   "source_urls": [
+    "https://data.yotathai.org/d/dt7x25.pdf",
+    "https://data.yotathai.org/drive/1COpvKnpirpG6uEBLrg2-vlzWQHw-pbLc/2.แบบเลขที่ มท.-02 ผิวทางคอนกรีตหนา 20 ซม..pdf"
+   ],
+   "source_dates": [
+    "drawings dated OCT 2015; PDF created 2016-08-05",
+    "no date shown on the sheets (date box empty); yotathai posted the set on 2016-06-30"
+   ],
+   "notes": "Only on concrete roads. Tap two neighbouring cross joints along the road."
+  },
+  {
+   "id": "th_kerb_unit_length",
+   "group": "street_furniture",
+   "name_en": "Precast kerb stone, length (BMA)",
+   "name_th": "ความยาวคันหินสำเร็จรูป 1 ก้อน (กทม.)",
+   "dimension_name": "Precast kerb unit length, BMA",
+   "value_m": 1,
+   "rel_error": 0.01,
+   "tolerance_m": 0.01,
+   "plane": "flat",
+   "visibility": 3,
+   "region": "TH",
+   "source_note": "Verified (Research Desk TH-KERB-3)",
+   "source_urls": [
+    "https://data.yotathai.org/drive/1h7cEydw8p0RcNLOLHOPUmdQ3FM9FODAb/5.แบบเลขที่ มท.-05 แบบคันหินและคันหินรางตื้น.pdf"
+   ],
+   "source_dates": [
+    "no date shown on the sheets (date box empty); yotathai posted the set on 2016-06-30"
+   ],
+   "notes": "Tap two neighbouring joints of the kerb stones."
+  },
+  {
+   "id": "th_kerb_height_bma",
+   "group": "street_furniture",
+   "name_en": "Kerb height above asphalt (BMA)",
+   "name_th": "ความสูงคันหินเหนือผิวแอสฟัลต์ (กทม.)",
+   "dimension_name": "Precast kerb exposed height above asphalt, BMA",
+   "value_m": 0.185,
+   "rel_error": 0.054,
+   "tolerance_m": 0.01,
+   "plane": "upright",
+   "vertical": true,
+   "visibility": 3,
+   "region": "TH",
+   "source_note": "Verified (Research Desk TH-KERB-2)",
+   "source_urls": [
+    "https://data.yotathai.org/drive/1h7cEydw8p0RcNLOLHOPUmdQ3FM9FODAb/5.แบบเลขที่ มท.-05 แบบคันหินและคันหินรางตื้น.pdf"
+   ],
+   "source_dates": [
+    "no date shown on the sheets (date box empty); yotathai posted the set on 2016-06-30"
+   ],
+   "notes": "Tap the foot of the kerb and the top edge right above it. Resurfacing makes kerbs lower."
+  },
+  {
+   "id": "th_motorcycle_wheel",
+   "group": "vehicles",
+   "name_en": "Motorcycle wheel (model unknown)",
+   "name_th": "ล้อรถจักรยานยนต์ (ไม่ทราบรุ่น)",
+   "dimension_name": "Wheel diameter when the model is unknown (step-through vs scooter)",
+   "value_m": 0.54,
+   "rel_error": 0.0741,
+   "plane": "upright",
+   "vertical": true,
+   "visibility": 5,
+   "region": "TH",
+   "source_note": "Inference (Research Desk TH-MC-5)",
+   "source_urls": [
+    "https://www.thaihonda.co.th/honda/motorcycle/family/new-wave110i-2024",
+    "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:42011X0330(02)"
+   ],
+   "source_dates": [
+    "no date shown (model page 'new-wave110i-2024')",
+    "2011-03-30 (text incl. Supplement 13, in force 2009-10-24)"
+   ],
+   "notes": "Tap the top of the tyre and where it touches the road."
+  },
+  {
+   "id": "th_pickup_wheel",
+   "group": "vehicles",
+   "name_en": "Pickup tyre 265/65R17",
+   "name_th": "ล้อรถกระบะ 265/65R17",
+   "dimension_name": "Tyre outer diameter, 265/65R17 (computed by UN R30 6.1.2)",
+   "value_m": 0.7763,
+   "rel_error": 0.0155,
+   "plane": "upright",
+   "vertical": true,
+   "visibility": 4,
+   "region": "TH",
+   "source_note": "Verified (Research Desk TH-CAR-4)",
+   "source_urls": [
+    "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:42008X0730(01)",
+    "https://www.toyota.co.th/accessories/product/detail/3462"
+   ],
+   "source_dates": [
+    "2008-07-30 (Revision 3, incl. Supplement 15 to the 02 series, in force 2007-11-10)",
+    "no date shown"
+   ],
+   "notes": "Check the pickup has 17-inch wheels. Tap the top of the tyre and where it touches the road."
+  },
+  {
+   "id": "th_car_plate_width",
+   "group": "vehicles",
+   "name_en": "Car or pickup plate, width",
+   "name_th": "ป้ายทะเบียนรถยนต์ ความยาว",
+   "dimension_name": "Car/pickup plate long side (horizontal on the vehicle; 'ยาว')",
+   "value_m": 0.34,
+   "rel_error": 0.0059,
+   "plane": "upright",
+   "visibility": 3,
+   "region": "TH",
+   "source_note": "Verified (Research Desk TH-PLATE-1)",
+   "source_urls": [
+    "https://ratchakitcha.soc.go.th/documents/1882464.pdf",
+    "https://ratchakitcha.soc.go.th/documents/137645.pdf"
+   ],
+   "source_dates": [
+    "2011-06-08 (๘ มิถุนายน ๒๕๕๔); in force 180 days later",
+    "2004-02-25 (๒๕ กุมภาพันธ์ ๒๕๔๗)"
+   ],
+   "notes": "Only within about 5 m. Tap the two side edges."
+  },
+  {
+   "id": "th_car_plate_height",
+   "group": "vehicles",
+   "name_en": "Car or pickup plate, height",
+   "name_th": "ป้ายทะเบียนรถยนต์ ความกว้าง (แนวตั้ง)",
+   "dimension_name": "Car/pickup plate short side (vertical on the vehicle; 'กว้าง')",
+   "value_m": 0.15,
+   "rel_error": 0.0133,
+   "plane": "upright",
+   "vertical": true,
+   "visibility": 3,
+   "region": "TH",
+   "source_note": "Verified (Research Desk TH-PLATE-2)",
+   "source_urls": [
+    "https://ratchakitcha.soc.go.th/documents/1882464.pdf",
+    "https://ratchakitcha.soc.go.th/documents/137645.pdf"
+   ],
+   "source_dates": [
+    "2011-06-08 (๘ มิถุนายน ๒๕๕๔); in force 180 days later",
+    "2004-02-25 (๒๕ กุมภาพันธ์ ๒๕๔๗)"
+   ],
+   "notes": "Short: only very close. Tap the bottom and top edges."
+  }
+ ]
+}

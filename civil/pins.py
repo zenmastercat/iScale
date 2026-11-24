@@ -41,6 +41,8 @@ def ensure_schema() -> None:
     if "source" not in cols:  # 'map' (tapped on the map) or 'device' (the reporter's GPS, with its accuracy)
         con.execute("ALTER TABLE pins ADD COLUMN source TEXT NOT NULL DEFAULT 'map'")
         con.execute("ALTER TABLE pins ADD COLUMN accuracy_m REAL")
+    if "measure" not in cols:  # measured on a photo with a reference object (civil/measure_api.py), JSON
+        con.execute("ALTER TABLE pins ADD COLUMN measure TEXT")
 
 
 class SizeIn(BaseModel):
@@ -54,8 +56,16 @@ def size_metrics(size: dict | None) -> dict:
     if not size:
         return {}
     w, l, d = size["width_cm"] / 100, size["length_cm"] / 100, size["depth_cm"] / 100
-    return {"area_m2": round(w * l, 3), "depth_max_m": round(d, 3), "volume_m3": round(w * l * d, 4),
-            "diameter_m": round(max(w, l), 2)}
+    return {"area_m2": round(w * l, 3), "width_m": round(min(w, l), 3), "length_m": round(max(w, l), 3),
+            "depth_max_m": round(d, 3), "volume_m3": round(w * l * d, 4), "diameter_m": round(max(w, l), 2)}
+
+
+def _metrics(p: dict) -> tuple[dict, dict | None, bool]:
+    """A reference-object measurement wins over a typed size: (metrics, measurement record, can undo)."""
+    if p.get("measure"):
+        mm = json.loads(p["measure"])
+        return mm.get("metrics") or {}, mm.get("measurement"), mm.get("prev") is not None
+    return (size_metrics(json.loads(p["size"])) if p.get("size") else {}), None, False
 
 
 class PinIn(BaseModel):
@@ -80,6 +90,9 @@ def _out(p: dict) -> dict:
     confirms = [auth.person(c["username"]) for c in db.all_("SELECT username FROM pin_confirms WHERE pin_id=?", p["id"])]
     rep = auth.person(p["reporter"]) or {}
     res = auth.person(p["resolved_by"]) if p.get("resolved_by") else None
+    from .measure_api import photo_info, pin_photo_path, summary  # late import: measure_api imports this module
+
+    metrics, rec, can_undo = _metrics(p)
     return {**{k: p[k] for k in ("id", "lat", "lon", "type", "severity", "note", "created", "status", "resolved_at")},
             "source": p.get("source") or "map", "accuracy_m": p.get("accuracy_m"),
             "reporter": rep.get("username"), "resolved_by": res["username"] if res else None,
@@ -88,7 +101,8 @@ def _out(p: dict) -> dict:
             "confirmations": [c["username"] for c in confirms if c],
             "traffic": json.loads(p["traffic"]) if p.get("traffic") else None,
             "size": json.loads(p["size"]) if p.get("size") else None,
-            "metrics": size_metrics(json.loads(p["size"])) if p.get("size") else {},
+            "metrics": metrics, "measured": summary(rec), "can_undo_measure": can_undo,
+            "photo": photo_info(pin_photo_path(p["id"]), f"/api/pins/{p['id']}/photo", "Photo added to this pin"),
             "maps_url": maps_url(p["lat"], p["lon"])}
 
 
@@ -186,8 +200,8 @@ def patch_pin(pin_id: str, body: PinPatch, request: Request):
         if body.severity not in catalog.SEVERITIES:
             raise HTTPException(400, "bad severity")
         db.run("UPDATE pins SET severity=? WHERE id=?", body.severity, pin_id)
-    if body.size is not None:
-        db.run("UPDATE pins SET size=? WHERE id=?", json.dumps(body.size.model_dump()), pin_id)
+    if body.size is not None:  # a typed size replaces a photo measurement
+        db.run("UPDATE pins SET size=?, measure=NULL WHERE id=?", json.dumps(body.size.model_dump()), pin_id)
     if body.note is not None and (me["uid"] == p["reporter"] or me["role"] == "admin"):
         db.run("UPDATE pins SET note=? WHERE id=?", body.note.strip(), pin_id)
     return _out(db.one("SELECT * FROM pins WHERE id=?", pin_id))

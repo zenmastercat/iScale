@@ -1,0 +1,11 @@
+{
+  "_note": "Reference objects for measuring a pothole in a photo (civil/measure.py). Only exact, standard sizes: width is the short side, length the long side, in metres.",
+  "refs": [
+    {"id": "a4", "label": "A4 sheet", "kind": "rect", "width_m": 0.210, "length_m": 0.297, "standard": "ISO 216 A4, 210 x 297 mm"},
+    {"id": "a3", "label": "A3 sheet", "kind": "rect", "width_m": 0.297, "length_m": 0.420, "standard": "ISO 216 A3, 297 x 420 mm"},
+    {"id": "id1", "label": "ID card or bank card", "kind": "rect", "width_m": 0.05398, "length_m": 0.0856, "standard": "ISO/IEC 7810 ID-1, 85.60 x 53.98 mm (Thai ID card, bank cards)"},
+    {"id": "custom", "label": "Custom rectangle", "kind": "rect", "custom": true, "standard": "your own size in cm"},
+    {"id": "ruler", "label": "Ruler or tape (2 points)", "kind": "line", "custom": true, "standard": "a known length between two marks",
+     "note": "Only for a photo taken straight down at the hole: two points give a scale but no perspective."}
+  ]
+}

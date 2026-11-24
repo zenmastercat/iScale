@@ -21,6 +21,21 @@ def video_info(path: Path) -> dict:
     return {"fps": float(fps), "frames": n, "width": w, "height": h, "duration": n / fps if fps else 0.0}
 
 
+def video_rotation(path: Path) -> int:
+    """Display rotation of the first video frame in degrees (0 when none or unreadable).
+
+    Phones store upright video as landscape pixels plus this flag, which OpenCV ignores."""
+    try:
+        import av
+
+        with av.open(str(path)) as c:
+            for frame in c.decode(c.streams.video[0]):
+                return int(round(getattr(frame, "rotation", 0) or 0)) % 360
+    except Exception:  # noqa: BLE001 - an unreadable flag just means "no rotation"
+        return 0
+    return 0
+
+
 def sample(path: Path, every_s: float, start: float = 0.0, end: float | None = None):
     """Yield (frame_index, t, BGR image) every `every_s` seconds between start and end."""
     import cv2

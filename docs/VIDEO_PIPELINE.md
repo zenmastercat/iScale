@@ -32,6 +32,11 @@ handful of potholes costs a handful of 20-second LingBot runs.
    the 3D windows), each detection with its frame and top-down view, and one row per
    clip. A finished clip opens in Map and 3D like any other survey. A clip that
    failed, for example because the GPU was busy, has **Try again**.
+4. Without GPS the clip's size is a camera-height guess. **Fix scale with scene objects**
+   on the clip row taps objects of known size (lane width, kerb height, a tape-measured
+   distance…) in the clip's frames, rescales the clip and re-runs the analysis, so depth,
+   area and cost become measurements with a ± range. Method and error model:
+   [SCENE_SCALE.md](SCENE_SCALE.md).
 
 ## Detector (Roboflow, hosted)
 
