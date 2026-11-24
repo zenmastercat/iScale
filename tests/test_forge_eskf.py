@@ -183,6 +183,28 @@ def test_eskf_imu_only_drift_bounded_and_out_of_order_timestamps():
     assert np.all(np.isfinite(lio.P))
 
 
+def test_local_map_normals_kept_incrementally_match_a_full_recompute():
+    """Growing the local map scan by scan must give the same normals as estimating them on the final map."""
+    from civil.forge.eskf_lio import ESKFLIO
+    from civil.forge.types import ForgeConfig, SensorCalibration
+
+    rng = np.random.default_rng(3)
+    floor = np.column_stack([rng.uniform(-20, 20, 60_000), rng.uniform(-5, 5, 60_000), rng.normal(0, 0.01, 60_000)])
+    wall = np.column_stack([rng.uniform(-20, 20, 30_000), np.full(30_000, 5.0) + rng.normal(0, 0.01, 30_000),
+                            rng.uniform(0, 3, 30_000)])
+    pole = np.column_stack([3 + 0.15 * np.cos(a := rng.uniform(0, 6.3, 3000)), 0.15 * np.sin(a), rng.uniform(0, 3, 3000)])
+    scene = np.vstack([floor, wall, pole])
+    lio = ESKFLIO(SensorCalibration(), ForgeConfig(voxel_size_m=0.1))
+    for x in np.arange(-10, 10, 1.0):  # drive along x, seeing what lies within 12 m
+        lio.p = np.array([x, 0.0, 0.0])
+        near = scene[np.linalg.norm(scene[:, :2] - [x, 0], axis=1) < 12]
+        lio._update_local_map(near[rng.random(len(near)) < 0.3])
+    full, _ = ESKFLIO._estimate_normals(lio._map_points)
+    cos = np.abs(np.sum(full * lio._map_normals, axis=1))
+    assert np.median(cos) > np.cos(np.radians(2)) and np.percentile(cos, 90) > np.cos(np.radians(10))
+    assert len(lio._map_tree.data) == len(lio._map_points)
+
+
 def test_eskf_degenerate_flat_road_and_tunnel_flagged_without_diverging():
     from civil.forge.eskf_lio import ESKFLIO
     from civil.forge.types import ForgeConfig, LidarScan, SensorCalibration

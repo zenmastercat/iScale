@@ -43,10 +43,23 @@ what the code does.
 *   **Splats**: CPU point-anchored splats — positions, scales and opacities are fixed; only per-splat RGB and °C are
     fitted. This is not full 3DGS. RGB and thermal are each scored in their own camera; held-out PSNR/SSIM are
     reported with pixel coverage and the untrained baseline. The self-supervised mode (rendering the targets from
-    the model itself) was removed.
+    the model itself) was removed. The renderer depth-tests per pixel (only splats within 10 % of the nearest
+    depth are blended) and the fit is full-batch: each splat moves by half its residual averaged over all training
+    views that see it unoccluded, after removing each RGB view's exposure offset relative to the other views.
+    (Before, hidden splats were blended in and repainted, and sequential updates followed the last views; on
+    M2DGR gate_01 that made held-out PSNR fall from 20.9 to 19.7 dB.)
+*   **LIO local map**: voxels keep their first point, so normals are kept between scans and re-estimated only for
+    new points and their 4 nearest neighbours (was: all ≤ 30 k map normals every scan). gate_01: 93 → 36 ms
+    median per scan.
+*   **M2DGR thermal** is published as `8UC3` with three equal channels; the reader keeps one channel.
 *   **Evaluation**: `civil forge eval-real` runs on recorded data (`forge/datasets.py` readers for an M2DGR bag and
     a STheReO folder); `civil forge eval` is only the synthetic loop-closure/pose-graph sanity check (simulated
-    scans along GT paths, injected drift). Results: `docs/FORGE-RESULTS.md`.
+    scans along GT paths, injected drift). Results: `docs/FORGE-RESULTS.md`. Camera registration is scored by
+    LiDAR depth edges (near side of a ≥ 1 m depth jump, after a dense per-footprint visibility test so far points
+    cannot leak through sparse near surfaces) against Canny image edges, with a 2° control rotation about the
+    in-image diagonal axis (a roll about the optical axis barely moves central edges). The RAM-cap check compares
+    map coordinates within 1 µm (two uncapped runs already differ by ~1e-13 m: loop closure and GTSAM are not
+    bit-reproducible).
 
 ## The Problem
 

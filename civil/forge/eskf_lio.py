@@ -216,34 +216,48 @@ class ESKFLIO:
         return out.astype(np.float32)
 
     @staticmethod
-    def _estimate_normals(pts: np.ndarray, k: int = 12) -> tuple[np.ndarray, cKDTree]:
-        """Vectorized local PCA plane normal estimation for point-to-plane ESKF measurement updates."""
-        tree = cKDTree(pts)
+    def _normals_at(pts: np.ndarray, tree: cKDTree, sel: np.ndarray, k: int = 12) -> np.ndarray:
+        """Local PCA plane normals of pts[sel] from their k nearest map neighbours."""
         k_eff = min(k, len(pts))
         if k_eff < 3:
-            return np.tile(np.array([0.0, 0.0, 1.0]), (len(pts), 1)), tree
-        _, idx = tree.query(pts, k=k_eff)
+            return np.tile(np.array([0.0, 0.0, 1.0]), (len(sel), 1))
+        _, idx = tree.query(pts[sel], k=k_eff)
         neigh = pts[idx]  # (N, k, 3)
         centered = neigh - neigh.mean(axis=1, keepdims=True)
         cov = np.einsum("nki,nkj->nij", centered, centered) / max(k_eff - 1, 1)
-        _, _, vh = np.linalg.svd(cov)
-        normals = vh[:, -1, :]
+        normals = np.linalg.eigh(cov)[1][:, :, 0]  # eigenvector of the smallest eigenvalue
         norms = np.linalg.norm(normals, axis=1, keepdims=True)
-        normals = np.where(norms > 1e-9, normals / np.maximum(norms, 1e-9), np.array([0.0, 0.0, 1.0]))
-        return normals, tree
+        return np.where(norms > 1e-9, normals / np.maximum(norms, 1e-9), np.array([0.0, 0.0, 1.0]))
+
+    @staticmethod
+    def _estimate_normals(pts: np.ndarray, k: int = 12) -> tuple[np.ndarray, cKDTree]:
+        """Vectorized local PCA plane normal estimation for point-to-plane ESKF measurement updates."""
+        tree = cKDTree(pts)
+        return ESKFLIO._normals_at(pts, tree, np.arange(len(pts)), k), tree
 
     def _update_local_map(self, pts_w: np.ndarray) -> None:
-        if self._map_points is None:
-            combined = pts_w
-        else:
-            combined = np.vstack([self._map_points, pts_w])
+        """Add a scan to the local map. Voxels keep their first point, so old points (and their normals) persist;
+        normals are re-estimated only for new points and for the points around them."""
+        n_old = 0 if self._map_points is None else len(self._map_points)
+        combined = pts_w if n_old == 0 else np.vstack([self._map_points, pts_w])
+        src = np.arange(len(combined))
+        if n_old:
             # Keep points within 60 m of current position
             keep = np.linalg.norm(combined - self.p, axis=1) <= 60.0
             if np.count_nonzero(keep) >= 100:
-                combined = combined[keep]
-        idx = voxel_downsample(combined.astype(np.float32), self.config.voxel_size_m, max_points=30_000)
-        self._map_points = combined[idx].astype(np.float64)
-        self._map_normals, self._map_tree = self._estimate_normals(self._map_points)
+                src = src[keep]
+        idx = src[voxel_downsample(combined[src].astype(np.float32), self.config.voxel_size_m, max_points=30_000)]
+        pts = combined[idx].astype(np.float64)
+        tree = cKDTree(pts)
+        normals = np.empty_like(pts)
+        is_old = idx < n_old
+        normals[is_old] = self._map_normals[idx[is_old]] if n_old else 0.0
+        redo = np.flatnonzero(~is_old)
+        if len(redo) and len(pts) >= 3:
+            _, nb = tree.query(pts[redo], k=min(4, len(pts)))  # their nearest old neighbours change most
+            redo = np.unique(np.concatenate([redo, nb.ravel()]))
+        normals[redo] = self._normals_at(pts, tree, redo)
+        self._map_points, self._map_normals, self._map_tree = pts, normals, tree
 
     def update_lidar(self, scan: LidarScan) -> tuple[np.ndarray, np.ndarray, dict]:
         """Deskew scan, perform iterated ESKF point-to-plane measurement update, and return pose + telemetry."""

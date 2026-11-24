@@ -89,7 +89,17 @@ def render_view(
     bg_temp_c: float = 27.5,
     D: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Differentiable 2D screen-space Gaussian splat rasterizer for RGB and radiometric °C."""
+    """2D screen-space Gaussian splat rasterizer for RGB and radiometric °C (nearest surface per pixel)."""
+    return _render(model, T_wc, K, H, W, bg_rgb, bg_temp_c, D)[:3]
+
+
+def _near_surface(z: np.ndarray, zmin: np.ndarray) -> np.ndarray:
+    """Depth test: a splat belongs to the visible surface when it lies within 10 % (at least 0.2 m) of the nearest one."""
+    return z <= zmin + np.maximum(0.2, 0.1 * zmin)
+
+
+def _render(model, T_wc, K, H, W, bg_rgb=(120.0, 120.0, 120.0), bg_temp_c=27.5, D=None):
+    """Returns (rgb, °C, mask, zmin): zmin is the nearest splat depth per pixel (inf where empty)."""
     T_cw = np.linalg.inv(T_wc)
     pts_c = (model.means.astype(np.float64) @ T_cw[:3, :3].T) + T_cw[:3, 3]
     z = pts_c[:, 2]
@@ -98,11 +108,9 @@ def render_view(
         rgb_img = np.full((H, W, 3), bg_rgb, dtype=np.float32)
         thr_img = np.full((H, W), bg_temp_c, dtype=np.float32)
         mask = np.zeros((H, W), dtype=bool)
-        return rgb_img, thr_img, mask
+        return rgb_img, thr_img, mask, np.full((H, W), np.inf)
 
-    idx = np.flatnonzero(valid)
-    # Sort front-to-back
-    order = idx[np.argsort(z[idx])]
+    order = np.flatnonzero(valid)
     p_c = pts_c[order]
     zc = p_c[:, 2]
     fx, fy, cx, cy = float(K[0, 0]), float(K[1, 1]), float(K[0, 2]), float(K[1, 2])
@@ -126,20 +134,28 @@ def render_view(
     cols = model.rgb[order].astype(np.float64)
     temps = model.temperatures_c[order].astype(np.float64)
 
-    # Vectorized 5x5 Gaussian kernel splatting
+    # Vectorized 5x5 Gaussian kernel splatting: pass 1 finds the nearest depth per pixel (within 1 sigma),
+    # pass 2 blends only the splats on that surface, so hidden surfaces do not bleed through.
     offsets = np.arange(-2, 3)
     dy_grid, dx_grid = np.meshgrid(offsets, offsets, indexing="ij")
+    taps = []
+    zmin = np.full((H, W), np.inf)
     for dy, dx in zip(dy_grid.ravel(), dx_grid.ravel()):
         px = np.round(u).astype(np.int64) + int(dx)
         py = np.round(v).astype(np.int64) + int(dy)
-        inside = (px >= 0) & (px < W) & (py >= 0) & (py < H)
-        if not np.any(inside):
+        inside = np.flatnonzero((px >= 0) & (px < W) & (py >= 0) & (py < H))
+        if not len(inside):
             continue
-        px_i = px[inside]
-        py_i = py[inside]
+        px_i, py_i = px[inside], py[inside]
         dist2 = (u[inside] - px_i) ** 2 + (v[inside] - py_i) ** 2
-        sig2 = sigma_px[inside] ** 2
-        g_w = opac[inside] * np.exp(-0.5 * dist2 / np.maximum(sig2, 0.25)) / np.maximum(zc[inside], 0.5)
+        sig2 = np.maximum(sigma_px[inside] ** 2, 0.25)
+        core = dist2 <= sig2
+        np.minimum.at(zmin, (py_i[core], px_i[core]), zc[inside][core])
+        taps.append((inside, px_i, py_i, dist2, sig2))
+    for inside, px_i, py_i, dist2, sig2 in taps:
+        front = _near_surface(zc[inside], zmin[py_i, px_i])
+        inside, px_i, py_i = inside[front], px_i[front], py_i[front]
+        g_w = opac[inside] * np.exp(-0.5 * dist2[front] / sig2[front]) / np.maximum(zc[inside], 0.5)
         np.add.at(w_acc, (py_i, px_i), g_w)
         for c in range(3):
             np.add.at(rgb_acc[:, :, c], (py_i, px_i), g_w * cols[inside, c])
@@ -151,10 +167,12 @@ def render_view(
     if np.any(mask):
         rgb_out[mask] = np.clip(rgb_acc[mask] / w_acc[mask, None], 0.0, 255.0).astype(np.float32)
         thr_out[mask] = (thr_acc[mask] / w_acc[mask]).astype(np.float32)
-    return rgb_out, thr_out, mask
+    return rgb_out, thr_out, mask, zmin
 
 
-def _project_centres(model: GaussianSplatModel, T_wc: np.ndarray, K: np.ndarray, D, H: int, W: int):
+def _visible_centres(model: GaussianSplatModel, T_wc: np.ndarray, K: np.ndarray, D, zmin: np.ndarray):
+    """Splats whose centre pixel is covered and which lie on the nearest surface there (not hidden)."""
+    H, W = zmin.shape
     T_cw = np.linalg.inv(T_wc)
     pts_c = (model.means.astype(np.float64) @ T_cw[:3, :3].T) + T_cw[:3, 3]
     z = pts_c[:, 2]
@@ -163,7 +181,9 @@ def _project_centres(model: GaussianSplatModel, T_wc: np.ndarray, K: np.ndarray,
     u = np.round(K[0, 0] * xd + K[0, 2]).astype(np.int64)
     v = np.round(K[1, 1] * yd + K[1, 2]).astype(np.int64)
     ok = (u >= 0) & (u < W) & (v >= 0) & (v < H)
-    return idx[ok], u[ok], v[ok]
+    idx, u, v = idx[ok], u[ok], v[ok]
+    vis = _near_surface(z[idx], zmin[v, u])
+    return idx[vis], u[vis], v[vis]
 
 
 def _split(n: int) -> tuple[list[int], list[int]]:
@@ -263,23 +283,39 @@ def train_and_eval_gsplat(
     psnr0, ssim0, _ = score_rgb(rgb_held)
     mae0 = score_thr(thr_held)
 
+    # Full-batch steps: each splat moves by half its residual averaged over every training view that sees it,
+    # so per-view misregistration averages out instead of following the last views. RGB views also lose their
+    # exposure offset (auto-exposure): the view's median residual minus the median over all views (an offset every
+    # view shares is scene colour, not exposure).
+    G = len(pts)
     for _ in range(max(1, iters)):
-        for i in rgb_train:
-            T_wc, f, gt = rgb_views[i]
-            H, W = gt.shape[:2]
-            pred, _, mask = render_view(model, T_wc, f.intrinsics, H, W, D=f.distortion)
-            idx, u, v = _project_centres(model, T_wc, f.intrinsics, f.distortion, H, W)
-            hit = mask[v, u]
-            idx, u, v = idx[hit], u[hit], v[hit]
-            model.rgb[idx] = np.clip(model.rgb[idx] + 0.25 * (gt[v, u] - pred[v, u]), 0.0, 255.0)
-        for i in thr_train:
-            T_wc, f, gt = thr_views[i]
-            H, W = gt.shape[:2]
-            _, pred, mask = render_view(model, T_wc, f.intrinsics, H, W, D=f.distortion)
-            idx, u, v = _project_centres(model, T_wc, f.intrinsics, f.distortion, H, W)
-            hit = mask[v, u]
-            idx, u, v = idx[hit], u[hit], v[hit]
-            model.temperatures_c[idx] += 0.25 * (gt[v, u] - pred[v, u])
+        for views, train, channel in ((rgb_views, rgb_train, 0), (thr_views, thr_train, 1)):
+            if not train:
+                continue
+            shape = (G, 3) if channel == 0 else (G,)
+            res_sum, off_sum, count = np.zeros(shape), np.zeros(shape), np.zeros(G)
+            offsets = []
+            for i in train:
+                T_wc, f, gt = views[i]
+                H, W = gt.shape[:2]
+                out = _render(model, T_wc, f.intrinsics, H, W, D=f.distortion)
+                idx, u, v = _visible_centres(model, T_wc, f.intrinsics, f.distortion, out[3])
+                if not len(idx):
+                    continue
+                res = gt[v, u] - out[channel][v, u]
+                np.add.at(res_sum, idx, res)
+                np.add.at(count, idx, 1.0)
+                if channel == 0:
+                    offsets.append(np.median(res, axis=0))
+                    np.add.at(off_sum, idx, np.broadcast_to(offsets[-1], res.shape))
+            seen = count > 0
+            if channel == 0:
+                if offsets:
+                    res_sum -= off_sum - count[:, None] * np.mean(offsets, axis=0)
+                step = 0.5 * res_sum[seen] / count[seen, None]
+                model.rgb[seen] = np.clip(model.rgb[seen] + step, 0.0, 255.0)
+            else:
+                model.temperatures_c[seen] += 0.5 * res_sum[seen] / count[seen]
 
     psnr, ssim, cov = score_rgb(rgb_held)
     metrics.update({

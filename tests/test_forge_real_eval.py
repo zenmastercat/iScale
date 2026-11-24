@@ -53,6 +53,17 @@ def test_pointcloud2_parsing_keeps_xyz_intensity_and_time():
     np.testing.assert_allclose(tt, [0.0, 0.09], atol=1e-7)
 
 
+def test_ros_image_reads_8uc3_grey_as_three_channels():
+    # M2DGR /thermal_image_raw is published as 8UC3 with three equal channels
+    from civil.forge.datasets import _ros_image_to_array
+
+    grey = np.arange(4 * 5, dtype=np.uint8).reshape(4, 5)
+    data = np.repeat(grey[:, :, None], 3, axis=2).tobytes()
+    msg = SimpleNamespace(encoding="8UC3", height=4, width=5, step=15, is_bigendian=0, data=data)
+    arr = _ros_image_to_array(msg)
+    assert arr.shape == (4, 5, 3) and (arr[:, :, 1] == grey).all()
+
+
 def test_ecef_to_enu_east_north_up():
     from civil.forge.datasets import ecef_to_enu
 
@@ -64,6 +75,38 @@ def test_ecef_to_enu_east_north_up():
     east = np.array([-np.sin(lon), np.cos(lon), 0.0])
     enu = ecef_to_enu(np.vstack([o + 10 * up, o + 5 * east]), o)
     np.testing.assert_allclose(enu, [[0, 0, 10], [5, 0, 0]], atol=1e-3)
+
+
+def test_edge_alignment_control_shifts_a_centred_object():
+    """A 2 m square 5 m ahead of a far wall, seen head-on: the 2-degree control must move its edges clearly."""
+    from civil.forge.real_eval import edge_alignment
+    from civil.forge.types import CameraFrame
+
+    def wall(half, step, z):
+        g = np.arange(-half, half + 1e-9, step)
+        x, y = np.meshgrid(g, g)
+        return np.column_stack([x.ravel(), y.ravel(), np.full(x.size, z)])
+
+    pts = np.vstack([wall(1.0, 0.02, 5.0), wall(6.0, 0.05, 15.0)])
+    img = np.full((200, 200), 50, np.uint8)
+    img[60:141, 60:141] = 200  # the square projects to u, v in [60, 140] with f = 200
+    K = np.array([[200.0, 0, 100], [0, 200.0, 100], [0, 0, 1]])
+    frame = CameraFrame(0.0, img, K, np.zeros(5), np.eye(4), "thermal", "relative")
+    r = edge_alignment(pts, [frame], (np.array([0.0]), np.eye(4)[None]))["+0.000s"]
+    assert r["median_px"] < 2.0, r
+    assert r["median_px_extrinsic_rotated_2deg"] > r["median_px"] + 2.0, r
+
+
+def test_same_points_compares_coordinates_within_a_micrometre_not_counts():
+    from civil.forge.real_eval import same_points
+
+    a = np.random.default_rng(1).normal(size=(500, 3))
+    assert same_points(a, a[::-1].copy())
+    assert same_points(a, a + 1e-9)  # runs differ by float rounding (loop closure / GTSAM are not bit-reproducible)
+    b = a.copy()
+    b[7, 2] += 1e-3
+    assert not same_points(a, b)
+    assert not same_points(a, a[:-1])
 
 
 def test_loop_scoring_counts_correct_and_wrong_constraints():

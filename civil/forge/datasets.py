@@ -124,6 +124,8 @@ def iter_m2dgr_bag(
                     yield CameraFrame(t, img, K, np.zeros(5), _body_cam(calib, M2DGR_T_LIDAR_D435), "rgb")
                 elif conn.topic == "/thermal_image_raw":
                     img = _ros_image_to_array(msg)
+                    if img.ndim == 3:  # published as 8UC3 with three equal channels
+                        img = np.ascontiguousarray(img[:, :, 0])
                     img, K = _undistort(img, M2DGR_K_THERMAL, M2DGR_D_THERMAL, image_scale)
                     # PLUG 617 output is not radiometric: kept as relative intensity (no °C)
                     yield CameraFrame(t, img, K, np.zeros(5), _body_cam(calib, M2DGR_T_LIDAR_THERMAL), "thermal",
@@ -134,8 +136,9 @@ def iter_m2dgr_bag(
 
 def _ros_image_to_array(msg) -> np.ndarray:
     enc = msg.encoding.lower()
-    dtype = {"mono8": np.uint8, "8uc1": np.uint8, "mono16": np.uint16, "16uc1": np.uint16, "bgr8": np.uint8, "rgb8": np.uint8}[enc]
-    ch = 3 if enc in ("bgr8", "rgb8") else 1
+    dtype = {"mono8": np.uint8, "8uc1": np.uint8, "mono16": np.uint16, "16uc1": np.uint16, "bgr8": np.uint8, "rgb8": np.uint8,
+             "8uc3": np.uint8}[enc]
+    ch = 3 if enc in ("bgr8", "rgb8", "8uc3") else 1
     arr = np.frombuffer(bytes(msg.data), dtype=dtype)
     if msg.is_bigendian and arr.dtype.itemsize > 1:
         arr = arr.byteswap()

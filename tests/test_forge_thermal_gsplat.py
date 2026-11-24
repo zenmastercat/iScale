@@ -182,6 +182,94 @@ def _plane_view(K, T_wc, H, W, field):
     return np.where(hit, field(xw, yw), np.nan), hit
 
 
+def test_splat_fit_averages_exposure_changes_instead_of_following_the_last_views():
+    """Auto-exposure: training views +30 then -30 brightness (zero mean). The fit must not drift to the last views."""
+    from civil.forge.gsplat import train_and_eval_gsplat
+    from civil.forge.types import CameraFrame, Keyframe
+
+    gx, gy = np.meshgrid(np.linspace(3.0, 9.0, 90), np.linspace(-2.0, 2.0, 60))
+    pts_w = np.column_stack([gx.ravel(), gy.ravel(), np.zeros(gx.size)]).astype(np.float32)
+
+    def red(x, y):
+        return 128.0 + 60.0 * np.sin(1.3 * x) * np.cos(1.1 * y)
+
+    R_wc = np.array([[0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]])
+    K = np.array([[90.0, 0, 64], [0, 90.0, 48], [0, 0, 1]])
+    T_b_cam = np.eye(4)
+    T_b_cam[:3, :3] = R_wc
+    T_b_cam[:3, 3] = [0.0, 0.0, 1.5]
+    exposure = [30, 30, 30, 30, 0, -30, -30, -30, -30, 0]  # frames 4 and 9 are held out (unshifted)
+    keyframes, frames = [], []
+    for i, ex in enumerate(exposure):
+        T_wb = np.eye(4)
+        T_wb[:3, 3] = [i * 0.3, 0.0, 0.0]
+        keyframes.append(Keyframe(i, float(i), T_wb, pts_w, pts_w, np.zeros(len(pts_w), bool)))
+        r, hit = _plane_view(K, T_wb @ T_b_cam, 96, 128, red)
+        img = np.zeros((96, 128, 3))
+        img[..., 0] = np.nan_to_num(r)
+        img[..., 1] = np.where(hit, 90, 0)
+        img[..., 2] = np.where(hit, 60, 0)
+        img = np.where(hit[..., None], img + ex, 0)
+        frames.append(CameraFrame(float(i), img.clip(0, 255).astype(np.uint8), K, np.zeros(5), T_b_cam, "rgb"))
+
+    true_rgb = np.column_stack([red(pts_w[:, 0], pts_w[:, 1]), np.full(len(pts_w), 90.0), np.full(len(pts_w), 60.0)])
+    _, m = train_and_eval_gsplat(pts_w, true_rgb, None, keyframes, frames, [], max_gaussians=10_000, iters=15)
+    assert m["heldout_psnr_db"] >= m["heldout_psnr_init_db"] - 0.5, m
+
+
+def _two_wall_model():
+    """Camera at the origin looking +z: a small red wall at 3 m in front of a large blue wall at 8 m."""
+    from civil.forge.gsplat import GaussianSplatModel
+
+    def wall(half, step, z):
+        g = np.arange(-half, half + 1e-9, step)
+        x, y = np.meshgrid(g, g)
+        return np.column_stack([x.ravel(), y.ravel(), np.full(x.size, z)]).astype(np.float32)
+
+    front, back = wall(0.5, 0.05, 3.0), wall(2.0, 0.1, 8.0)
+    pts = np.vstack([front, back])
+    rgb = np.vstack([np.tile([255.0, 0, 0], (len(front), 1)), np.tile([0, 0, 255.0], (len(back), 1))]).astype(np.float32)
+    n = len(pts)
+    quats = np.zeros((n, 4), np.float32)
+    quats[:, 0] = 1
+    model = GaussianSplatModel(pts, np.full((n, 3), 0.05, np.float32), quats, np.full(n, 0.88, np.float32), rgb,
+                               np.full(n, 20.0, np.float32))
+    return model, len(front)
+
+
+K_WALL = np.array([[100.0, 0, 50], [0, 100.0, 50], [0, 0, 1]])
+
+
+def test_render_view_shows_the_nearest_surface_not_a_blend():
+    from civil.forge.gsplat import render_view
+
+    model, _ = _two_wall_model()
+    img, _, mask = render_view(model, np.eye(4), K_WALL, 100, 100)
+    assert mask[50, 50]
+    np.testing.assert_allclose(img[50, 50], [255, 0, 0], atol=10)  # red wall in front, blue wall hidden
+    np.testing.assert_allclose(img[50, 70], [0, 0, 255], atol=10)  # only the blue wall at the side
+
+
+def test_splat_fit_does_not_repaint_hidden_splats():
+    from civil.forge.gsplat import train_and_eval_gsplat
+    from civil.forge.types import CameraFrame
+
+    model, n_front = _two_wall_model()
+    # what the camera sees: red wall within 100 * 0.5 / 3 px of the centre, blue wall within 100 * 2 / 8 px
+    v, u = np.mgrid[0:100, 0:100]
+    r = np.maximum(np.abs(u - 50), np.abs(v - 50))
+    gt = np.zeros((100, 100, 3), np.uint8)
+    gt[r <= 25] = [0, 0, 255]
+    gt[r <= 16] = [255, 0, 0]
+    frame = CameraFrame(0.0, gt, K_WALL, np.zeros(5), np.eye(4), "rgb")
+    traj = (np.array([0.0, 1.0]), np.stack([np.eye(4), np.eye(4)]))
+    fitted, _ = train_and_eval_gsplat(model.means, model.rgb, None, [], [frame], [], iters=5, trajectory=traj)
+    back = fitted.means[n_front:]
+    hidden = (np.abs(back[:, 0]) < 1.0) & (np.abs(back[:, 1]) < 1.0)  # behind the red wall from this camera
+    assert fitted.rgb[n_front:][hidden, 0].max() < 30, "hidden blue splats were painted red"
+    assert fitted.rgb[n_front:][hidden, 2].min() > 225
+
+
 def test_splat_fit_on_independent_views_and_thermal_in_its_own_camera():
     """Held-out views come from an analytic scene, not from the model; thermal is scored in the thermal camera."""
     from civil.forge.gsplat import train_and_eval_gsplat
