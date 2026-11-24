@@ -59,7 +59,11 @@ function LoginInner() {
     try {
       const u = new URL(n, window.location.origin);
       if (u.origin !== window.location.origin || u.pathname.startsWith("/login")) return "/";
-      return u.pathname + u.search + u.hash;
+      // validate the exact string we navigate to: "/.//evil.com" normalises to the path "//evil.com"
+      const out = u.pathname + u.search + u.hash;
+      if (!out.startsWith("/") || out.startsWith("//") || out.startsWith("/\\")) return "/";
+      if (new URL(out, window.location.origin).origin !== window.location.origin) return "/";
+      return out;
     } catch {
       return "/";
     }
