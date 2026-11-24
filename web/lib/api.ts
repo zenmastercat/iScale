@@ -1,0 +1,211 @@
+/*
+ * The only way the app talks to the backend. Every call goes through api(), which
+ *  - sends X-Civil-Scan: 1 on POST/PATCH/PUT/DELETE (the server answers 403 without it),
+ *  - sends/parses JSON (FormData bodies are passed through untouched),
+ *  - throws ApiError with the server's `detail` message on any non-2xx,
+ *  - on 401 (signed out) sends the browser to /login, except for /api/auth/* calls.
+ * Paths are same-origin (/api/...): the dev server and scripts/serve.mjs proxy them to FastAPI.
+ */
+import type {
+  Analysis,
+  AuthState,
+  Challenge,
+  Finding,
+  FindingStatus,
+  JobCard,
+  Meta,
+  Plan,
+  Priority,
+  Project,
+  ProjectSummary,
+  SegmentPlan,
+  Severity,
+  SpotPlan,
+  Survey,
+  User,
+  Verification,
+  WorkOrder,
+  WorkOrderStatus,
+} from "@/lib/types";
+
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+type Json = Record<string, unknown> | unknown[];
+
+export interface ApiOptions extends Omit<RequestInit, "body"> {
+  /** object → JSON body; FormData → multipart */
+  body?: Json | FormData;
+  /** query string params; undefined/null values are dropped */
+  query?: Record<string, string | number | boolean | null | undefined>;
+}
+
+const LOGIN_PATH = "/login";
+
+function redirectToLogin() {
+  if (typeof window === "undefined") return;
+  if (window.location.pathname.startsWith(LOGIN_PATH)) return;
+  const next = window.location.pathname + window.location.search;
+  // full reload on purpose: drops every cached query of the signed-out user
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+  window.location.assign(`${LOGIN_PATH}?next=${encodeURIComponent(next)}`);
+}
+
+export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Promise<T> {
+  const { body, query, headers, method = body !== undefined ? "POST" : "GET", ...rest } = opts;
+  let url = path.startsWith("/api") ? path : `/api${path.startsWith("/") ? "" : "/"}${path}`;
+  if (query) {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(query)) if (v !== undefined && v !== null) qs.set(k, String(v));
+    const s = qs.toString();
+    if (s) url += (url.includes("?") ? "&" : "?") + s;
+  }
+  const h = new Headers(headers);
+  if (method !== "GET" && method !== "HEAD") h.set("X-Civil-Scan", "1");
+  let payload: BodyInit | undefined;
+  if (body instanceof FormData) payload = body;
+  else if (body !== undefined) {
+    h.set("Content-Type", "application/json");
+    payload = JSON.stringify(body);
+  }
+  h.set("Accept", "application/json");
+
+  const res = await fetch(url, { ...rest, method, headers: h, body: payload, credentials: "same-origin" });
+  const text = await res.text();
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+  }
+  if (!res.ok) {
+    if (res.status === 401 && !url.startsWith("/api/auth/")) redirectToLogin();
+    const detail =
+      data && typeof data === "object" && "detail" in data
+        ? (data as { detail: unknown }).detail
+        : typeof data === "string" && data
+          ? data
+          : res.statusText;
+    throw new ApiError(res.status, typeof detail === "string" ? detail : JSON.stringify(detail));
+  }
+  return data as T;
+}
+
+// --- auth (used by lib/auth.ts) -------------------------------------------------------------
+export const getAuthState = () => api<AuthState>("/api/auth/state");
+export const postChallenge = (username: string) => api<Challenge>("/api/auth/challenge", { body: { username } });
+export const postLogin = (b: { username: string; nonce: string; signature: string; public_key: string }) =>
+  api<{ user: User }>("/api/auth/login", { body: b });
+export const postSetup = (b: { company: string; username: string; display_name: string }) =>
+  api<{ ok: true; username: string }>("/api/auth/setup", { body: b });
+export const postRegister = (b: {
+  kind: "company" | "join" | "individual";
+  username: string;
+  display_name: string;
+  public_key: string;
+  company?: string;
+  join_code?: string;
+}) => api<unknown>("/api/auth/register", { body: b });
+export const postLogout = () => api<{ ok: true }>("/api/auth/logout", { body: {} });
+
+// --- meta ----------------------------------------------------------------------------------
+export const getMeta = () => api<Meta>("/api/meta");
+
+// --- projects & surveys ----------------------------------------------------------------------
+export const listProjects = () => api<ProjectSummary[]>("/api/projects");
+export const getProject = (pid: string) => api<Project>(`/api/projects/${pid}`);
+export const createProject = (name: string) => api<ProjectSummary>("/api/projects", { body: { name } });
+/** Creates "Demo district (synthetic)" with a baseline and an after-repairs survey (processing starts at once). */
+export const createDemo = () => api<ProjectSummary>("/api/demo", { method: "POST" });
+export const getSurvey = (pid: string, sid: string) => api<Survey>(`/api/projects/${pid}/surveys/${sid}`);
+export const setBaseline = (pid: string, sid: string) =>
+  api<ProjectSummary>(`/api/projects/${pid}/baseline/${sid}`, { method: "POST" });
+export const retrySurvey = (pid: string, sid: string) =>
+  api<Survey>(`/api/projects/${pid}/surveys/${sid}/retry`, { method: "POST" });
+/** multipart: name, decoder, params (JSON string), files[] */
+export const createSurvey = (pid: string, form: FormData) =>
+  api<Survey>(`/api/projects/${pid}/surveys`, { body: form });
+
+/** Poll a survey until it is done or errored. Resolves with the final survey. */
+export async function waitForSurvey(
+  pid: string,
+  sid: string,
+  { intervalMs = 1500, timeoutMs = 300_000, onProgress }: { intervalMs?: number; timeoutMs?: number; onProgress?: (s: Survey) => void } = {},
+): Promise<Survey> {
+  const t0 = Date.now();
+  for (;;) {
+    const s = await getSurvey(pid, sid);
+    onProgress?.(s);
+    if (s.status === "done" || s.status === "error") return s;
+    if (Date.now() - t0 > timeoutMs) throw new ApiError(408, "survey is taking too long");
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+}
+
+// --- analysis & findings ---------------------------------------------------------------------
+export const getAnalysis = (pid: string, sid: string) => api<Analysis>(`/api/projects/${pid}/surveys/${sid}/analysis`);
+export const patchFinding = (
+  pid: string,
+  sid: string,
+  fid: string,
+  patch: { status?: FindingStatus; severity?: Severity; type?: string; note?: string },
+) => api<Finding>(`/api/projects/${pid}/surveys/${sid}/findings/${fid}`, { method: "PATCH", body: patch });
+export const addFinding = (
+  pid: string,
+  sid: string,
+  f: { type: string; x: number; y: number; z?: number; severity?: Severity; note?: string; size_m?: number },
+) => api<Finding>(`/api/projects/${pid}/surveys/${sid}/findings`, { body: f });
+export const getJobCard = (pid: string, sid: string, fid: string) =>
+  api<JobCard>(`/api/projects/${pid}/surveys/${sid}/findings/${fid}/card`);
+/** Plain URL for <a href download>: csv | geojson | ply */
+export const exportUrl = (pid: string, sid: string, fmt: "csv" | "geojson" | "ply") =>
+  `/api/projects/${pid}/surveys/${sid}/export.${fmt}`;
+/** Plain URL for <img src> of a drive frame (JobCard.location.photo.url is already this). */
+export const frameUrl = (pid: string, sid: string, n: number) => `/api/projects/${pid}/surveys/${sid}/frames/${n}`;
+
+// --- planning ----------------------------------------------------------------------------------
+export function getPlan(pid: string, sid: string, mode: "spot", budget?: number | null): Promise<SpotPlan>;
+export function getPlan(pid: string, sid: string, mode: "segment", budget?: number | null): Promise<SegmentPlan>;
+export function getPlan(pid: string, sid: string, mode: "spot" | "segment" = "spot", budget?: number | null) {
+  return api<Plan>(`/api/projects/${pid}/surveys/${sid}/plan`, { query: { mode, budget: budget || undefined } });
+}
+/** "Fix first": survey defects (and shared pins nearby), ranked by severity x safety x traffic. */
+export const getPriority = (pid: string, sid: string, limit = 100) =>
+  api<Priority>("/api/priority", { query: { project: pid, survey: sid, limit } });
+
+// --- work orders ---------------------------------------------------------------------------------
+export const listWorkOrders = (pid: string) => api<WorkOrder[]>(`/api/projects/${pid}/workorders`);
+export const createWorkOrder = (pid: string, b: { survey_id: string; finding_ids: string[]; title?: string }) =>
+  api<WorkOrder>(`/api/projects/${pid}/workorders`, { body: b });
+export const patchWorkOrder = (pid: string, wid: string, status: WorkOrderStatus) =>
+  api<WorkOrder>(`/api/projects/${pid}/workorders/${wid}`, { method: "PATCH", body: { status } });
+
+// --- verification ------------------------------------------------------------------------------------
+export const getVerification = (pid: string) => api<Verification | null>(`/api/projects/${pid}/verification`);
+export const runVerify = (pid: string, b: { before: string; after: string; workorder_id?: string | null }) =>
+  api<Verification>(`/api/projects/${pid}/verify`, { body: b });
+
+// --- TanStack Query keys (use these so invalidation works across pages) ----------------------------
+export const qk = {
+  authState: ["auth", "state"] as const,
+  meta: ["meta"] as const,
+  projects: ["projects"] as const,
+  project: (pid: string) => ["project", pid] as const,
+  survey: (pid: string, sid: string) => ["project", pid, "survey", sid] as const,
+  analysis: (pid: string, sid: string) => ["project", pid, "survey", sid, "analysis"] as const,
+  plan: (pid: string, sid: string, mode: string, budget?: number | null) =>
+    ["project", pid, "survey", sid, "plan", mode, budget ?? null] as const,
+  priority: (pid: string, sid: string) => ["project", pid, "survey", sid, "priority"] as const,
+  jobCard: (pid: string, sid: string, fid: string) => ["project", pid, "survey", sid, "card", fid] as const,
+  workOrders: (pid: string) => ["project", pid, "workorders"] as const,
+  verification: (pid: string) => ["project", pid, "verification"] as const,
+};
