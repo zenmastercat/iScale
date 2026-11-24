@@ -20,6 +20,7 @@ import cv2
 import numpy as np
 from scipy.spatial.transform import Rotation
 
+from .. import images
 from ..pointcloud import read_gps_csv
 from .thermal_reg import DEFAULT_FLIR_PLANCK, celsius_to_flir_raw
 from .types import CameraFrame, ImuSample, LidarScan, SensorCalibration
@@ -68,6 +69,36 @@ def _find_rosbag(input_dir: Path) -> Path | None:
     return None
 
 
+# Per-file caps for survey inputs (a single upload may be up to 4 GB in total): every reader below loads a
+# whole file into memory, so one oversized file must be refused before it is read.
+MAX_FILE_BYTES = {
+    "calibration": 1 << 20,    # calibration.json
+    "table": 512 << 20,        # imu.csv, gps.csv, gt_poses.txt
+    "scan": 256 << 20,         # one LiDAR scan (.npy / .bin): ~10 M points
+    "image": 64 << 20,         # one RGB or thermal frame
+}
+
+
+def _input_problems(files: dict[str, list[Path]]) -> tuple[list[str], set[Path]]:
+    """Size (and, for images, header pixel-count) problems of the given files, by kind; and the bad files."""
+    out, bad = [], set()
+    for kind, paths in files.items():
+        for f in paths:
+            if not f.is_file():
+                continue
+            size = f.stat().st_size
+            if size > MAX_FILE_BYTES[kind]:
+                out.append(f"{f.name} is too large ({size} bytes; limit {MAX_FILE_BYTES[kind]} for {kind} files)")
+                bad.add(f)
+            elif kind == "image" and f.suffix.lower() != ".npy":
+                try:
+                    images.check_pixels(f)
+                except ValueError as e:
+                    out.append(f"{f.name}: {e}")
+                    bad.add(f)
+    return out, bad
+
+
 def preflight_check(input_path: Path) -> dict:
     """Validate that a multi-sensor directory or bag has calibrated LiDAR, IMU, RGB, and radiometric thermal."""
     input_path = Path(input_path)
@@ -82,8 +113,15 @@ def preflight_check(input_path: Path) -> dict:
     rgb_files = _find_rgb_files(input_path) if input_path.is_dir() else []
     thermal_files = _find_thermal_files(input_path) if input_path.is_dir() else []
 
+    tables = [input_path / n for n in ("gps.csv", "gt_poses.txt")] if input_path.is_dir() else []
+    size_issues, bad = _input_problems({
+        "calibration": [cal_file], "table": ([imu_file] if imu_file else []) + tables,
+        "scan": lidar_files, "image": rgb_files + thermal_files,
+    })
+    issues += size_issues
+
     cal_data = {}
-    if cal_file.is_file():
+    if cal_file.is_file() and cal_file not in bad:
         try:
             cal_data = json.loads(cal_file.read_text())
         except Exception as e:  # noqa: BLE001
@@ -106,7 +144,7 @@ def preflight_check(input_path: Path) -> dict:
 
     thermal_enc = cal_data.get("thermal_encoding", "flir_raw")
     radiometric_ok = thermal_enc in ("flir_raw", "centikelvin", "celsius_f32")
-    if thermal_files:
+    if thermal_files and thermal_files[0] not in bad:
         t0 = thermal_files[0]
         img = np.load(t0) if t0.suffix == ".npy" else cv2.imread(str(t0), cv2.IMREAD_UNCHANGED)
         if img is None:
