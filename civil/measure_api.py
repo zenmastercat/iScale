@@ -27,6 +27,8 @@ import time
 
 import cv2
 import numpy as np
+from typing import Annotated
+
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -50,6 +52,8 @@ def require_staff(request: Request) -> dict:
 
 
 # --- request bodies ------------------------------------------------------------------------------------
+Coord = Annotated[float, Field(ge=-100_000, le=100_000, allow_inf_nan=False)]   # image pixels, a little off-image allowed
+Point = Annotated[list[Coord], Field(min_length=2, max_length=2)]              # [x, y]
 class Target(BaseModel):
     kind: str                       # finding | pin
     id: str = Field(max_length=64)
@@ -71,10 +75,10 @@ class MeasureIn(BaseModel):
     ref_type: str = Field(max_length=20)
     ref_width_cm: float | None = Field(default=None, gt=0, le=10_000)
     ref_length_cm: float | None = Field(default=None, gt=0, le=10_000)
-    ref_points: list[list[float]] = Field(min_length=2, max_length=4)
+    ref_points: list[Point] = Field(min_length=2, max_length=4)
     first_edge: str | None = None    # width | length | None (automatic)
-    outline: list[list[float]] | None = Field(default=None, max_length=200)
-    box: list[float] | None = Field(default=None, min_length=4, max_length=4)
+    outline: list[Point] | None = Field(default=None, max_length=200)
+    box: list[Coord] | None = Field(default=None, min_length=4, max_length=4)
     tol_px: float = Field(default=measure.TOL_PX, ge=0, le=50)
     depth_cm: float | None = Field(default=None, gt=0, le=200)
     rescale_3d: bool = False

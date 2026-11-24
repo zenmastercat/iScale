@@ -54,6 +54,7 @@ app.include_router(scene_scale_api.router)
 CSRF_HEADER = "x-civil-scan"
 
 
+MAX_JSON_BYTES = 1_000_000  # every non-upload body (JSON, forms); the largest real one is ~30 kB of finding ids
 PUBLIC_API = ("/api/auth/state", "/api/auth/setup", "/api/auth/register", "/api/auth/challenge", "/api/auth/login", "/api/auth/logout")
 PROJECT_PATH = re.compile(r"^/api/projects/([^/]+)")
 
@@ -66,8 +67,12 @@ async def guard(request: Request, call_next):
             if request.headers.get(CSRF_HEADER) != "1":
                 return JSONResponse({"detail": "missing X-Civil-Scan header"}, status_code=403)
             size = request.headers.get("content-length")
-            if size and size.isdigit() and int(size) > MAX_UPLOAD_BYTES + 1_000_000:
-                return JSONResponse({"detail": "upload too large"}, status_code=413)
+            if size is None and "chunked" in request.headers.get("transfer-encoding", "").lower():
+                return JSONResponse({"detail": "send a Content-Length"}, status_code=411)  # else the size check is skipped
+            ctype = request.headers.get("content-type", "")
+            cap = MAX_UPLOAD_BYTES + 1_000_000 if ctype.startswith("multipart/form-data") else MAX_JSON_BYTES
+            if size and size.isdigit() and int(size) > cap:
+                return JSONResponse({"detail": "request too large"}, status_code=413)
         if path not in PUBLIC_API and not path.startswith("/api/worker/"):  # the worker routes check their own token
             user = auth.session_user(request)
             if user is None:
