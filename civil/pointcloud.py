@@ -28,6 +28,7 @@ class Reconstruction:
     labels: np.ndarray | None = None  # (N,) int32 class id from a decoder, -1 = none
     label_names: dict[int, str] = field(default_factory=dict)  # class id -> catalog code
     gps: np.ndarray | None = None  # (M,3) [t, lat, lon] optional GPS track
+    temperatures_c: np.ndarray | None = None  # (N,) float32 radiometric degrees Celsius
     meta: dict = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -40,6 +41,10 @@ class Reconstruction:
                 raise ValueError("colors length must match points")
         if self.labels is not None:
             self.labels = np.asarray(self.labels, dtype=np.int32)
+        if self.temperatures_c is not None:
+            self.temperatures_c = np.ascontiguousarray(self.temperatures_c, dtype=np.float32)
+            if self.temperatures_c.ndim != 1 or len(self.temperatures_c) != len(self.points):
+                raise ValueError("temperatures_c length must match points")
 
     @property
     def n(self) -> int:
@@ -55,7 +60,7 @@ class Reconstruction:
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         arrays = {"points": self.points}
-        for name in ("colors", "poses", "times", "labels", "gps"):
+        for name in ("colors", "poses", "times", "labels", "gps", "temperatures_c"):
             v = getattr(self, name)
             if v is not None:
                 arrays[name] = v
@@ -78,6 +83,7 @@ class Reconstruction:
                 times=z["times"] if "times" in z else None,
                 labels=z["labels"] if "labels" in z else None,
                 gps=z["gps"] if "gps" in z else None,
+                temperatures_c=z["temperatures_c"] if "temperatures_c" in z else None,
                 label_names={int(k): v for k, v in extra.get("label_names", {}).items()},
                 meta=extra.get("meta", {}),
             )

@@ -1,0 +1,115 @@
+"""Pure-NumPy data contracts and configuration dataclasses for FORGE SLAM."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+import numpy as np
+
+from ..pointcloud import Reconstruction
+
+
+@dataclass
+class ImuSample:
+    t: float
+    gyro: np.ndarray   # (3,) rad/s in IMU body frame
+    accel: np.ndarray  # (3,) m/s^2 specific force in IMU body frame
+
+
+@dataclass
+class LidarScan:
+    t: float
+    points: np.ndarray                        # (N, 3) float32 in LiDAR frame
+    intensities: np.ndarray | None = None     # (N,) float32
+    point_times: np.ndarray | None = None     # (N,) float64 absolute timestamps in seconds
+
+
+@dataclass
+class CameraFrame:
+    t: float
+    image: np.ndarray                         # (H, W, 3) uint8 RGB or (H, W) uint16/float32 thermal
+    intrinsics: np.ndarray                    # (3, 3) float64 K matrix
+    distortion: np.ndarray                    # (4,) or (5,) float64 distortion coeffs
+    T_lidar_cam: np.ndarray                   # (4, 4) float64 transform from camera to LiDAR (or LiDAR to cam)
+    modality: str = "rgb"                     # "rgb" or "thermal"
+    thermal_encoding: str = "celsius_f32"     # "flir_raw", "centikelvin", "celsius_f32", "linear_u8"
+    planck_params: dict | None = None
+    linear_range: tuple[float, float] | None = None
+
+
+@dataclass
+class SensorCalibration:
+    T_lidar_imu: np.ndarray = field(default_factory=lambda: np.eye(4, dtype=np.float64))
+    T_lidar_rgb: np.ndarray | None = None
+    T_lidar_thermal: np.ndarray | None = None
+    K_rgb: np.ndarray | None = None
+    D_rgb: np.ndarray | None = None
+    K_thermal: np.ndarray | None = None
+    D_thermal: np.ndarray | None = None
+    time_offset_imu_s: float = 0.0
+    time_offset_rgb_s: float = 0.0
+    time_offset_thermal_s: float = 0.0
+    thermal_encoding: str = "flir_raw"
+    planck_params: dict = field(
+        default_factory=lambda: {"R": 380747.0, "B": 1428.0, "F": 1.0, "O": -88.539}
+    )
+    linear_range: tuple[float, float] | None = None
+    gyr_noise: float = 2.4e-3
+    acc_noise: float = 2.5e-2
+    gyr_bias_walk: float = 2.0e-5
+    acc_bias_walk: float = 8.0e-4
+
+
+@dataclass
+class Keyframe:
+    id: int
+    t: float
+    pose_w_b: np.ndarray                      # (4, 4) float64 body-to-world SE(3)
+    points_local: np.ndarray                  # (M, 3) float32 static points in body frame
+    raw_points_local: np.ndarray              # (N, 3) float32 pre-filter points in body frame
+    dynamic_mask: np.ndarray                  # (N,) bool audit mask (True = removed dynamic point)
+    colors: np.ndarray | None = None          # (M, 3) uint8
+    temperatures_c: np.ndarray | None = None  # (M,) float32 degrees Celsius
+    descriptor_sc: np.ndarray | None = None   # (N_r, N_s) float32 Scan-Context
+    ring_key: np.ndarray | None = None        # (N_r,) float32 ring key
+
+
+@dataclass
+class LoopConstraint:
+    from_id: int
+    to_id: int
+    T_from_to: np.ndarray  # (4, 4) float64 relative pose T_{from}^{-1} T_{to}
+    rmse: float
+    inlier_ratio: float
+    sc_distance: float
+
+
+@dataclass
+class ForgeConfig:
+    keyframe_dist_m: float = 1.0
+    keyframe_angle_deg: float = 10.0
+    voxel_size_m: float = 0.10
+    max_ram_bytes: int = 512 * 1024 * 1024
+    tile_size_m: float = 20.0
+    enable_dynamic_filter: bool = True
+    enable_loop_closure: bool = True
+    enable_thermal: bool = True
+    enable_gsplat: bool = True
+    min_free_gpu_gb: float = 4.0
+    max_gaussians: int = 250_000
+    num_threads: int = 8
+    sc_distance_thresh: float = 0.35
+    loop_min_time_s: float = 25.0
+    loop_min_dist_m: float = 15.0
+    sensor_height_m: float = 1.5
+
+
+@dataclass
+class ForgeResult:
+    reconstruction: Reconstruction
+    keyframes: list[Keyframe]
+    loop_constraints: list[LoopConstraint]
+    dynamic_mask: np.ndarray
+    diagnostics: dict
+
+    def to_reconstruction(self) -> Reconstruction:
+        return self.reconstruction
