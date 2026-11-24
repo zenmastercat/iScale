@@ -175,6 +175,7 @@ export const frameUrl = (pid: string, sid: string, n: number) => `/api/projects/
 // --- planning ----------------------------------------------------------------------------------
 export function getPlan(pid: string, sid: string, mode: "spot", budget?: number | null): Promise<SpotPlan>;
 export function getPlan(pid: string, sid: string, mode: "segment", budget?: number | null): Promise<SegmentPlan>;
+export function getPlan(pid: string, sid: string, mode: "spot" | "segment", budget?: number | null): Promise<Plan>;
 export function getPlan(pid: string, sid: string, mode: "spot" | "segment" = "spot", budget?: number | null) {
   return api<Plan>(`/api/projects/${pid}/surveys/${sid}/plan`, { query: { mode, budget: budget || undefined } });
 }
