@@ -74,7 +74,8 @@ The Overview already links to `/map?finding=…`, `/map?segment=…` and `/fix-f
 
 ## Data: `lib/api.ts`, `lib/queries.ts`
 
-Never call `fetch` yourself. `api()` adds `X-Civil-Scan: 1` to writes, parses JSON, throws
+Never call `fetch` yourself, and never build an `/api/...` path by string concatenation in a component:
+add the function to `lib/api.ts` (ask the lead), where every id goes through `seg()` (ids from the URL are untrusted). `api()` adds `X-Civil-Scan: 1` to writes, parses JSON, throws
 `ApiError(status, detail)` with the server's message, and sends 401s to `/login`.
 
 Prefer the hooks (they share cache and wait until the survey is processed):
