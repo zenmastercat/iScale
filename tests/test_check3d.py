@@ -124,3 +124,26 @@ def test_the_point_cloud_downloads_as_a_ply_with_the_detector_marks(labelled_sur
                                                    ("red", "u1"), ("green", "u1"), ("blue", "u1"),
                                                    ("detector", "u1")])
     assert (rows["detector"].astype(bool) == pothole_mask(rec)).all() and rows["detector"].sum() > 0
+
+
+def test_thermal_panel_ignores_unobserved_nan_points():
+    """Points no thermal frame saw carry NaN; stats and the panel must use only observed points."""
+    import numpy as np
+    from civil.check3d import _evidence as evaluate, render
+
+    rng = np.random.default_rng(0)
+    xy = rng.uniform(-1.5, 1.5, (4000, 2))
+    r = np.hypot(xy[:, 0], xy[:, 1])
+    z = np.where(r < 0.4, -0.05, 0.0)
+    pts = np.column_stack([xy, z]).astype(np.float32)
+    temps = np.where(r < 0.4, 35.0, 30.0).astype(np.float32)
+    temps[xy[:, 0] > 1.0] = np.nan  # strip never seen by the thermal camera
+
+    from civil.pointcloud import Reconstruction
+    rec = Reconstruction(points=pts, temperatures_c=temps, meta={"metric": True})
+    f = {"x": 0.0, "y": 0.0, "z": 0.0, "metrics": {"diameter_m": 0.8, "depth_max_m": 0.05}}
+    ev = evaluate(rec, f)
+    st = ev["thermal_stats"]
+    assert all(np.isfinite(v) for v in st.values()), st
+    assert st["max_c"] == 35.0 and st["min_c"] == 30.0
+    assert render(f, ev, "thermal")[:8] == b"\x89PNG\r\n\x1a\n"

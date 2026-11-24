@@ -45,8 +45,14 @@ def main() -> None:
     fg_run = fg_sub.add_parser("run", help="run FORGE SLAM standalone on an input folder")
     fg_run.add_argument("input", help="path to FORGE sequence folder")
     fg_run.add_argument("--work", required=True, help="working directory for tiles, diagnostics, and recon.npz")
-    fg_eval = fg_sub.add_parser("eval", help="run public dataset quantitative evaluation and write docs/FORGE-RESULTS.md")
+    fg_eval = fg_sub.add_parser("eval", help="synthetic sanity check of loop closure + pose graph (simulated scans on M2DGR GT paths; JSON only)")
     fg_eval.add_argument("--datasets-dir", default="", help="override path to iScale-datasets directory")
+    fg_real = fg_sub.add_parser("eval-real", help="evaluate on recorded public data (M2DGR bag and/or STheReO folder)")
+    fg_real.add_argument("--m2dgr-bag", default="", help="M2DGR .bag file")
+    fg_real.add_argument("--m2dgr-gt", default="", help="matching M2DGR ground truth (TUM, ECEF)")
+    fg_real.add_argument("--sthereo", default="", help="STheReO sequence folder (sensor_data/, image/, calibration/)")
+    fg_real.add_argument("--out", required=True, help="output folder for reports, trajectories and maps")
+    fg_real.add_argument("--figures", default="", help="folder for M2DGR figures (STheReO figures stay in --out)")
     a = ap.parse_args()
     if a.cmd == "serve":
         import uvicorn
@@ -108,12 +114,22 @@ def main() -> None:
             res = run_forge_slam(Path(a.input), wdir)
             res.reconstruction.save(wdir / "recon.npz")
             print(json.dumps(res.diagnostics, indent=2))
+        elif a.forge_cmd == "eval-real":
+            from .forge.real_eval import evaluate_m2dgr, evaluate_sthereo
+
+            out = Path(a.out)
+            reports = {}
+            if a.m2dgr_bag:
+                reports["m2dgr"] = evaluate_m2dgr(Path(a.m2dgr_bag), Path(a.m2dgr_gt), out / "m2dgr", Path(a.figures) if a.figures else None)
+            if a.sthereo:
+                reports["sthereo"] = evaluate_sthereo(Path(a.sthereo), out / "sthereo")
+            print(json.dumps({k: {"lio_ate": v["lio_only"]["ate_rmse_m"], "forge_ate": v["forge"]["ate_rmse_m"]} for k, v in reports.items()}))
         elif a.forge_cmd == "eval":
-            from .forge.eval import run_full_evaluation
+            from .forge.eval import run_synthetic_sanity_check
 
             ds = Path(a.datasets_dir) if a.datasets_dir else None
-            report = run_full_evaluation(datasets_dir=ds)
-            print(json.dumps(report["summary"], indent=2))
+            report = run_synthetic_sanity_check(datasets_dir=ds)
+            print(json.dumps(report["sequences"], indent=2))
 
 
 def calibrate(a) -> None:

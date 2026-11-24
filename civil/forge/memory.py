@@ -69,17 +69,46 @@ class SpatialTileMemory:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+
+    def close(self) -> None:
+        """Clear in-RAM tile cache and reset active RAM usage to zero."""
         self._ram_tiles.clear()
         self.active_ram_bytes = 0
 
+    def cleanup_ssd(self) -> int:
+        """Delete all spilled tile archives from tiles_dir and return count removed."""
+        removed = 0
+        for key in list(self._ssd_tile_keys):
+            p = self._tile_path(key)
+            if p.is_file():
+                p.unlink()
+                removed += 1
+        self._ssd_tile_keys.clear()
+        return removed
+
     def _tile_path(self, key: tuple[int, int]) -> Path:
-        return self.tiles_dir / f"tile_{key[0]}_{key[1]}.npz"
+        if (
+            not isinstance(key, tuple)
+            or len(key) != 2
+            or not isinstance(key[0], (int, np.integer))
+            or not isinstance(key[1], (int, np.integer))
+            or isinstance(key[0], bool)
+            or isinstance(key[1], bool)
+        ):
+            raise ValueError(f"Tile key must be a pair of integers (ix, iy), got {key!r}")
+        ix, iy = int(key[0]), int(key[1])
+        base = self.tiles_dir.resolve()
+        candidate = (base / f"tile_{ix}_{iy}.npz").resolve()
+        if candidate.parent != base:
+            raise ValueError(f"Path traversal detected for tile key {key!r}")
+        return candidate
 
     def _evict_lru_if_needed(self, incoming_bytes: int = 0) -> None:
         while self._ram_tiles and (self.active_ram_bytes + incoming_bytes > self.max_ram_bytes):
-            key, tile = self._ram_tiles.popitem(last=False)
+            victim_key, tile = self._ram_tiles.popitem(last=False)
             self.active_ram_bytes -= tile.nbytes
-            self._save_tile_to_ssd(key, tile)
+            self._save_tile_to_ssd(victim_key, tile)
 
     def _save_tile_to_ssd(self, key: tuple[int, int], tile: _Tile) -> None:
         if not tile.chunks:
@@ -106,15 +135,20 @@ class SpatialTileMemory:
     def _load_tile_from_ssd(self, key: tuple[int, int]) -> _Tile:
         t0 = time.perf_counter()
         path = self._tile_path(key)
-        tile = _Tile(ix=key[0], iy=key[1])
-        with np.load(path, allow_pickle=False) as z:
-            n_chunks = int(z["n_chunks"][0])
-            for i in range(n_chunks):
-                kf_id = int(z[f"kf_{i}"][0])
-                pts = z[f"pts_{i}"].astype(np.float32)
-                col = z[f"col_{i}"].astype(np.uint8) if f"col_{i}" in z else None
-                tmp = z[f"tmp_{i}"].astype(np.float32) if f"tmp_{i}" in z else None
-                tile.chunks.append(_TileChunk(kf_id=kf_id, points_local=pts, colors=col, temperatures_c=tmp))
+        if not path.is_file():
+            raise FileNotFoundError(f"SSD tile file missing for key {key}: {path}")
+        tile = _Tile(ix=int(key[0]), iy=int(key[1]))
+        try:
+            with np.load(path, allow_pickle=False) as z:
+                n_chunks = int(z["n_chunks"][0])
+                for i in range(n_chunks):
+                    kf_id = int(z[f"kf_{i}"][0])
+                    pts = z[f"pts_{i}"].astype(np.float32)
+                    col = z[f"col_{i}"].astype(np.uint8) if f"col_{i}" in z else None
+                    tmp = z[f"tmp_{i}"].astype(np.float32) if f"tmp_{i}" in z else None
+                    tile.chunks.append(_TileChunk(kf_id=kf_id, points_local=pts, colors=col, temperatures_c=tmp))
+        except Exception as e:
+            raise RuntimeError(f"Corrupt SSD tile archive at {path}: {e}") from e
         self.reloads_from_ssd_total += 1
         self.io_time_ms += (time.perf_counter() - t0) * 1000.0
         return tile
@@ -127,6 +161,8 @@ class SpatialTileMemory:
         self.misses_total += 1
         if key in self._ssd_tile_keys:
             tile = self._load_tile_from_ssd(key)
+            if tile.nbytes > self.max_ram_bytes:
+                return tile  # too big to cache; served from SSD
             self._evict_lru_if_needed(tile.nbytes)
             self._ram_tiles[key] = tile
             self.active_ram_bytes += tile.nbytes
@@ -158,17 +194,28 @@ class SpatialTileMemory:
         tmp = np.ascontiguousarray(temperatures_c, dtype=np.float32) if temperatures_c is not None else None
         chunk = _TileChunk(kf_id=kf_id, points_local=pts, colors=col, temperatures_c=tmp)
 
-        tile = self._get_or_create_tile(key)
-        self._evict_lru_if_needed(chunk.nbytes)
-        # Re-ensure tile is in _ram_tiles if it got evicted while freeing space
-        if key not in self._ram_tiles:
-            self._ram_tiles[key] = tile
-            self.active_ram_bytes += tile.nbytes
+        # Bring the *complete* tile in (RAM hit, SSD reload, or new); a tile is never split between RAM and SSD
+        if key in self._ram_tiles:
+            self.hits_total += 1
+            self._ram_tiles.move_to_end(key)
+            tile = self._ram_tiles.pop(key)
+            self.active_ram_bytes -= tile.nbytes
+        elif key in self._ssd_tile_keys:
+            self.misses_total += 1
+            tile = self._load_tile_from_ssd(key)
+        else:
+            self.misses_total += 1
+            tile = _Tile(ix=key[0], iy=key[1])
         tile.chunks.append(chunk)
-        self.active_ram_bytes += chunk.nbytes
+
+        if tile.nbytes > self.max_ram_bytes:
+            # Tile alone exceeds the budget: keep it on SSD only (write-through)
+            self._save_tile_to_ssd(key, tile)
+            return
+        self._evict_lru_if_needed(tile.nbytes)
+        self._ram_tiles[key] = tile
+        self.active_ram_bytes += tile.nbytes
         self.peak_ram_bytes = max(self.peak_ram_bytes, self.active_ram_bytes)
-        if self.active_ram_bytes > self.max_ram_bytes:
-            self._evict_lru_if_needed(0)
 
     def update_poses(self, poses_w_b: dict[int, np.ndarray]) -> None:
         """Update keyframe poses in O(K) RAM time with ZERO SSD I/O."""

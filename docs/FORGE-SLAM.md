@@ -12,6 +12,42 @@
 
 The existing monocular phone-video workflow (`pothole_video` -> `lingbot_clip` in [`docs/VIDEO_PIPELINE.md`](VIDEO_PIPELINE.md) and [`docs/SCENE_SCALE.md`](SCENE_SCALE.md)) remains untouched. FORGE SLAM registers as a new decoder (`forge_slam`) in `civil/decoders/__init__.py` so its metric output flows directly through `civil.pipeline.finish()` -> `civil.align.align()` -> `civil.analysis.analyze()` to produce metric pothole depth, area, volume, Thailand Department of Highways (DOH) materials bills (`civil/materials.py`), and an opt-in radiometric thermal evidence panel (`panel="thermal"`) in the 3D finding verification modal (`civil/check3d.py` and `static/check3d.js`).
 
+## As built (M5 review, 2026-11-24)
+
+The code review in M5 changed these points; where this section and the design below disagree, this section is
+what the code does.
+
+*   **Pipeline is streaming** (`pipeline.ForgeSlam`): IMU samples before the first scan level the filter on gravity
+    and set the gyro bias when the platform is still (`ESKFLIO.initialize_static`); keyframes are selected by
+    distance/angle (the M4 code made every scan a keyframe); a keyframe is finalised 3 keyframes later (dynamic
+    filter over ±3 keyframes, loop search, pose-graph factors, points written to the tile memory) and its raw scan
+    is then dropped, keeping a 0.2 m copy for loop closure. Camera frames are posed from the per-scan trajectory
+    re-anchored on the optimised keyframes, with SE(3) slerp between scans.
+*   **ESKF**: out-of-order IMU samples are dropped (the clock never moves back); gaps > 0.5 s are not integrated
+    but widen the velocity/position covariance; degeneracy is judged per block (rotation, translation) from the
+    LiDAR information matrix (directions below 2 % of the strongest are unobservable) and reported as
+    `degenerate` + `degenerate_translation_axes`. Unobservable directions are held by the IMU prior (they are not
+    "projected out"). The update is an iterated information-form EKF, not a Joseph-form gain update.
+*   **Dynamic filter**: a point is dynamic only with free-space evidence — a neighbouring keyframe's LiDAR, from its
+    real origin (`lidar_origin_b`, no extra sensor-height offset), measured farther along the same ray and nothing
+    near the point's range — in ≥ 2 neighbours (1 when ≤ 2 neighbours), within the sensor's vertical FOV, and
+    confirmed by a 0.5 m majority vote (moving objects are clusters). "Not re-observed" alone is no longer
+    evidence: it deleted 34 % of a sparse static facade in a test. Objects against open sky cannot be judged.
+*   **Loop closure**: the G-ICP fit is scored on above-ground structure only (ground matches everywhere), and the
+    accepted offset is capped by `loop_max_offset_m` (10 m) instead of growing with path length.
+*   **Tile memory**: a tile is never split between RAM and SSD; a tile larger than the RAM cap stays on SSD
+    (write-through). The M4 code lost earlier chunks of such a tile.
+*   **Thermal**: the FLIR Planck offset sign now matches the MS² reference (`B/ln(R/(raw−O)+F) − 273.15`; M4 used
+    `raw+O`, several °C off). Lens distortion is applied when projecting. Points no thermal frame saw are NaN
+    (M4 filled them with the median "ambient"); the 3D check ignores NaN points.
+*   **Splats**: CPU point-anchored splats — positions, scales and opacities are fixed; only per-splat RGB and °C are
+    fitted. This is not full 3DGS. RGB and thermal are each scored in their own camera; held-out PSNR/SSIM are
+    reported with pixel coverage and the untrained baseline. The self-supervised mode (rendering the targets from
+    the model itself) was removed.
+*   **Evaluation**: `civil forge eval-real` runs on recorded data (`forge/datasets.py` readers for an M2DGR bag and
+    a STheReO folder); `civil forge eval` is only the synthetic loop-closure/pose-graph sanity check (simulated
+    scans along GT paths, injected drift). Results: `docs/FORGE-RESULTS.md`.
+
 ## The Problem
 
 iScale's current 3D reconstruction path relies on monocular drive video decoded by LingBot-Map (`civil/decoders/lingbot_clip.py`). While practical for dashcams and phones, monocular reconstruction has four fundamental limitations for engineering-grade road surveys:
@@ -247,13 +283,14 @@ flowchart TD
 *   [`docs/SCENE_SCALE.md`](SCENE_SCALE.md) — Scene-object scale calibration specification.
 *   **Public Datasets & Licenses (`~/Projects/iScale-datasets/`):**
     1.  **M2DGR (`SJTU-ViSYS/M2DGR`):** **MIT License**. Velodyne VLP-32C 3D LiDAR (10 Hz), Handsfree A9 9-axis IMU (150 Hz), RealSense D435i RGB (`640x480`), PLUG 617 Thermal-Infrared (`640x512`, 25 Hz), and 100 Hz RTK-GNSS / Leica ground-truth trajectories (`gate_01`, `gate_02`, `gate_03`, `street_03`, `street_04`, `rotation_01`, `door_02`). Citation: *J. Yin et al., "M2DGR: A Multi-Sensor and Multi-Scenario SLAM Dataset for Ground Robots," IEEE RA-L, vol. 7, no. 2, pp. 2266–2273, 2022.*
-    2.  **KAIST Multi-Spectral Driving (`UkcheolShin/MS2-MultiSpectralStereoDataset` & `Mini-KAIST-Multispectral`):** **MIT License / CC BY-NC-SA 3.0** (research/evaluation use). Outdoor road driving RGB + FLIR A65C radiometric thermal (`Raw2Celsius` Planck parameters $R=380747, B=1428, F=1, O=-88.539$) + stereo LiDAR + IMU calibration. Citation: *U. Shin, J. Park, and I. S. Kweon, "Deep Depth Estimation from Thermal Image," IEEE/CVF CVPR, 2023.*
+    2.  **STheReO (`sites.google.com/view/rpmsthereo`, SNU/KAIST RPM lab):** used for the road-driving evaluation (Ouster OS1-128, Xsens MTi-300, 2x FLIR Flea3 RGB, 2x FLIR A65 14-bit thermal, Novatel CPT-7 INS). **The dataset site states no licence**: it is used for evaluation only, and no STheReO data or images derived from it are committed to this repository. Citation: *S. Yun, M. Jung, J. Kim, S. Jung, Y. Cho, M.-H. Jeon, G. Kim, A. Kim, "STheReO: Stereo Thermal Dataset for Research in Odometry and Mapping," IEEE/RSJ IROS, 2022.*
+    3.  **KAIST MS² (`sites.google.com/view/multi-spectral-stereo-dataset`):** **CC BY-NC-SA 3.0** (non-commercial, share-alike; the dataloader code on GitHub is MIT). Download needs a survey form (links by e-mail), so it was not used; only its published FLIR A65 Planck constants are reused as the default `flir_raw` conversion. Citation: *U. Shin, J. Park, I. S. Kweon, "Deep Depth Estimation from Thermal Image," CVPR 2023.*
 *   **Libraries & Licenses:**
     *   `gtsam==4.3.0`: **BSD License** (Georgia Tech Borg Lab — Factor-graph optimization & `ISAM2`).
     *   `small-gicp==1.0.1`: **MIT License** (K. Koide, AIST — Multi-threaded C++ G-ICP & voxelmap registration).
     *   `rosbags==0.11.10`: **Apache-2.0 License** (Ternaris — Pure-Python ROS1 `.bag` and ROS2 `.mcap`/`.db3` reader).
     *   `scipy==1.18.1` & `numpy==2.3.5`: **BSD-3-Clause License** (KD-trees, spatial rotations, sparse linear algebra).
-    *   `torch==2.14.1+cu130`: **BSD-3-Clause License** (Optional GPU acceleration for 3D Gaussian Splatting).
+    *   `pyyaml`: **MIT License** (camera YAML files of the STheReO reader).
 
 ### Future Improvements
 

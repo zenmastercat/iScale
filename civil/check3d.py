@@ -123,13 +123,16 @@ def _evidence(rec: Reconstruction, f: dict) -> dict:
     ring_noise = float(np.std(cmean[c_ring])) if c_ring.sum() > 5 else float(np.std(rel[ring])) if ring.any() else 0.0
     dip = float(-np.percentile(cmean[c_in], 5)) if c_in.sum() >= 5 else None  # 5th percentile: ignore stray cells
     thermal_stats = None
-    if temps is not None and len(temps) > 0:
-        amb = float(np.median(temps[ring])) if ring.any() else float(np.median(temps))
-        in_t = temps[inside] if inside.any() else temps
+    if temps is not None and np.isfinite(temps).sum() < 20:
+        temps = None  # thermal camera never saw this spot (NaN = unobserved)
+    if temps is not None:
+        fin = np.isfinite(temps)
+        amb = float(np.median(temps[ring & fin])) if (ring & fin).any() else float(np.median(temps[fin]))
+        in_t = temps[inside & fin] if (inside & fin).any() else temps[fin]
         mean_in = float(np.mean(in_t))
         thermal_stats = {
-            "min_c": round(float(np.min(temps)), 2),
-            "max_c": round(float(np.max(temps)), 2),
+            "min_c": round(float(np.min(temps[fin])), 2),
+            "max_c": round(float(np.max(temps[fin])), 2),
             "mean_c": round(mean_in, 2),
             "road_ambient_c": round(amb, 2),
             "delta_c": round(mean_in - amb, 2),
@@ -227,9 +230,10 @@ def render(f: dict, ev: dict, panel: str = "top") -> bytes:
         temps = ev.get("temps")
         if temps is None or len(temps) == 0:
             raise HTTPException(404, "this survey has no radiometric thermal data")
-        th, tm = _coarse(ev, temps.astype(float), 0.04)
-        tmin = float(np.percentile(temps, 2))
-        tmax = max(tmin + 0.5, float(np.percentile(temps, 98)))
+        fin = np.isfinite(temps)
+        th, tm = _coarse({**ev, "p": ev["p"][fin]}, temps[fin].astype(float), 0.04)
+        tmin = float(np.percentile(temps[fin], 2))
+        tmax = max(tmin + 0.5, float(np.percentile(temps[fin], 98)))
         tnorm = np.clip((th[:, :, 0] - tmin) / (tmax - tmin), 0, 1)
         timg = THERMAL_LUT[(tnorm * 255).astype(np.uint8)]
         timg[~tm] = 245

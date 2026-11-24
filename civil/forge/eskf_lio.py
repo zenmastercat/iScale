@@ -9,6 +9,8 @@ from ..pointcloud import voxel_downsample
 from .types import ForgeConfig, LidarScan, SensorCalibration
 
 GRAVITY_W = np.array([0.0, 0.0, -9.80665], dtype=np.float64)
+IMU_MAX_GAP_S = 0.5          # longer IMU gaps are not integrated; uncertainty is inflated instead
+DEGENERATE_EIG_RATIO = 0.02  # a direction whose LiDAR information is < 2 % of the strongest one is unobservable
 
 
 def skew(v: np.ndarray) -> np.ndarray:
@@ -71,6 +73,30 @@ class ESKFLIO:
         self._map_normals: np.ndarray | None = None
         self._map_tree: cKDTree | None = None
         self._scan_count = 0
+        self.imu_out_of_order = 0
+        self.imu_gaps = 0
+
+    def initialize_static(self, gyros: np.ndarray, accels: np.ndarray) -> bool:
+        """Level the filter on gravity and take the gyro bias from a stationary IMU window.
+
+        Returns False (and changes nothing) when the window does not look stationary.
+        """
+        g = np.asarray(gyros, dtype=np.float64)
+        a = np.asarray(accels, dtype=np.float64)
+        if len(a) < 10 or len(g) != len(a):
+            return False
+        if float(np.linalg.norm(g.mean(axis=0))) > 0.05 or float(np.max(a.std(axis=0))) > 0.3:
+            return False
+        f = a.mean(axis=0)
+        z = f / np.linalg.norm(f)
+        axis = np.cross(z, [0.0, 0.0, 1.0])
+        s_ang = float(np.linalg.norm(axis))
+        ang = float(np.arctan2(s_ang, z[2]))
+        self.R = so3_exp(axis / s_ang * ang) if s_ang > 1e-9 else np.eye(3)
+        self.bg = g.mean(axis=0)
+        self.P[0:3, 0:3] = np.eye(3) * 1e-6
+        self._pose_history = [(self._pose_history[-1][0], self.state_pose())]
+        return True
 
     def state_pose(self) -> np.ndarray:
         """Current 4x4 body-to-world pose T_wb."""
@@ -87,7 +113,14 @@ class ESKFLIO:
             self._pose_history = [(t_corr, self.state_pose())]
             return
         dt = t_corr - self.t_last
-        if dt <= 0.0 or dt > 1.0:
+        if dt <= 0.0:
+            self.imu_out_of_order += 1
+            return
+        if dt > IMU_MAX_GAP_S:
+            # Unknown motion during the gap: do not integrate, widen velocity/position uncertainty instead
+            self.imu_gaps += 1
+            self.P[6:9, 6:9] += np.eye(3) * (2.0 * dt) ** 2
+            self.P[3:6, 3:6] += np.eye(3) * (1.0 * dt) ** 2
             self.t_last = t_corr
             self._pose_history.append((t_corr, self.state_pose()))
             return
@@ -125,6 +158,11 @@ class ESKFLIO:
         self._pose_history.append((t_corr, self.state_pose()))
         if len(self._pose_history) > 2000:
             self._pose_history = self._pose_history[-1000:]
+
+    def _push_history(self, t: float) -> None:
+        while self._pose_history and self._pose_history[-1][0] >= t:
+            self._pose_history.pop()
+        self._pose_history.append((t, self.state_pose()))
 
     def interpolate_pose(self, t: float) -> np.ndarray:
         """SE(3) geodesic interpolation of T_wb(t) from the IMU history buffer."""
@@ -219,7 +257,7 @@ class ESKFLIO:
         if self._map_points is None or len(self._map_points) < 30 or len(pts_sub) < 10:
             pts_w0 = pts_sub @ self.R.T + self.p
             self._update_local_map(pts_w0)
-            self._pose_history.append((float(scan.t), self.state_pose()))
+            self._push_history(float(scan.t))
             tel = self._build_telemetry(0.0, 6)
             return self.state_pose(), pts_b, tel
 
@@ -236,6 +274,7 @@ class ESKFLIO:
         r_inv_var = 1.0 / (sigma_meas ** 2)
         rms_resid = 0.0
         observable_dofs = 6
+        degenerate_axes: list[str] = []
         HTRinvH = np.zeros((15, 15), dtype=np.float64)
 
         for _ in range(5):
@@ -266,8 +305,16 @@ class ESKFLIO:
 
             w_H6 = H6 * weights[:, None]
             H6T_W_H6 = H6.T @ w_H6
-            eig6 = np.linalg.eigvalsh(H6T_W_H6)
-            observable_dofs = int(np.count_nonzero(eig6 > 10.0))
+            # Degeneracy per block (rotation, translation): weak eigen-directions carry no LiDAR information
+            observable_dofs = 0
+            degenerate_axes = []
+            for blk in (slice(0, 3), slice(3, 6)):
+                ev, evec = np.linalg.eigh(H6T_W_H6[blk, blk])
+                weak = ev < DEGENERATE_EIG_RATIO * max(float(ev[-1]), 1e-12)
+                observable_dofs += int(np.count_nonzero(~weak))
+                if blk.start == 3:
+                    for j in np.flatnonzero(weak):
+                        degenerate_axes.append("xyz"[int(np.argmax(np.abs(self.R @ evec[:, j])))])
 
             HTRinvH.fill(0.0)
             HTRinvH[:6, :6] = H6T_W_H6
@@ -308,11 +355,11 @@ class ESKFLIO:
 
         pts_w_final = pts_sub @ self.R.T + self.p
         self._update_local_map(pts_w_final)
-        self._pose_history.append((float(scan.t), self.state_pose()))
-        tel = self._build_telemetry(rms_resid, observable_dofs)
+        self._push_history(float(scan.t))
+        tel = self._build_telemetry(rms_resid, observable_dofs, degenerate_axes)
         return self.state_pose(), pts_b, tel
 
-    def _build_telemetry(self, rms_resid: float, observable_dofs: int) -> dict:
+    def _build_telemetry(self, rms_resid: float, observable_dofs: int, degenerate_axes: list[str] | None = None) -> dict:
         eigvals = np.linalg.eigvalsh(self.P)
         max_eig = float(np.max(eigvals))
         min_eig = float(max(np.min(eigvals), 1e-12))
@@ -329,6 +376,10 @@ class ESKFLIO:
             "cov_max_eigenvalue": max_eig,
             "cov_condition_number": max_eig / min_eig,
             "observable_dofs": observable_dofs,
+            "degenerate": observable_dofs < 6,
+            "degenerate_translation_axes": sorted(set(degenerate_axes or [])),
+            "imu_out_of_order": self.imu_out_of_order,
+            "imu_gaps": self.imu_gaps,
             "lidar_icp_residual_rms": rms_resid,
             "bias_gyro_norm": float(np.linalg.norm(self.bg)),
             "bias_accel_norm": float(np.linalg.norm(self.ba)),

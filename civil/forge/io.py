@@ -5,7 +5,10 @@ Supports:
    `rgb/frame_*.png|jpg`, `thermal/frame_*.tiff|png|npy`, optional `gps.csv`, `gt_poses.txt`).
 2. Flat uploaded directories (where browser file uploads drop `calibration.json`, `imu.csv`,
    `scan_*.npy`, `rgb_*.png`, `thermal_*.tiff` into `survey_dir/input/`).
-3. ROS1 `.bag` and ROS2 `.db3` / `.mcap` archives via `rosbags.highlevel.AnyReader`.
+Recorded rosbags are not read here (topics and calibration differ per rig); see forge/datasets.py for the
+M2DGR bag reader. Calibration keys (calibration.json): T_lidar_imu maps LiDAR points into the IMU/body frame,
+T_lidar_rgb / T_lidar_thermal are the camera poses in that body frame; scan_timestamps are absolute seconds
+on the IMU clock. A 5th LiDAR column holds per-point absolute times (or offsets within the scan, see below).
 """
 
 from __future__ import annotations
@@ -85,14 +88,21 @@ def preflight_check(input_path: Path) -> dict:
             cal_data = json.loads(cal_file.read_text())
         except Exception as e:  # noqa: BLE001
             issues.append(f"invalid calibration.json: {e}")
-    elif bag is None:
+    else:
         issues.append("missing calibration.json")
 
-    if bag is None:
-        if not (imu_file and imu_file.is_file()):
-            issues.append("missing imu.csv")
-        if len(lidar_files) < 2:
-            issues.append(f"need at least 2 LiDAR scans, found {len(lidar_files)}")
+    if bag is not None and not lidar_files:
+        issues.append(f"rosbag input ({bag.name}) is not supported by this decoder; export scans, imu.csv and calibration.json")
+    if not (imu_file and imu_file.is_file()):
+        issues.append("missing imu.csv")
+    if len(lidar_files) < 2:
+        issues.append(f"need at least 2 LiDAR scans, found {len(lidar_files)}")
+    elif cal_data and len(cal_data.get("scan_timestamps") or []) != len(lidar_files):
+        issues.append("calibration.json needs scan_timestamps (one per LiDAR scan, IMU clock)")
+    for files, keys in ((rgb_files, ("K_rgb", "T_lidar_rgb")), (thermal_files, ("K_thermal", "T_lidar_thermal"))):
+        missing = [k for k in keys if files and cal_data.get(k) is None]
+        if missing and cal_data:
+            issues.append(f"camera frames present but calibration.json lacks {', '.join(missing)}")
 
     thermal_enc = cal_data.get("thermal_encoding", "flir_raw")
     radiometric_ok = thermal_enc in ("flir_raw", "centikelvin", "celsius_f32")
@@ -197,6 +207,8 @@ def load_forge_sequence(
         intens = raw[:, 3].astype(np.float32) if raw.shape[1] >= 4 else None
         t_scan = float(scan_times[i]) if scan_times and i < len(scan_times) else float(i) * 0.5
         pt_times = raw[:, 4].astype(np.float64) if raw.shape[1] >= 5 else None
+        if pt_times is not None and len(pt_times) and pt_times.max() < 1.0 < t_scan:
+            pt_times = t_scan - pt_times.max() + pt_times  # offsets within the scan; the scan stamp is its end
         lidar_scans.append(LidarScan(t=t_scan, points=pts, intensities=intens, point_times=pt_times))
 
     # Load RGB frames

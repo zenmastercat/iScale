@@ -101,6 +101,11 @@ class ForgeConfig:
     loop_min_time_s: float = 25.0
     loop_min_dist_m: float = 15.0
     sensor_height_m: float = 1.5
+    lidar_origin_b: tuple[float, float, float] = (0.0, 0.0, 0.0)  # LiDAR centre in the body (keyframe) frame
+    lidar_vfov_deg: tuple[float, float] = (-25.0, 25.0)            # vertical field of view for free-space checks
+    loop_max_offset_m: float = 10.0                                # a verified loop must overlap: |t_rel| below this
+    camera_min_interval_s: float = 0.0                             # keep at most one camera frame per interval
+    gsplat_iters: int = 12
 
 
 @dataclass

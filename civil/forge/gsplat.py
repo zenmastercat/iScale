@@ -1,9 +1,11 @@
-"""Stage 6B: Keyframe-Anchored 3D Gaussian Splatting (RGB + Radiometric Thermal °C Channel).
+"""Stage 6B: point-anchored splat map (RGB + radiometric thermal °C channel).
 
-Initializes anisotropic 3D Gaussians from the dynamic-filtered FORGE point cloud with RGB and
-radiometric temperature (°C) channels, checks `free_gpu_gb()` before allocating GPU resources,
-optimizes splat opacities/colors/temperatures against multi-view frames, and evaluates held-out
-view PSNR (dB), SSIM, and thermal MAE (°C).
+Simplified 3D Gaussian splatting on the CPU: one splat per FORGE map point with fixed position,
+scale and opacity; only the per-splat RGB colour and °C value are fitted to the training frames
+(residual feedback at each splat's projection). It is NOT full 3DGS (no position/covariance/opacity
+optimisation, no densification). RGB and thermal are each rendered and scored in their own camera
+(own intrinsics, distortion and extrinsics). Held-out PSNR/SSIM are reported over covered pixels,
+together with the coverage and the untrained (initial colours) baseline.
 """
 
 from __future__ import annotations
@@ -13,8 +15,7 @@ from pathlib import Path
 import numpy as np
 from scipy.spatial import cKDTree
 
-from ..decoders.lingbot_clip import free_gpu_gb
-from .thermal_reg import _interpolate_body_pose, raw_to_celsius
+from .thermal_reg import _distort, _interpolate_body_pose, interpolate_pose, raw_to_celsius
 from .types import CameraFrame, Keyframe
 
 
@@ -86,6 +87,7 @@ def render_view(
     W: int,
     bg_rgb: tuple[float, float, float] = (120.0, 120.0, 120.0),
     bg_temp_c: float = 27.5,
+    D: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Differentiable 2D screen-space Gaussian splat rasterizer for RGB and radiometric °C."""
     T_cw = np.linalg.inv(T_wc)
@@ -104,8 +106,9 @@ def render_view(
     p_c = pts_c[order]
     zc = p_c[:, 2]
     fx, fy, cx, cy = float(K[0, 0]), float(K[1, 1]), float(K[0, 2]), float(K[1, 2])
-    u = fx * (p_c[:, 0] / zc) + cx
-    v = fy * (p_c[:, 1] / zc) + cy
+    xd, yd = _distort(p_c[:, 0] / zc, p_c[:, 1] / zc, D)
+    u = fx * xd + cx
+    v = fy * yd + cy
 
     in_fov = (u >= -4.0) & (u < W + 4.0) & (v >= -4.0) & (v < H + 4.0)
     order = order[in_fov]
@@ -151,179 +154,145 @@ def render_view(
     return rgb_out, thr_out, mask
 
 
+def _project_centres(model: GaussianSplatModel, T_wc: np.ndarray, K: np.ndarray, D, H: int, W: int):
+    T_cw = np.linalg.inv(T_wc)
+    pts_c = (model.means.astype(np.float64) @ T_cw[:3, :3].T) + T_cw[:3, 3]
+    z = pts_c[:, 2]
+    idx = np.flatnonzero(z > 0.25)
+    xd, yd = _distort(pts_c[idx, 0] / z[idx], pts_c[idx, 1] / z[idx], D)
+    u = np.round(K[0, 0] * xd + K[0, 2]).astype(np.int64)
+    v = np.round(K[1, 1] * yd + K[1, 2]).astype(np.int64)
+    ok = (u >= 0) & (u < W) & (v >= 0) & (v < H)
+    return idx[ok], u[ok], v[ok]
+
+
+def _split(n: int) -> tuple[list[int], list[int]]:
+    held = [i for i in range(n) if i % 5 == 4] if n >= 5 else ([n // 2] if n >= 2 else [])
+    return [i for i in range(n) if i not in held], held
+
+
 def train_and_eval_gsplat(
     points_w: np.ndarray,
     colors_rgb: np.ndarray,
-    temperatures_c: np.ndarray,
+    temperatures_c: np.ndarray | None,
     keyframes: list[Keyframe],
     rgb_frames: list[CameraFrame],
     thermal_frames: list[CameraFrame],
-    min_free_gpu_gb: float = 4.0,
+    min_free_gpu_gb: float = 0.0,
     max_gaussians: int = 250_000,
-    iters: int = 25,
-    self_supervise_from_cloud: bool = False,
+    iters: int = 15,
+    trajectory: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> tuple[GaussianSplatModel, dict]:
-    """Initialize and refine keyframe-anchored 3D Gaussian Splats (RGB + radiometric °C)."""
-    free_gb = free_gpu_gb()
-    gpu_ok = free_gb is None or free_gb >= min_free_gpu_gb
+    """Fit per-splat RGB/°C on training frames; score every 5th frame (held out) per camera.
+
+    Runs on the CPU (min_free_gpu_gb is accepted for API compatibility and ignored).
+    """
+    def body_pose(t: float) -> np.ndarray:
+        if trajectory is not None:
+            return interpolate_pose(trajectory[0], trajectory[1], t)
+        return _interpolate_body_pose(t, keyframes)
 
     n_pts = len(points_w)
-    if n_pts == 0:
-        empty_model = GaussianSplatModel(
-            means=np.zeros((0, 3), dtype=np.float32),
-            scales=np.zeros((0, 3), dtype=np.float32),
-            quats=np.zeros((0, 4), dtype=np.float32),
-            opacities=np.zeros(0, dtype=np.float32),
-            rgb=np.zeros((0, 3), dtype=np.float32),
-            temperatures_c=np.zeros(0, dtype=np.float32),
-        )
-        return empty_model, {
-            "num_gaussians": 0,
-            "heldout_psnr_db": 0.0,
-            "heldout_ssim": 0.0,
-            "thermal_mae_c": 0.0,
-            "gpu_free_gb": free_gb,
-            "skipped_low_vram": not gpu_ok,
-        }
-
     if n_pts > max_gaussians:
         sel = np.linspace(0, n_pts - 1, max_gaussians).astype(np.int64)
-        pts = points_w[sel].astype(np.float32)
-        cols = colors_rgb[sel].astype(np.float32)
-        temps = temperatures_c[sel].astype(np.float32)
     else:
-        pts = points_w.astype(np.float32).copy()
-        cols = colors_rgb.astype(np.float32).copy()
-        temps = temperatures_c.astype(np.float32).copy()
+        sel = np.arange(n_pts)
+    pts = np.asarray(points_w, dtype=np.float32)[sel]
+    cols = np.asarray(colors_rgb, dtype=np.float32)[sel] if len(colors_rgb) else np.full((len(sel), 3), 128.0, np.float32)
+    if temperatures_c is not None and len(temperatures_c):
+        temps = np.asarray(temperatures_c, dtype=np.float32)[sel].copy()
+        fill = float(np.nanmedian(temps)) if np.isfinite(temps).any() else 20.0
+        temps[~np.isfinite(temps)] = fill
+    else:
+        temps = np.full(len(sel), 20.0, np.float32)
 
-    # Estimate local isotropic scale from 4-NN spacing
     if len(pts) >= 4:
-        tree = cKDTree(pts)
-        dists, _ = tree.query(pts, k=4)
-        mean_spacing = np.clip(np.mean(dists[:, 1:], axis=1), 0.02, 0.50).astype(np.float32)
+        dists, _ = cKDTree(pts).query(pts, k=4)
+        spacing = np.clip(np.mean(dists[:, 1:], axis=1), 0.02, 0.50).astype(np.float32)
     else:
-        mean_spacing = np.full(len(pts), 0.10, dtype=np.float32)
-
-    scales = np.column_stack([mean_spacing, mean_spacing, mean_spacing * 0.5]).astype(np.float32)
+        spacing = np.full(len(pts), 0.10, dtype=np.float32)
     quats = np.zeros((len(pts), 4), dtype=np.float32)
     quats[:, 0] = 1.0
-    opacities = np.full(len(pts), 0.88, dtype=np.float32)
-
     model = GaussianSplatModel(
         means=pts,
-        scales=scales,
+        scales=np.column_stack([spacing, spacing, spacing * 0.5]).astype(np.float32),
         quats=quats,
-        opacities=opacities,
-        rgb=cols,
+        opacities=np.full(len(pts), 0.88, dtype=np.float32),
+        rgb=cols.copy(),
         temperatures_c=temps,
     )
+    metrics: dict = {"num_gaussians": model.num_gaussians, "device": "cpu", "method": "point-anchored splats, colour/°C fit only"}
+    if len(pts) == 0:
+        return model, metrics
 
-    if not gpu_ok or len(rgb_frames) == 0:
-        return model, {
-            "num_gaussians": model.num_gaussians,
-            "heldout_psnr_db": 0.0,
-            "heldout_ssim": 0.0,
-            "thermal_mae_c": 0.0,
-            "gpu_free_gb": free_gb,
-            "skipped_low_vram": not gpu_ok,
-        }
+    rgb_views = []
+    for f in rgb_frames:
+        rgb_views.append((body_pose(f.t) @ f.T_lidar_cam, f, f.image.astype(np.float32)))
+    thr_views = []
+    for f in thermal_frames:
+        img = raw_to_celsius(f.image, encoding=f.thermal_encoding, planck_params=f.planck_params, linear_range=f.linear_range)
+        thr_views.append((body_pose(f.t) @ f.T_lidar_cam, f, img.astype(np.float32)))
 
-    # Prepare reference views (if self_supervise_from_cloud=True, render clean teacher views from high-density cloud)
-    gt_rgbs: list[np.ndarray] = []
-    gt_thrs: list[np.ndarray] = []
-    cam_poses: list[np.ndarray] = []
+    rgb_train, rgb_held = _split(len(rgb_views))
+    thr_train, thr_held = _split(len(thr_views))
 
-    for i, rf in enumerate(rgb_frames):
-        T_wb = _interpolate_body_pose(rf.t, keyframes)
-        T_wc = T_wb @ rf.T_lidar_cam
-        cam_poses.append(T_wc)
-        H, W = rf.image.shape[:2]
-        if self_supervise_from_cloud:
-            r_img, t_img, _ = render_view(model, T_wc, rf.intrinsics, H, W)
-            gt_rgbs.append(r_img)
-            gt_thrs.append(t_img)
-        else:
-            gt_rgbs.append(rf.image.astype(np.float32))
-            if i < len(thermal_frames):
-                tf = thermal_frames[i]
-                t_c = raw_to_celsius(
-                    tf.image,
-                    encoding=tf.thermal_encoding,
-                    planck_params=tf.planck_params,
-                    linear_range=tf.linear_range,
-                )
-                if t_c.shape[:2] != (H, W):
-                    import cv2
+    def score_rgb(views: list[int]) -> tuple[float, float, float]:
+        ps, ss, cov = [], [], []
+        for i in views:
+            T_wc, f, gt = rgb_views[i]
+            H, W = gt.shape[:2]
+            pred, _, mask = render_view(model, T_wc, f.intrinsics, H, W, D=f.distortion)
+            if mask.any():
+                ps.append(_compute_psnr(pred, gt, mask))
+                ss.append(_compute_ssim(pred, gt, mask))
+            cov.append(float(mask.mean()))
+        if not ps:
+            return float("nan"), float("nan"), float(np.mean(cov)) if cov else 0.0
+        return float(np.mean(ps)), float(np.mean(ss)), float(np.mean(cov))
 
-                    t_c = cv2.resize(t_c, (W, H), interpolation=cv2.INTER_LINEAR)
-                gt_thrs.append(t_c)
-            else:
-                gt_thrs.append(np.full((H, W), float(np.median(temps)), dtype=np.float32))
+    def score_thr(views: list[int]) -> float:
+        errs = []
+        for i in views:
+            T_wc, f, gt = thr_views[i]
+            H, W = gt.shape[:2]
+            _, pred, mask = render_view(model, T_wc, f.intrinsics, H, W, D=f.distortion)
+            if mask.any():
+                errs.append(float(np.mean(np.abs(pred[mask] - gt[mask]))))
+        return float(np.mean(errs)) if errs else float("nan")
 
-    # Split into training views and held-out views (every 5th view, or middle view if < 5)
-    n_views = len(rgb_frames)
-    if n_views >= 5:
-        heldout_idx = [i for i in range(n_views) if i % 5 == 4]
-    else:
-        heldout_idx = [n_views // 2]
-    train_idx = [i for i in range(n_views) if i not in heldout_idx] or heldout_idx
+    psnr0, ssim0, _ = score_rgb(rgb_held)
+    mae0 = score_thr(thr_held)
 
-    # Iterative gradient refinement of per-Gaussian RGB, temperature, and opacity on training views
-    lr_color = 0.25
-    lr_temp = 0.25
-    n_train_iters = max(1, min(iters, 15))
-    for _ in range(n_train_iters):
-        for vi in train_idx:
-            rf = rgb_frames[vi]
-            T_wc = cam_poses[vi]
-            H, W = rf.image.shape[:2]
-            pred_rgb, pred_thr, mask = render_view(model, T_wc, rf.intrinsics, H, W)
-            if not np.any(mask):
-                continue
-            # Project Gaussian centers to sample residual error at each Gaussian's screen projection
-            T_cw = np.linalg.inv(T_wc)
-            pts_c = (model.means.astype(np.float64) @ T_cw[:3, :3].T) + T_cw[:3, 3]
-            z = pts_c[:, 2]
-            vis = z > 0.25
-            if not np.any(vis):
-                continue
-            v_idx = np.flatnonzero(vis)
-            fx, fy, cx, cy = float(rf.intrinsics[0, 0]), float(rf.intrinsics[1, 1]), float(rf.intrinsics[0, 2]), float(rf.intrinsics[1, 2])
-            ui = np.round(fx * (pts_c[v_idx, 0] / z[v_idx]) + cx).astype(np.int64)
-            vi_px = np.round(fy * (pts_c[v_idx, 1] / z[v_idx]) + cy).astype(np.int64)
-            in_b = (ui >= 0) & (ui < W) & (vi_px >= 0) & (vi_px < H)
-            v_idx = v_idx[in_b]
-            ui = ui[in_b]
-            vi_px = vi_px[in_b]
-            res_rgb = gt_rgbs[vi][vi_px, ui] - pred_rgb[vi_px, ui]
-            res_thr = gt_thrs[vi][vi_px, ui] - pred_thr[vi_px, ui]
-            model.rgb[v_idx] = np.clip(model.rgb[v_idx] + lr_color * res_rgb, 0.0, 255.0)
-            model.temperatures_c[v_idx] = model.temperatures_c[v_idx] + lr_temp * res_thr
+    for _ in range(max(1, iters)):
+        for i in rgb_train:
+            T_wc, f, gt = rgb_views[i]
+            H, W = gt.shape[:2]
+            pred, _, mask = render_view(model, T_wc, f.intrinsics, H, W, D=f.distortion)
+            idx, u, v = _project_centres(model, T_wc, f.intrinsics, f.distortion, H, W)
+            hit = mask[v, u]
+            idx, u, v = idx[hit], u[hit], v[hit]
+            model.rgb[idx] = np.clip(model.rgb[idx] + 0.25 * (gt[v, u] - pred[v, u]), 0.0, 255.0)
+        for i in thr_train:
+            T_wc, f, gt = thr_views[i]
+            H, W = gt.shape[:2]
+            _, pred, mask = render_view(model, T_wc, f.intrinsics, H, W, D=f.distortion)
+            idx, u, v = _project_centres(model, T_wc, f.intrinsics, f.distortion, H, W)
+            hit = mask[v, u]
+            idx, u, v = idx[hit], u[hit], v[hit]
+            model.temperatures_c[idx] += 0.25 * (gt[v, u] - pred[v, u])
 
-    # Evaluate on held-out views
-    psnrs: list[float] = []
-    ssims: list[float] = []
-    thr_maes: list[float] = []
-    for vi in heldout_idx:
-        rf = rgb_frames[vi]
-        T_wc = cam_poses[vi]
-        H, W = rf.image.shape[:2]
-        pred_rgb, pred_thr, mask = render_view(model, T_wc, rf.intrinsics, H, W)
-        psnrs.append(_compute_psnr(pred_rgb, gt_rgbs[vi], mask))
-        ssims.append(_compute_ssim(pred_rgb, gt_rgbs[vi], mask))
-        if np.any(mask):
-            thr_maes.append(float(np.mean(np.abs(pred_thr[mask] - gt_thrs[vi][mask]))))
-        else:
-            thr_maes.append(0.0)
-
-    metrics = {
-        "num_gaussians": model.num_gaussians,
-        "train_views": len(train_idx),
-        "heldout_views": len(heldout_idx),
-        "heldout_psnr_db": round(float(np.mean(psnrs)), 2),
-        "heldout_ssim": round(float(np.mean(ssims)), 4),
-        "thermal_mae_c": round(float(np.mean(thr_maes)), 4),
-        "gpu_free_gb": free_gb,
-        "skipped_low_vram": False,
-    }
+    psnr, ssim, cov = score_rgb(rgb_held)
+    metrics.update({
+        "train_views": len(rgb_train),
+        "heldout_views": len(rgb_held),
+        "heldout_psnr_init_db": round(psnr0, 2),
+        "heldout_ssim_init": round(ssim0, 4),
+        "heldout_psnr_db": round(psnr, 2),
+        "heldout_ssim": round(ssim, 4),
+        "heldout_coverage": round(cov, 4),
+        "thermal_train_views": len(thr_train),
+        "thermal_heldout_views": len(thr_held),
+        "thermal_mae_init_c": round(mae0, 3),
+        "thermal_mae_c": round(score_thr(thr_held), 3),
+    })
     return model, metrics

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import numpy as np
+from scipy.spatial import cKDTree
 
 from ..align import ransac_plane
 from .eskf_lio import so3_log
@@ -93,11 +94,19 @@ class TemporalDynamicFilter:
         freespace_violations = np.zeros(n_pts, dtype=np.int32)
 
         n_az, n_el = 180, 32
-        el_min, el_max = -math.radians(25.0), math.radians(25.0)
-        sensor_z_offset = np.array([0.0, 0.0, self.config.sensor_height_m], dtype=np.float64)
+        el_min, el_max = (math.radians(a) for a in self.config.lidar_vfov_deg)
+        origin_b = np.asarray(self.config.lidar_origin_b, dtype=np.float64)
 
         all_pavement_xy: list[np.ndarray] = [pts_w[pavement_band, :2]]
         all_pavement_h: list[np.ndarray] = [h_road[pavement_band]]
+
+        def range_bins(rel: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+            r = np.linalg.norm(rel, axis=1)
+            az = ((np.arctan2(rel[:, 1], rel[:, 0]) + math.pi) / (2.0 * math.pi) * n_az).astype(np.int32) % n_az
+            el_ang = np.arcsin(np.clip(rel[:, 2] / np.maximum(r, 1e-6), -1.0, 1.0))
+            in_fov = (el_ang >= el_min) & (el_ang < el_max) & (r > 0.5)
+            el = np.clip(((el_ang - el_min) / (el_max - el_min) * n_el).astype(np.int32), 0, n_el - 1)
+            return az * n_el + el, r, in_fov
 
         for nb_idx in win_indices:
             nb = keyframes[nb_idx]
@@ -115,35 +124,36 @@ class TemporalDynamicFilter:
             nb_vox_hash = np.unique(np.floor(nb_pts_w / voxel_size).astype(np.int64) @ vox_mult)
             neighbor_obs_count += np.isin(target_vox_hash, nb_vox_hash).astype(np.int32)
 
-            # Spherical range image from neighbor's elevated sensor origin
-            origin_nb = T_nb[:3, 3] + sensor_z_offset
-            rel_nb = nb_pts_w - origin_nb
-            r_nb = np.linalg.norm(rel_nb, axis=1)
-            valid_nb = r_nb > 0.5
-            if np.any(valid_nb):
-                az_nb = ((np.arctan2(rel_nb[valid_nb, 1], rel_nb[valid_nb, 0]) + math.pi) / (2.0 * math.pi) * n_az).astype(np.int32) % n_az
-                el_ang_nb = np.arcsin(np.clip(rel_nb[valid_nb, 2] / r_nb[valid_nb], -1.0, 1.0))
-                el_nb = np.clip(((el_ang_nb - el_min) / (el_max - el_min) * n_el).astype(np.int32), 0, n_el - 1)
-                bin_nb = az_nb * n_el + el_nb
-                max_range_grid = np.zeros(n_az * n_el, dtype=np.float64)
-                np.maximum.at(max_range_grid, bin_nb, r_nb[valid_nb])
-
-                # Query target above-road points in neighbor's spherical range image
-                rel_t = pts_w - origin_nb
-                r_t = np.linalg.norm(rel_t, axis=1)
-                az_t = ((np.arctan2(rel_t[:, 1], rel_t[:, 0]) + math.pi) / (2.0 * math.pi) * n_az).astype(np.int32) % n_az
-                el_ang_t = np.arcsin(np.clip(rel_t[:, 2] / np.maximum(r_t, 1e-6), -1.0, 1.0))
-                el_t = np.clip(((el_ang_t - el_min) / (el_max - el_min) * n_el).astype(np.int32), 0, n_el - 1)
-                bin_t = az_t * n_el + el_t
-                bg_r = max_range_grid[bin_t]
-                freespace_violations += ((bg_r > r_t + 0.30) & (r_t > 0.5)).astype(np.int32)
+            # Free-space evidence: in the target point's direction the neighbour's LiDAR (at its real origin)
+            # measured something farther away and nothing near the point's range -> the ray passed through it.
+            origin_nb = T_nb[:3, :3] @ origin_b + T_nb[:3, 3]
+            bin_nb, r_nb, fov_nb = range_bins(nb_pts_w - origin_nb)
+            if np.any(fov_nb):
+                b_nb, rr_nb = bin_nb[fov_nb].astype(np.int64), r_nb[fov_nb]
+                max_range = np.full(n_az * n_el, -np.inf, dtype=np.float64)
+                np.maximum.at(max_range, b_nb, rr_nb)
+                keys = np.sort(b_nb * 100_000.0 + rr_nb)
+                bin_t, r_t, fov_t = range_bins(pts_w - origin_nb)
+                margin = 0.30 + 0.02 * r_t
+                base = bin_t.astype(np.int64) * 100_000.0
+                near = np.searchsorted(keys, base + r_t + margin) > np.searchsorted(keys, base + r_t - margin)
+                beyond = max_range[bin_t] > r_t + margin
+                freespace_violations += (fov_t & beyond & ~near).astype(np.int32)
 
         dyn_mask = np.zeros(n_pts, dtype=bool)
-        # Above-road dynamic criterion: never seen in any neighbor voxel AND (freespace violated or isolated)
-        min_free = min(2, n_neighbors)
-        dyn_above = above_road & (neighbor_obs_count == 0) & (
-            (freespace_violations >= min_free) | (n_neighbors >= 2)
-        )
+        # Above-road dynamic criterion: not re-observed in any neighbour voxel AND neighbours saw through it.
+        # Absence alone is not evidence (sparse far structure is sampled differently in every scan).
+        min_free = 1 if n_neighbors <= 2 else 2
+        dyn_above = above_road & (neighbor_obs_count == 0) & (freespace_violations >= min_free)
+        # Moving objects are clusters: drop isolated flags (silhouette noise) by a 0.5 m majority vote
+        if np.count_nonzero(dyn_above) and np.count_nonzero(above_road) > 1:
+            ab_idx = np.flatnonzero(above_road)
+            tree = cKDTree(pts_w[ab_idx])
+            flagged = dyn_above[ab_idx]
+            q = np.flatnonzero(flagged)
+            nbrs = tree.query_ball_point(pts_w[ab_idx[q]], r=0.5)
+            keep_flag = np.array([flagged[n].mean() >= 0.5 for n in nbrs], dtype=bool)
+            dyn_above[ab_idx[q[~keep_flag]]] = False
         dyn_mask |= dyn_above
 
         # 2. Compute 2D horizontal contact-patch footprint of above-road dynamic clusters (expanded by 15 cm)

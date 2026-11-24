@@ -26,7 +26,7 @@ def celsius_to_flir_raw(temp_c: np.ndarray, planck_params: dict | None = None) -
     p = {**DEFAULT_FLIR_PLANCK, **(planck_params or {})}
     R, B, F, O = float(p["R"]), float(p["B"]), float(p["F"]), float(p["O"])
     t_kelvin = np.maximum(np.asarray(temp_c, dtype=np.float64) + 273.15, 1.0)
-    raw = R / (np.exp(B / t_kelvin) - F) - O
+    raw = R / (np.exp(B / t_kelvin) - F) + O  # MS2 utils.Celsius2Raw
     return np.clip(np.round(raw), 0, 65535).astype(np.uint16)
 
 
@@ -46,7 +46,7 @@ def raw_to_celsius(
     if enc == "flir_raw":
         p = {**DEFAULT_FLIR_PLANCK, **(planck_params or {})}
         R, B, F, O = float(p["R"]), float(p["B"]), float(p["F"]), float(p["O"])
-        denom = np.maximum(arr.astype(np.float64) + O, 1e-6)
+        denom = np.maximum(arr.astype(np.float64) - O, 1e-6)  # MS2 utils.Raw2Celsius: B/ln(R/(raw-O)+F)
         arg = np.maximum(R / denom + F, 1.0 + 1e-9)
         t_c = B / np.log(arg) - 273.15
         return t_c.astype(np.float32)
@@ -60,23 +60,55 @@ def raw_to_celsius(
     raise ValueError(f"Unsupported thermal_encoding: {encoding}")
 
 
+def interpolate_pose(times: np.ndarray, poses: np.ndarray, t: float) -> np.ndarray:
+    """T_wb(t) from a time-sorted trajectory: linear translation, geodesic (slerp) rotation, clamped at the ends."""
+    from .eskf_lio import so3_exp, so3_log
+
+    if len(times) == 0:
+        return np.eye(4, dtype=np.float64)
+    if len(times) == 1 or t <= times[0]:
+        return np.array(poses[0], dtype=np.float64, copy=True)
+    if t >= times[-1]:
+        return np.array(poses[-1], dtype=np.float64, copy=True)
+    i = int(np.searchsorted(times, t, side="right") - 1)
+    T0, T1 = poses[i], poses[i + 1]
+    a = float((t - times[i]) / max(times[i + 1] - times[i], 1e-9))
+    T = np.eye(4, dtype=np.float64)
+    T[:3, :3] = T0[:3, :3] @ so3_exp(a * so3_log(T0[:3, :3].T @ T1[:3, :3]))
+    T[:3, 3] = (1.0 - a) * T0[:3, 3] + a * T1[:3, 3]
+    return T
+
+
 def _interpolate_body_pose(t: float, keyframes: list[Keyframe]) -> np.ndarray:
-    """Find nearest or linearly interpolated body pose T_wb(t) from keyframes."""
+    """T_wb(t) interpolated between keyframes (see interpolate_pose)."""
     if not keyframes:
         return np.eye(4, dtype=np.float64)
-    if len(keyframes) == 1 or t <= keyframes[0].t:
-        return keyframes[0].pose_w_b.copy()
-    if t >= keyframes[-1].t:
-        return keyframes[-1].pose_w_b.copy()
     times = np.array([kf.t for kf in keyframes], dtype=np.float64)
-    idx = int(np.searchsorted(times, t, side="right") - 1)
-    idx = max(0, min(idx, len(keyframes) - 2))
-    kf0, kf1 = keyframes[idx], keyframes[idx + 1]
-    dt = max(kf1.t - kf0.t, 1e-9)
-    alpha = float(np.clip((t - kf0.t) / dt, 0.0, 1.0))
-    T = kf0.pose_w_b.copy() if alpha < 0.5 else kf1.pose_w_b.copy()
-    T[:3, 3] = (1.0 - alpha) * kf0.pose_w_b[:3, 3] + alpha * kf1.pose_w_b[:3, 3]
-    return T
+    return interpolate_pose(times, [kf.pose_w_b for kf in keyframes], t)
+
+
+def _radial_monotonic(r2: np.ndarray, D: np.ndarray | None) -> np.ndarray:
+    """True where r_d(r) is still increasing; beyond that the radial model folds far rays back into the image."""
+    if D is None or not np.any(np.asarray(D)):
+        return np.ones(len(r2), dtype=bool)
+    d = np.zeros(5)
+    d[: min(5, len(D))] = np.asarray(D, dtype=np.float64)[:5]
+    k1, k2, k3 = d[0], d[1], d[4]
+    return 1.0 + r2 * (3.0 * k1 + r2 * (5.0 * k2 + 7.0 * k3 * r2)) > 0.0
+
+
+def _distort(xn: np.ndarray, yn: np.ndarray, D: np.ndarray | None) -> tuple[np.ndarray, np.ndarray]:
+    """OpenCV plumb_bob / radtan distortion (k1, k2, p1, p2[, k3]) of normalized image coordinates."""
+    if D is None or not np.any(np.asarray(D)):
+        return xn, yn
+    d = np.zeros(5)
+    d[: min(5, len(D))] = np.asarray(D, dtype=np.float64)[:5]
+    k1, k2, p1, p2, k3 = d
+    r2 = xn * xn + yn * yn
+    radial = 1.0 + r2 * (k1 + r2 * (k2 + r2 * k3))
+    xd = xn * radial + 2.0 * p1 * xn * yn + p2 * (r2 + 2.0 * xn * xn)
+    yd = yn * radial + p1 * (r2 + 2.0 * yn * yn) + 2.0 * p2 * xn * yn
+    return xd, yd
 
 
 def _project_and_zbuffer(
@@ -86,6 +118,7 @@ def _project_and_zbuffer(
     H: int,
     W: int,
     z_Occ_margin: float = 0.15,
+    D: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Project world points into camera frame with z-buffer occlusion culling.
 
@@ -104,10 +137,13 @@ def _project_and_zbuffer(
     p_front = pts_c[idx_front]
     zf = p_front[:, 2]
     fx, fy, cx, cy = float(K[0, 0]), float(K[1, 1]), float(K[0, 2]), float(K[1, 2])
-    u = fx * (p_front[:, 0] / zf) + cx
-    v = fy * (p_front[:, 1] / zf) + cy
+    xn, yn = p_front[:, 0] / zf, p_front[:, 1] / zf
+    xd, yd = _distort(xn, yn, D)
+    sane = _radial_monotonic(xn * xn + yn * yn, D)
+    u = fx * xd + cx
+    v = fy * yd + cy
 
-    in_img = (u >= 0.0) & (u < W - 1.001) & (v >= 0.0) & (v < H - 1.001)
+    in_img = sane & (u >= 0.0) & (u < W - 1.001) & (v >= 0.0) & (v < H - 1.001)
     if not np.any(in_img):
         empty_i = np.zeros(0, dtype=np.int64)
         empty_f = np.zeros(0, dtype=np.float64)
@@ -159,13 +195,13 @@ def register_rgb_and_thermal(
     keyframes: list[Keyframe],
     rgb_frames: list[CameraFrame],
     thermal_frames: list[CameraFrame],
-    default_ambient_c: float = 27.5,
+    trajectory: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, dict]:
     """Project 3D world points into calibrated RGB and radiometric LWIR thermal frames.
 
     Returns:
         colors_rgb: (N, 3) uint8
-        temperatures_c: (N,) float32 degrees Celsius
+        temperatures_c: (N,) float32 degrees Celsius, NaN where no thermal frame saw the point
         stats: dict with registration counts and temperature statistics
     """
     n_pts = len(points_w)
@@ -176,14 +212,18 @@ def register_rgb_and_thermal(
             {"registered_points": 0, "rgb_registered": 0, "thermal_registered": 0},
         )
 
+    def body_pose(t: float) -> np.ndarray:
+        if trajectory is not None:
+            return interpolate_pose(trajectory[0], trajectory[1], t)
+        return _interpolate_body_pose(t, keyframes)
+
     rgb_accum = np.zeros((n_pts, 3), dtype=np.float64)
     rgb_weight = np.zeros(n_pts, dtype=np.float64)
 
     for frame in rgb_frames:
-        T_wb = _interpolate_body_pose(frame.t, keyframes)
-        T_wc = T_wb @ frame.T_lidar_cam
+        T_wc = body_pose(frame.t) @ frame.T_lidar_cam
         H, W = frame.image.shape[:2]
-        idx, u, v, z = _project_and_zbuffer(points_w, T_wc, frame.intrinsics, H, W)
+        idx, u, v, z = _project_and_zbuffer(points_w, T_wc, frame.intrinsics, H, W, D=frame.distortion)
         if len(idx) == 0:
             continue
         sampled = _bilinear_sample(frame.image, u, v)
@@ -201,10 +241,9 @@ def register_rgb_and_thermal(
             planck_params=frame.planck_params,
             linear_range=frame.linear_range,
         )
-        T_wb = _interpolate_body_pose(frame.t, keyframes)
-        T_wc = T_wb @ frame.T_lidar_cam
+        T_wc = body_pose(frame.t) @ frame.T_lidar_cam
         H, W = temp_img_c.shape[:2]
-        idx, u, v, z = _project_and_zbuffer(points_w, T_wc, frame.intrinsics, H, W)
+        idx, u, v, z = _project_and_zbuffer(points_w, T_wc, frame.intrinsics, H, W, D=frame.distortion)
         if len(idx) == 0:
             continue
         sampled_c = _bilinear_sample(temp_img_c, u, v)
@@ -220,21 +259,17 @@ def register_rgb_and_thermal(
         ).astype(np.uint8)
 
     has_thr = temp_weight > 0
-    if np.any(has_thr):
-        ambient = float(np.median(temp_accum[has_thr] / temp_weight[has_thr]))
-    else:
-        ambient = float(default_ambient_c)
-    temps_out = np.full(n_pts, ambient, dtype=np.float32)
-    if np.any(has_thr):
-        temps_out[has_thr] = (temp_accum[has_thr] / temp_weight[has_thr]).astype(np.float32)
+    temps_out = np.full(n_pts, np.nan, dtype=np.float32)
+    temps_out[has_thr] = (temp_accum[has_thr] / temp_weight[has_thr]).astype(np.float32)
+    seen = temps_out[has_thr]
 
     stats = {
         "registered_points": int(np.count_nonzero(has_thr | has_rgb)),
         "rgb_registered": int(np.count_nonzero(has_rgb)),
         "thermal_registered": int(np.count_nonzero(has_thr)),
-        "min_c": round(float(np.min(temps_out)), 2),
-        "max_c": round(float(np.max(temps_out)), 2),
-        "mean_c": round(float(np.mean(temps_out)), 2),
-        "ambient_c": round(ambient, 2),
+        "min_c": round(float(np.min(seen)), 2) if len(seen) else None,
+        "max_c": round(float(np.max(seen)), 2) if len(seen) else None,
+        "mean_c": round(float(np.mean(seen)), 2) if len(seen) else None,
+        "median_c": round(float(np.median(seen)), 2) if len(seen) else None,
     }
     return colors_out, temps_out, stats

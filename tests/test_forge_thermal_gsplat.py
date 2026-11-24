@@ -27,6 +27,73 @@ def test_flir_planck_raw_to_celsius_and_uncalibrated_u8_rejection():
         raw_to_celsius(u8_img, encoding="linear_u8", linear_range=None)
 
 
+def test_flir_raw_matches_ms2_reference_formula():
+    """Absolute °C must equal the MS² dataloader's Raw2Celsius, not just round-trip with our own inverse."""
+    from civil.forge.thermal_reg import celsius_to_flir_raw, raw_to_celsius
+
+    R, B, F, O = 380747.0, 1428.0, 1.0, -88.539
+    raw = np.array([2800.0, 3100.0, 3600.0, 4200.0])
+    ref_c = B / np.log(R / (raw - O) + F) - 273.15  # MS2 utils.Raw2Celsius
+    np.testing.assert_allclose(raw_to_celsius(raw, encoding="flir_raw"), ref_c, atol=1e-3)
+    ref_raw = R / (np.exp(B / (np.array([20.0, 35.0]) + 273.15)) - F) + O  # MS2 utils.Celsius2Raw
+    np.testing.assert_allclose(celsius_to_flir_raw(np.array([20.0, 35.0])), np.round(ref_raw), atol=1.0)
+
+
+def test_unseen_points_get_nan_not_a_made_up_temperature():
+    from civil.forge.thermal_reg import register_rgb_and_thermal
+    from civil.forge.types import CameraFrame, Keyframe
+
+    R_wc = np.array([[0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]])
+    T_wc = np.eye(4)
+    T_wc[:3, :3] = R_wc
+    T_wc[:3, 3] = [0.0, 0.0, 1.5]
+    kf = Keyframe(0, 0.0, np.eye(4), np.zeros((1, 3), np.float32), np.zeros((1, 3), np.float32), np.zeros(1, bool))
+    K = np.array([[120.0, 0, 80], [0, 120.0, 60], [0, 0, 1]])
+    seen = np.array([[6.0, 0.0, 0.0]], np.float32)
+    behind = np.array([[-6.0, 0.0, 0.0]], np.float32)
+    thr = CameraFrame(0.0, np.full((120, 160), 31.0, np.float32), K, np.zeros(5), T_wc, "thermal", "celsius_f32")
+    _, temps, stats = register_rgb_and_thermal(np.vstack([seen, behind]), [kf], [], [thr])
+    assert temps[0] == pytest.approx(31.0, abs=1e-3)
+    assert np.isnan(temps[1])
+    assert stats["thermal_registered"] == 1
+
+
+def test_thermal_registration_applies_lens_distortion():
+    """STheReO's thermal lens has k1 = -0.36; ignoring it misplaces °C by many pixels at the image edge."""
+    import cv2
+    from civil.forge.thermal_reg import register_rgb_and_thermal
+    from civil.forge.types import CameraFrame, Keyframe
+
+    R_wc = np.array([[0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]])
+    T_wc = np.eye(4)
+    T_wc[:3, :3] = R_wc
+    T_wc[:3, 3] = [0.0, 0.0, 1.5]
+    kf = Keyframe(0, 0.0, np.eye(4), np.zeros((1, 3), np.float32), np.zeros((1, 3), np.float32), np.zeros(1, bool))
+    H, W = 240, 320
+    K = np.array([[200.0, 0, 160], [0, 200.0, 120], [0, 0, 1]])
+    D = np.array([-0.36, 0.10, 0.0, 0.0, 0.0])
+
+    def temp_at(xw, yw):  # stripes across the road: 2 °C per metre of lateral offset
+        return 25.0 + 2.0 * yw + 3.0 * np.sin(xw)
+
+    # Distorted image: each pixel's true ray comes from undistorting its coordinates
+    uu, vv = np.meshgrid(np.arange(W, dtype=np.float64), np.arange(H, dtype=np.float64))
+    und = cv2.undistortPoints(np.stack([uu.ravel(), vv.ravel()], 1)[:, None, :], K, D).reshape(-1, 2)
+    xn, yn = und[:, 0], und[:, 1]
+    ok = yn > 0.05
+    s = np.where(ok, 1.5 / np.maximum(yn, 0.05), 0.0)
+    img = np.where(ok, temp_at(s, -s * xn), 10.0).reshape(H, W).astype(np.float32)
+
+    gx, gy = np.meshgrid(np.linspace(3.0, 9.0, 30), np.linspace(-3.0, 3.0, 30))
+    pts = np.column_stack([gx.ravel(), gy.ravel(), np.zeros(gx.size)]).astype(np.float32)
+    thr = CameraFrame(0.0, img, K, D, T_wc, "thermal", "celsius_f32")
+    _, temps, _ = register_rgb_and_thermal(pts, [kf], [], [thr])
+    fin = np.isfinite(temps)
+    assert fin.sum() > 300
+    err = np.abs(temps[fin] - temp_at(pts[fin, 0], pts[fin, 1]))
+    assert float(np.median(err)) < 0.15, f"median error {np.median(err):.2f} C"
+
+
 def test_rgb_and_radiometric_thermal_zbuffer_registration():
     from civil.forge.thermal_reg import celsius_to_flir_raw, register_rgb_and_thermal
     from civil.forge.types import CameraFrame, Keyframe
@@ -103,61 +170,62 @@ def test_rgb_and_radiometric_thermal_zbuffer_registration():
     assert stats["registered_points"] == len(road_pts)
 
 
-def test_keyframe_anchored_rgb_thermal_gsplat():
+def _plane_view(K, T_wc, H, W, field):
+    """Ground-truth image of the z=0 plane seen from T_wc, computed analytically (independent of the splat model)."""
+    uu, vv = np.meshgrid(np.arange(W, dtype=np.float64), np.arange(H, dtype=np.float64))
+    d_c = np.stack([(uu - K[0, 2]) / K[0, 0], (vv - K[1, 2]) / K[1, 1], np.ones_like(uu)], -1)
+    d_w = d_c @ T_wc[:3, :3].T
+    s = -T_wc[2, 3] / np.where(np.abs(d_w[..., 2]) > 1e-6, d_w[..., 2], -1e-6)
+    hit = (s > 0) & (d_w[..., 2] < -1e-3)
+    xw = T_wc[0, 3] + s * d_w[..., 0]
+    yw = T_wc[1, 3] + s * d_w[..., 1]
+    return np.where(hit, field(xw, yw), np.nan), hit
+
+
+def test_splat_fit_on_independent_views_and_thermal_in_its_own_camera():
+    """Held-out views come from an analytic scene, not from the model; thermal is scored in the thermal camera."""
     from civil.forge.gsplat import train_and_eval_gsplat
     from civil.forge.types import CameraFrame, Keyframe
 
-    # 3D planar road patch with 400 points and 6 camera views
-    gx, gy = np.meshgrid(np.linspace(3.0, 8.0, 20), np.linspace(-1.5, 1.5, 20))
+    gx, gy = np.meshgrid(np.linspace(3.0, 9.0, 90), np.linspace(-2.0, 2.0, 60))
     pts_w = np.column_stack([gx.ravel(), gy.ravel(), np.zeros(gx.size)]).astype(np.float32)
-    temps_c = (26.0 + 6.0 * np.exp(-((pts_w[:, 0] - 5.5) ** 2 + pts_w[:, 1] ** 2) / 1.0)).astype(np.float32)
-    colors_rgb = np.column_stack([
-        np.clip((temps_c - 24.0) * 20.0, 40, 240),
-        np.full(len(pts_w), 110.0),
-        np.full(len(pts_w), 95.0),
-    ]).astype(np.uint8)
 
-    R_wc = np.array([[0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]], dtype=np.float64)
-    K = np.array([[80.0, 0.0, 48.0], [0.0, 80.0, 36.0], [0.0, 0.0, 1.0]], dtype=np.float64)
-    D = np.zeros(4, dtype=np.float64)
+    def red(x, y):
+        return 128.0 + 100.0 * np.sin(1.3 * x) * np.cos(1.1 * y)
 
-    keyframes: list[Keyframe] = []
-    rgb_frames: list[CameraFrame] = []
-    thr_frames: list[CameraFrame] = []
+    def temp(x, y):
+        return 26.0 + 6.0 * np.exp(-((x - 6.0) ** 2 + y ** 2) / 1.5)
 
-    for i in range(6):
-        T_wb = np.eye(4, dtype=np.float64)
-        T_wb[:3, 3] = [i * 0.4, 0.0, 0.0]
-        T_lc = np.eye(4, dtype=np.float64)
-        T_lc[:3, :3] = R_wc
-        T_lc[:3, 3] = [0.0, 0.0, 1.5]
-        keyframes.append(
-            Keyframe(
-                id=i,
-                t=float(i),
-                pose_w_b=T_wb,
-                points_local=(pts_w - T_wb[:3, 3]).astype(np.float32),
-                raw_points_local=(pts_w - T_wb[:3, 3]).astype(np.float32),
-                dynamic_mask=np.zeros(len(pts_w), dtype=bool),
-            )
-        )
-        # Dummy frames rendered by the model's initial forward pass so held-out PSNR/SSIM & thermal MAE are tested cleanly
-        rgb_frames.append(CameraFrame(t=float(i), image=np.zeros((72, 96, 3), dtype=np.uint8), intrinsics=K, distortion=D, T_lidar_cam=T_lc, modality="rgb"))
-        thr_frames.append(CameraFrame(t=float(i), image=np.full((72, 96), 28.0, dtype=np.float32), intrinsics=K, distortion=D, T_lidar_cam=T_lc, modality="thermal", thermal_encoding="celsius_f32"))
+    R_wc = np.array([[0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]])
+    K_rgb = np.array([[90.0, 0, 64], [0, 90.0, 48], [0, 0, 1]])
+    K_thr = np.array([[70.0, 0, 40], [0, 70.0, 32], [0, 0, 1]])
+    T_b_rgb = np.eye(4)
+    T_b_rgb[:3, :3] = R_wc
+    T_b_rgb[:3, 3] = [0.0, 0.0, 1.5]
+    T_b_thr = T_b_rgb.copy()
+    T_b_thr[:3, 3] = [0.0, 0.5, 1.5]  # thermal camera 0.5 m to the left of the RGB camera
 
-    model, metrics = train_and_eval_gsplat(
-        pts_w,
-        colors_rgb,
-        temps_c,
-        keyframes,
-        rgb_frames,
-        thr_frames,
-        min_free_gpu_gb=4.0,
-        max_gaussians=1000,
-        iters=25,
-        self_supervise_from_cloud=True,
-    )
+    keyframes, rgb_frames, thr_frames = [], [], []
+    for i in range(10):
+        T_wb = np.eye(4)
+        T_wb[:3, 3] = [i * 0.3, 0.0, 0.0]
+        keyframes.append(Keyframe(i, float(i), T_wb, pts_w, pts_w, np.zeros(len(pts_w), bool)))
+        r, hit = _plane_view(K_rgb, T_wb @ T_b_rgb, 96, 128, red)
+        rgb = np.zeros((96, 128, 3), np.uint8)
+        rgb[..., 0] = np.nan_to_num(r).clip(0, 255).astype(np.uint8)
+        rgb[..., 1] = np.where(hit, 90, 0)
+        rgb[..., 2] = np.where(hit, 60, 0)
+        rgb_frames.append(CameraFrame(float(i), rgb, K_rgb, np.zeros(5), T_b_rgb, "rgb"))
+        t_img, _ = _plane_view(K_thr, T_wb @ T_b_thr, 64, 80, temp)
+        thr_frames.append(CameraFrame(float(i), np.nan_to_num(t_img, nan=5.0).astype(np.float32), K_thr, np.zeros(5), T_b_thr, "thermal", "celsius_f32"))
+
+    grey = np.full((len(pts_w), 3), 128, np.uint8)
+    flat_t = np.full(len(pts_w), 20.0, np.float32)
+    model, m = train_and_eval_gsplat(pts_w, grey, flat_t, keyframes, rgb_frames, thr_frames, min_free_gpu_gb=0.0, max_gaussians=10_000, iters=15)
     assert model.num_gaussians == len(pts_w)
-    assert metrics["heldout_psnr_db"] >= 24.0
-    assert metrics["heldout_ssim"] >= 0.80
-    assert metrics["thermal_mae_c"] <= 0.50
+    assert m["heldout_views"] >= 2
+    assert m["heldout_psnr_db"] > m["heldout_psnr_init_db"] + 3.0, m
+    assert m["heldout_psnr_db"] >= 24.0, m
+    assert m["heldout_coverage"] > 0.15, m
+    assert m["thermal_mae_c"] <= 0.6, m
+    assert "self_supervise_from_cloud" not in train_and_eval_gsplat.__code__.co_varnames

@@ -18,6 +18,17 @@ def _level_points_by_roll_pitch(points_local: np.ndarray, R_wb: np.ndarray) -> n
     return (np.asarray(points_local, dtype=np.float64) @ R_rp.T).astype(np.float32)
 
 
+def structure_mask(points_leveled: np.ndarray, clearance_m: float = 0.3) -> np.ndarray:
+    """Points standing above the ground (lowest 5 % of heights + clearance): walls, poles, vehicles.
+
+    Ground aligns with any other ground, so it says nothing about whether two scans show the same place.
+    """
+    z = np.asarray(points_leveled, dtype=np.float64)[:, 2]
+    if len(z) == 0:
+        return np.zeros(0, dtype=bool)
+    return z > float(np.percentile(z, 5)) + clearance_m
+
+
 def make_scan_context(
     points_local: np.ndarray,
     n_rings: int = 20,
@@ -112,37 +123,37 @@ class LoopClosureDetector:
         self._last_pos = pos.copy()
 
     def _verify_gicp(
-        self, target_pts: np.ndarray, source_pts: np.ndarray, init_T: np.ndarray
+        self, target_kf: Keyframe, source_kf: Keyframe, init_T: np.ndarray
     ) -> tuple[bool, np.ndarray, float, float]:
-        """Align source_pts to target_pts starting from init_T. Returns (converged, T_target_source, rmse, inlier_ratio)."""
-        tgt64 = np.ascontiguousarray(target_pts, dtype=np.float64)
-        src64 = np.ascontiguousarray(source_pts, dtype=np.float64)
+        """Align source to target from init_T with G-ICP on all points; score the fit on above-ground structure only.
+
+        Returns (converged, T_target_source, structure_rmse, structure_inlier_ratio).
+        """
+        tgt64 = np.ascontiguousarray(target_kf.points_local, dtype=np.float64)
+        src64 = np.ascontiguousarray(source_kf.points_local, dtype=np.float64)
         T_est = np.array(init_T, dtype=np.float64, copy=True)
-        converged = False
-        try:
-            import small_gicp
+        import small_gicp
 
-            res = small_gicp.align(
-                tgt64,
-                src64,
-                init_T_target_source=T_est,
-                registration_type="GICP",
-                downsampling_resolution=0.25,
-                max_correspondence_distance=1.5,
-                num_threads=max(1, min(self.config.num_threads, 8)),
-                max_iterations=35,
-            )
-            converged = bool(res.converged)
-            T_est = np.asarray(res.T_target_source, dtype=np.float64)
-        except ImportError:
-            converged = True
+        res = small_gicp.align(
+            tgt64,
+            src64,
+            init_T_target_source=T_est,
+            registration_type="GICP",
+            downsampling_resolution=0.25,
+            max_correspondence_distance=1.5,
+            num_threads=max(1, min(self.config.num_threads, 8)),
+            max_iterations=35,
+        )
+        converged = bool(res.converged)
+        T_est = np.asarray(res.T_target_source, dtype=np.float64)
 
-        # Evaluate exact correspondence RMSE and inlier ratio (< 0.5 m) using cKDTree
-        tree = cKDTree(tgt64)
-        src_aligned = src64 @ T_est[:3, :3].T + T_est[:3, 3]
-        dists, _ = tree.query(src_aligned, k=1)
+        tgt_s = tgt64[structure_mask(_level_points_by_roll_pitch(tgt64, target_kf.pose_w_b[:3, :3]))]
+        src_s = src64[structure_mask(_level_points_by_roll_pitch(src64, source_kf.pose_w_b[:3, :3]))]
+        if len(tgt_s) < 50 or len(src_s) < 50:
+            return converged, T_est, 999.0, 0.0
+        dists, _ = cKDTree(tgt_s).query(src_s @ T_est[:3, :3].T + T_est[:3, 3], k=1)
         inliers = dists < 0.50
-        inlier_ratio = float(np.mean(inliers)) if len(dists) else 0.0
+        inlier_ratio = float(np.mean(inliers))
         rmse = float(np.sqrt(np.mean(dists[inliers] ** 2))) if np.any(inliers) else 999.0
         return converged, T_est, rmse, inlier_ratio
 
@@ -211,8 +222,8 @@ class LoopClosureDetector:
 
             T_init_odom = np.linalg.inv(c_kf.pose_w_b) @ q_kf.pose_w_b
             # Evaluate both initial guesses with G-ICP and keep the lower-RMSE alignment
-            conv1, T1, rmse1, inl1 = self._verify_gicp(c_kf.points_local, q_kf.points_local, T_init_sc)
-            conv2, T2, rmse2, inl2 = self._verify_gicp(c_kf.points_local, q_kf.points_local, T_init_odom)
+            conv1, T1, rmse1, inl1 = self._verify_gicp(c_kf, q_kf, T_init_sc)
+            conv2, T2, rmse2, inl2 = self._verify_gicp(c_kf, q_kf, T_init_odom)
             if inl2 > inl1 or (abs(inl2 - inl1) < 0.05 and rmse2 < rmse1):
                 converged, T_rel, rmse, inlier_ratio = conv2, T2, rmse2, inl2
             else:
@@ -236,8 +247,8 @@ class LoopClosureDetector:
                 record["decision"] = "REJECTED_FITNESS_SCORE"
                 self.audit_log.append(record)
                 continue
-            if float(np.linalg.norm(T_rel[:3, 3])) > max(8.0, 0.35 * path_gap):
-                record["decision"] = "REJECTED_GTSAM_CHI2_GATE"
+            if float(np.linalg.norm(T_rel[:3, 3])) > self.config.loop_max_offset_m:
+                record["decision"] = "REJECTED_OFFSET"
                 self.audit_log.append(record)
                 continue
 
