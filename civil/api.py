@@ -443,6 +443,18 @@ def patch_finding(pid: str, sid: str, fid: str, patch: FindingPatch):
     return f
 
 
+def _csv_cell(v):
+    """Neutralise spreadsheet formulas: text starting with = + - @ tab or CR gets a leading quote.
+    Numbers (also negative ones written as text, like a latitude) are left as they are."""
+    if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        try:
+            float(v)
+            return v
+        except ValueError:
+            return "'" + v
+    return v
+
+
 @app.get("/api/projects/{pid}/surveys/{sid}/export.{fmt}")
 def export(pid: str, sid: str, fmt: str):
     an = store.get_analysis(pid, sid)
@@ -466,9 +478,10 @@ def export(pid: str, sid: str, fmt: str):
             size_from = (f"{rec['ref']['label']} ±{rec['pct']['area_m2']:g}%" if rec and (rec.get("pct") or {}).get("area_m2") is not None
                          else rec["ref"]["label"] if rec else ("" if not m.get("area_m2") else "tagged by hand" if f.get("source") == "manual"
                                                          else f"3D; {mark}" if mark else "3D"))
-            w.writerow([f["id"], f["type"], catalog.CATALOG[f["type"]].label, f.get("severity") or "", f.get("status"),
-                        f.get("segment_id") or "", f"{f['lat']:.7f}", f"{f['lon']:.7f}", f["source"], f["evidence"],
-                        m.get("area_m2", ""), m.get("width_m", ""), m.get("length_m", ""), "" if depth is None else depth, size_from])
+            w.writerow([_csv_cell(v) for v in (
+                f["id"], f["type"], catalog.CATALOG[f["type"]].label, f.get("severity") or "", f.get("status"),
+                f.get("segment_id") or "", f"{f['lat']:.7f}", f"{f['lon']:.7f}", f["source"], f["evidence"],
+                m.get("area_m2", ""), m.get("width_m", ""), m.get("length_m", ""), "" if depth is None else depth, size_from)])
         return Response(buf.getvalue(), media_type="text/csv",
                         headers={"Content-Disposition": f'attachment; filename="findings-{sid}.csv"'})
     if fmt == "ply":
