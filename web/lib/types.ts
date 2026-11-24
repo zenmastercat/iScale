@@ -321,16 +321,25 @@ export interface PriorityItem {
   priority: number;
   traffic_factor: number;
   road: string | null;
-  segment_id: string;
+  /** absent on pins */
+  segment_id?: string;
   lat: number;
   lon: number;
   maps_url: string;
-  /** repair cost in the plan currency (USD) */
-  cost: number;
-  /** action label, e.g. "Patch pothole" */
-  action: string;
+  /** repair cost in the plan currency (USD); absent on pins */
+  cost?: number;
+  /** action label, e.g. "Patch pothole"; absent on pins */
+  action?: string;
   materials: MaterialsCost | null;
   rank: number;
+  // --- pins only (kind === "pin"), from civil/priority.py pin_item ---
+  road_name?: string | null;
+  reporter?: string;
+  /** number of colleagues who confirmed the pin */
+  confirmations?: number;
+  note?: string;
+  /** unix seconds */
+  created?: number;
 }
 
 export interface Priority {
