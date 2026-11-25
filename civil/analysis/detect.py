@@ -32,6 +32,9 @@ class SegmentSurface:
 
     def __init__(self, s: np.ndarray, o: np.ndarray, z: np.ndarray, s0: float, s1: float, p: dict):
         self.p = p
+        self.s = s
+        self.o = o
+        self.z = z
         self.cell = c = float(p["raster_m"])
         self.s0 = s0
         self.o0 = -14.0
@@ -114,6 +117,266 @@ class SegmentSurface:
         return xy[:, 0], xy[:, 1]
 
 
+def _fill_interior_nans(grid: np.ndarray, min_neighbors: int = 4) -> np.ndarray:
+    """Fill isolated single-cell NaN gaps from the median of their 8-neighbours."""
+    out = grid.copy()
+    nan_m = ~np.isfinite(out)
+    if not nan_m.any() or out.shape[0] < 3 or out.shape[1] < 3:
+        return out
+    pad = np.pad(out, 1, constant_values=np.nan)
+    win = np.lib.stride_tricks.sliding_window_view(pad, (3, 3)).reshape(out.shape[0], out.shape[1], 9)
+    valid_cnt = np.isfinite(win).sum(axis=2)
+    fill_ok = nan_m & (valid_cnt >= min_neighbors)
+    if fill_ok.any():
+        with np.errstate(all="ignore"), __import__("warnings").catch_warnings():
+            __import__("warnings").simplefilter("ignore", RuntimeWarning)
+            med = np.nanmedian(win, axis=2)
+        out[fill_ok] = med[fill_ok]
+    return out
+
+
+def _refine_depression(
+    surf: SegmentSurface,
+    s_lo: float,
+    s_hi: float,
+    o_lo: float,
+    o_hi: float,
+    z_surf_c: float,
+    dmin: float,
+    max_depth_lim: float,
+) -> dict | None:
+    """Refine a detected depression's depth, area, and volume on a local density-adapted fine grid
+    referenced to an IRLS road plane fitted on the intact annular ring around the hole."""
+    sc = 0.5 * (s_lo + s_hi)
+    oc = 0.5 * (o_lo + o_hi)
+    span_s = max(s_hi - s_lo, surf.cell)
+    span_o = max(o_hi - o_lo, surf.cell)
+    dia0 = max(span_s, span_o)
+    if dia0 > 2.8:
+        return None  # broad road settlement: coarse grid already has hundreds of cells
+
+    pad = max(0.35, 0.70 * dia0)
+    hs = 0.5 * span_s + pad
+    ho = 0.5 * span_o + pad
+    sel = (np.abs(surf.s - sc) <= hs) & (np.abs(surf.o - oc) <= ho)
+    if int(sel.sum()) < 40:
+        return None
+    ps = surf.s[sel]
+    po = surf.o[sel]
+    pz = surf.z[sel]
+
+    # Points outside the coarse depression box (with small margin) form the intact reference ring
+    margin = max(0.05, 0.15 * dia0)
+    in_coarse = (ps >= s_lo - margin) & (ps <= s_hi + margin) & (po >= o_lo - margin) & (po <= o_hi + margin)
+    ring_pts = (~in_coarse) & (np.abs(pz - z_surf_c) < 0.20)
+    if int(ring_pts.sum()) < 25:
+        return None
+
+    # Choose local fine cell from actual local point density (no hardcoded dataset scale)
+    ring_area = max(4.0 * hs * ho - (span_s + 2 * margin) * (span_o + 2 * margin), 0.05)
+    rho = float(ring_pts.sum()) / ring_area
+    fc_rho = math.sqrt(1.6 / max(rho, 1.0))
+    fc_tgt = max(0.008, min(0.035, dia0 / 10.0))
+    fc = float(np.clip(max(fc_rho, fc_tgt), 0.008, surf.cell))
+    nu_f = max(5, int(math.ceil(2.0 * hs / fc)))
+    nv_f = max(5, int(math.ceil(2.0 * ho / fc)))
+    if nu_f * nv_f > 90_000:
+        fc = math.sqrt(4.0 * hs * ho / 90_000.0)
+        nu_f = max(5, int(math.ceil(2.0 * hs / fc)))
+        nv_f = max(5, int(math.ceil(2.0 * ho / fc)))
+
+    s0_f, o0_f = sc - hs, oc - ho
+    # Exclude overhead objects (>0.25 m above road) from the fine surface raster, keep below-road for reflection check
+    near_z = pz < z_surf_c + 0.25
+    gf = grid_stats(ps[near_z], po[near_z], pz[near_z], fc, s0_f, o0_f, nu_f, nv_f)
+    med = gf["median"]
+    low = gf["low"]
+    cnt = gf["count"]
+
+    st_f = s0_f + (np.arange(nu_f) + 0.5) * fc
+    of_f = o0_f + (np.arange(nv_f) + 0.5) * fc
+    uu, vv = np.meshgrid(st_f - sc, of_f - oc, indexing="ij")
+
+    coarse_box = (
+        (st_f[:, None] >= s_lo - margin) & (st_f[:, None] <= s_hi + margin)
+        & (of_f[None, :] >= o_lo - margin) & (of_f[None, :] <= o_hi + margin)
+    )
+    ring_cells = (~coarse_box) & np.isfinite(med) & (np.abs(med - z_surf_c) < 0.18)
+    if int(ring_cells.sum()) < 20:
+        return None
+
+    use_quad = dia0 > 0.45
+    coef = robust_surface(uu[ring_cells], vv[ring_cells], med[ring_cells], quad=use_quad, c=0.02, iters=6)
+    z_ref = (design(uu.ravel(), vv.ravel(), use_quad) @ coef).reshape(nu_f, nv_f)
+    r_raw = med - z_ref
+
+    # Estimate intact road surface noise (robust MAD on ring cells)
+    ring_res = r_raw[ring_cells]
+    sigma_ring = 1.4826 * float(np.median(np.abs(ring_res - np.median(ring_res))))
+
+    # Suppress isolated 1-cell stray-point spikes (count < 3 and >6 cm below local 3x3 median)
+    r_clean = r_raw.copy()
+    if nu_f >= 3 and nv_f >= 3:
+        pad_r = np.pad(r_raw, 1, constant_values=np.nan)
+        win_r = np.lib.stride_tricks.sliding_window_view(pad_r, (3, 3)).reshape(nu_f, nv_f, 9)
+        with np.errstate(all="ignore"), __import__("warnings").catch_warnings():
+            __import__("warnings").simplefilter("ignore", RuntimeWarning)
+            nbr_med = np.nanmedian(win_r, axis=2)
+        spike = (cnt < 3) & np.isfinite(r_raw) & np.isfinite(nbr_med) & ((nbr_med - r_raw) > 0.06)
+        r_clean[spike] = nbr_med[spike]
+
+    r_fill = _fill_interior_nans(r_clean, min_neighbors=4)
+    # Noise-calibrated rim threshold: follows sloped bowls cleanly without bleeding into flat noisy road
+    rim_t = float(np.clip(max(0.003, 1.8 * sigma_ring), 0.003, 0.010))
+    inside_seed_box = (
+        (st_f[:, None] >= s_lo - fc) & (st_f[:, None] <= s_hi + fc)
+        & (of_f[None, :] >= o_lo - fc) & (of_f[None, :] <= o_hi + fc)
+    )
+    rr = np.nan_to_num(r_fill, nan=0.0)
+    seed = inside_seed_box & (rr < -max(0.6 * dmin, rim_t * 1.5))
+    if not seed.any():
+        return None
+
+    # Grow region; if noise causes bleed to crop border, tighten rim_t up to 0.012 m
+    reg = None
+    for rt in (rim_t, max(rim_t, 0.006), max(rim_t, 0.010), 0.012):
+        cand = grow(seed, rr < -rt)
+        touches_border = bool(cand[0, :].any() or cand[-1, :].any() or cand[:, 0].any() or cand[:, -1].any())
+        if not touches_border:
+            reg = cand
+            break
+    if reg is None or not reg.any():
+        return None
+
+    # Keep the connected component(s) overlapping the seed (if fragmented by a ridge, keep all seeded comps)
+    comps = label_components(reg)
+    kept = [comp for comp in comps if seed[comp[:, 0], comp[:, 1]].any()]
+    if not kept:
+        return None
+    fine_cells = np.vstack(kept)
+    filled = fill_holes(fine_cells)
+    fi, fj = filled[:, 0], filled[:, 1]
+    cell_a = fc * fc
+    area = float(len(filled)) * cell_a
+
+    # Interpolate any remaining interior NaN depths inside `filled` from valid cells in `filled`
+    rf_vals = r_fill[fi, fj].copy()
+    valid_rf = np.isfinite(rf_vals)
+    if not valid_rf.any():
+        return None
+    if not valid_rf.all():
+        # Nearest-neighbor fill within the small filled patch
+        rf_vals[~valid_rf] = float(np.nanmedian(rf_vals[valid_rf]))
+    depths = np.maximum(0.0, -rf_vals)
+
+    # Check water/sky reflection via cell low (25th percentile) on original fine cells
+    ci_raw, cj_raw = fine_cells[:, 0], fine_cells[:, 1]
+    deep_low = z_ref[ci_raw, cj_raw] - low[ci_raw, cj_raw]
+    low_depth = float(np.nanmax(deep_low)) if len(fine_cells) < 10 else float(np.nanpercentile(deep_low, 90))
+    unreliable = low_depth > max_depth_lim
+
+    # Unbiased peak depth from cleaned cell medians (avoids both p90 bowl underestimation & p25 noise bias)
+    d_valid = depths[valid_rf]
+    depth = float(np.nanmax(d_valid)) if len(d_valid) < 15 else float(np.nanpercentile(d_valid, 98))
+    depth_med = float(np.median(depths))
+    volume = float(np.sum(depths) * cell_a)
+    per = perimeter(fine_cells) * fc * (math.pi / 4.0)
+    circ = float(min(1.0, 4.0 * math.pi * area / (per * per))) if per > 0 else 0.0
+    flat = float(np.mean(np.abs(depths - depth_med) <= 0.25 * depth_med)) if depth_med > 0 else 0.0
+
+    # Bowl shape check on fine cells
+    ci_c = fi.astype(float) - fi.mean()
+    cj_c = fj.astype(float) - fj.mean()
+    rho2 = (ci_c * ci_c + cj_c * cj_c) * fc * fc / max(area / math.pi, 1e-6)
+    bowl = 1.0
+    if len(depths) >= 8 and depth_med > 0:
+        a_ = np.stack([np.ones(len(depths)), rho2], 1)
+        (c0, c2), *_ = np.linalg.lstsq(a_, depths, rcond=None)
+        bowl = float(-c2 / c0) if c0 > 0 else 1.0
+
+    return {
+        "area_m2": area,
+        "depth_max_m": depth,
+        "depth_median_m": depth_med,
+        "volume_m3": volume,
+        "unreliable": unreliable,
+        "circularity": circ,
+        "flat_share": flat,
+        "bowl": bowl,
+        "s_coords": st_f[fi],
+        "o_coords": of_f[fj],
+        "z_coords": z_ref[fi, fj] - depths,
+        "fine_cell_m": fc,
+    }
+
+
+def _detect_depressions_subgrid(
+    surf: SegmentSurface, road: np.ndarray, dmin: float, min_area: float
+) -> list[tuple[float, float, float, float, float]]:
+    """When `pothole_min_area_m2` is smaller than 2x raster_m (close-range dense scans),
+    seed depressions on a Nyquist-matched road sub-grid so small potholes aren't diluted by 10 cm cells.
+    Returns list of (s_lo, s_hi, o_lo, o_hi, z_surf_c) boxes."""
+    if not road.any():
+        return []
+    c = surf.cell
+    ri, rj = np.nonzero(road)
+    s0_sub = surf.s0 + int(ri.min()) * c
+    s1_sub = surf.s0 + (int(ri.max()) + 1) * c
+    o0_sub = surf.o0 + int(rj.min()) * c
+    o1_sub = surf.o0 + (int(rj.max()) + 1) * c
+    sel = (surf.s >= s0_sub) & (surf.s < s1_sub) & (surf.o >= o0_sub) & (surf.o < o1_sub)
+    if int(sel.sum()) < 200:
+        return []
+    road_area = float(road.sum()) * c * c
+    rho = float(sel.sum()) / max(road_area, 0.1)
+    min_diam = 2.0 * math.sqrt(max(min_area, 1e-6) / math.pi)
+    dc = float(np.clip(max(math.sqrt(4.0 / max(rho, 1.0)), min_diam / 3.0), 0.012, c))
+    if dc >= 0.75 * c:
+        return []
+    nu_d = max(3, int(math.ceil((s1_sub - s0_sub) / dc)))
+    nv_d = max(3, int(math.ceil((o1_sub - o0_sub) / dc)))
+    if nu_d * nv_d > 500_000:
+        dc = math.sqrt((s1_sub - s0_sub) * (o1_sub - o0_sub) / 500_000.0)
+        nu_d = max(3, int(math.ceil((s1_sub - s0_sub) / dc)))
+        nv_d = max(3, int(math.ceil((o1_sub - o0_sub) / dc)))
+
+    gd = grid_stats(surf.s[sel], surf.o[sel], surf.z[sel], dc, s0_sub, o0_sub, nu_d, nv_d)
+    st_d = s0_sub + (np.arange(nu_d) + 0.5) * dc
+    of_d = o0_sub + (np.arange(nv_d) + 0.5) * dc
+    # Map coarse road mask & coarse fitted surface onto sub-grid
+    ci = np.clip(np.floor((st_d - surf.s0) / c).astype(int), 0, surf.nu - 1)
+    cj = np.clip(np.floor((of_d - surf.o0) / c).astype(int), 0, surf.nv - 1)
+    road_d = road[ci[:, None], cj[None, :]]
+    # Bilinear interpolation of smooth coarse surface onto sub-grid
+    fs = np.clip((st_d - surf.stations[0]) / c, 0.0, surf.nu - 1.0001)
+    fo = np.clip((of_d - surf.offsets[0]) / c, 0.0, surf.nv - 1.0001)
+    i0 = fs.astype(int)
+    j0 = fo.astype(int)
+    ds = (fs - i0)[:, None]
+    do = (fo - j0)[None, :]
+    S = surf.surface
+    surf_d = (
+        (1 - ds) * (1 - do) * S[i0[:, None], j0[None, :]]
+        + ds * (1 - do) * S[np.minimum(i0 + 1, surf.nu - 1)[:, None], j0[None, :]]
+        + (1 - ds) * do * S[i0[:, None], np.minimum(j0 + 1, surf.nv - 1)[None, :]]
+        + ds * do * S[np.minimum(i0 + 1, surf.nu - 1)[:, None], np.minimum(j0 + 1, surf.nv - 1)[None, :]]
+    )
+    res_d = np.where(road_d & np.isfinite(gd["median"]), gd["median"] - surf_d, np.nan)
+    rr = np.nan_to_num(res_d, nan=0.0)
+    reg = grow(rr < -dmin, rr < -min(0.008, 0.5 * dmin))
+    boxes: list[tuple[float, float, float, float, float]] = []
+    for comp in label_components(reg):
+        if len(comp) * dc * dc < 0.4 * min_area:
+            continue
+        s_lo = float(st_d[comp[:, 0].min()] - 0.5 * dc)
+        s_hi = float(st_d[comp[:, 0].max()] + 0.5 * dc)
+        o_lo = float(of_d[comp[:, 1].min()] - 0.5 * dc)
+        o_hi = float(of_d[comp[:, 1].max()] + 0.5 * dc)
+        z_c = float(np.nanmedian(surf_d[comp[:, 0], comp[:, 1]]))
+        boxes.append((s_lo, s_hi, o_lo, o_hi, z_c))
+    return boxes
+
+
 def detect_surface(seg: dict, surf: SegmentSurface, path: np.ndarray, step: float, p: dict) -> tuple[list[dict], dict]:
     """Pavement and sidewalk defects for one segment. Returns (findings, segment metrics)."""
     out: list[dict] = []
@@ -133,68 +396,132 @@ def detect_surface(seg: dict, surf: SegmentSurface, path: np.ndarray, step: floa
     mn = surf.g["low"]  # robust floor, see grid_stats
     surface = surf.surface
 
-    def emit(kind: str, cells: np.ndarray, severity: str | None, metrics_: dict, evidence: str) -> None:
-        x, y = surf.to_enu(cells[:, 0], cells[:, 1], path, step)
-        zc = surface[cells[:, 0], cells[:, 1]] + np.nan_to_num(res[cells[:, 0], cells[:, 1]])
+    def _so_to_enu(st: np.ndarray, off: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        k = np.clip((st / step).astype(int), 0, len(path) - 2)
+        fwd = path[k + 1] - path[k]
+        fwd /= np.linalg.norm(fwd, axis=1, keepdims=True) + 1e-12
+        base = path[k] + fwd * (st - k * step)[:, None]
+        left_v = np.stack([-fwd[:, 1], fwd[:, 0]], 1)
+        xy = base + left_v * off[:, None]
+        return xy[:, 0], xy[:, 1]
+
+    def emit(kind: str, cells: np.ndarray, severity: str | None, metrics_: dict, evidence: str,
+             so_coords: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None) -> None:
+        if so_coords is not None:
+            x, y = _so_to_enu(so_coords[0], so_coords[1])
+            zc = so_coords[2]
+        else:
+            x, y = surf.to_enu(cells[:, 0], cells[:, 1], path, step)
+            zc = surface[cells[:, 0], cells[:, 1]] + np.nan_to_num(res[cells[:, 0], cells[:, 1]])
         out.append({"type": kind, "severity": severity, "source": "geometry",
                     "x": float(x.mean()), "y": float(y.mean()), "z": float(np.nanmean(zc)),
                     "bbox": _bbox(x, y, zc), "metrics": metrics_, "evidence": evidence, "segment_id": seg["id"]})
 
     # --- depressions: potholes, sunken covers, settlements ---------------------
     dmin = float(p["pothole_min_depth_m"])
+    min_area = float(p["pothole_min_area_m2"])
+    max_depth_lim = float(p.get("pothole_max_depth_m", 0.4))
+    min_diam = 2.0 * math.sqrt(max(min_area, 1e-6) / math.pi)
     seeds = np.nan_to_num(res, nan=0) < -dmin
     region = grow(seeds, np.nan_to_num(res, nan=0) < -0.01)
     used = np.zeros_like(region)
-    for cells in label_components(region):
-        area = len(cells) * cell_area
-        if area < float(p["pothole_min_area_m2"]):
-            continue
-        r = res[cells[:, 0], cells[:, 1]]
-        deep = surface[cells[:, 0], cells[:, 1]] - mn[cells[:, 0], cells[:, 1]]
-        # deepest point, robustly: a few stray cells must not set it (90th percentile once there are 10 cells)
-        depth = float(np.nanmax(deep)) if len(cells) < 10 else float(np.nanpercentile(deep, 90))
-        depth_med = float(-np.nanmedian(r))
-        # deeper than a road can be: in video this is water or a reflection inside the hole, not depth
-        unreliable = depth > float(p.get("pothole_max_depth_m", 0.4))
-        volume = float(-np.nansum(r) * cell_area)
-        per = perimeter(cells) * c
-        area_f = len(fill_holes(cells)) * cell_area
-        per *= math.pi / 4  # 4-connected staircase perimeter overestimates a smooth outline
-        circ = float(min(1.0, 4 * math.pi * area_f / (per * per))) if per > 0 else 0.0
-        # share of the area within 25% of the median depth: ~1 for a flat recess, ~0.5 for a bowl
-        flat = float(np.mean(np.abs(-r - depth_med) <= 0.25 * depth_med)) if depth_med > 0 else 0.0
-        # floor shape: fit depth = c0 + c2 * (rho/R)^2 over all cells. A recessed cover has a
-        # flat floor (c2 ~ 0); a pothole bowl gets deeper towards its middle (c2 << 0).
-        ci = cells[:, 0].astype(float) - cells[:, 0].mean()
-        cj = cells[:, 1].astype(float) - cells[:, 1].mean()
-        rho2 = (ci * ci + cj * cj) * c * c / max(area / math.pi, 1e-6)
-        ok_r = np.isfinite(r)
-        bowl = 1.0
-        if ok_r.sum() >= 8 and depth_med > 0:
-            a_ = np.stack([np.ones(ok_r.sum()), rho2[ok_r]], 1)
-            (c0, c2), *_ = np.linalg.lstsq(a_, -r[ok_r], rcond=None)
-            bowl = float(-c2 / c0) if c0 > 0 else 1.0
+
+    def _emit_depression(cells: np.ndarray, area: float, depth: float, depth_med: float, volume: float,
+                         unreliable: bool, circ: float, flat: float, bowl: float,
+                         so_coords: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None) -> None:
         dia = 2 * math.sqrt(area / math.pi)
-        used[cells[:, 0], cells[:, 1]] = True
-        m = {"area_m2": round(area, 3), "depth_max_m": None if unreliable else round(depth, 3),
-             "depth_median_m": round(depth_med, 3), "volume_m3": round(volume, 4), "diameter_m": round(dia, 2),
+        m = {"area_m2": round(area, 4), "depth_max_m": None if unreliable else round(depth, 4),
+             "depth_median_m": round(depth_med, 4), "volume_m3": round(volume, 5), "diameter_m": round(dia, 3),
              "circularity": round(circ, 2), "flat_share": round(flat, 2), "bowl": round(bowl, 2)}
         if unreliable:
             m["depth_unreliable"] = True
         if bowl < 0.25 and flat > 0.7 and circ > 0.7 and 0.15 <= area <= 0.8 and depth_med < 0.06:
             sev = "high" if depth_med >= 0.05 else "medium" if depth_med >= 0.03 else "low"
             emit("manhole_sunken", cells, sev, m,
-                 f"flat-floored round recess {depth_med * 100:.1f} cm below the road surface, {dia:.2f} m across (likely a sunken cover; confirm on site)")
+                 f"flat-floored round recess {depth_med * 100:.1f} cm below the road surface, {dia:.2f} m across (likely a sunken cover; confirm on site)",
+                 so_coords=so_coords)
         elif area > 3.0:
             sev = "high" if depth_med >= 0.05 else "medium" if depth_med >= 0.03 else "low"
-            emit("depression", cells, sev, m, f"broad depression {area:.1f} m2, median {depth_med * 100:.1f} cm deep")
+            emit("depression", cells, sev, m, f"broad depression {area:.1f} m2, median {depth_med * 100:.1f} cm deep",
+                 so_coords=so_coords)
         elif unreliable:
             emit("pothole", cells, _severity_pothole(depth_med, dia), m,
                  f"depression {dia:.2f} m across, median {depth_med * 100:.1f} cm deep; its deepest point could not be "
-                 "measured (the 3D shows it far below the road, most likely water or a reflection in the hole): measure on site")
+                 "measured (the 3D shows it far below the road, most likely water or a reflection in the hole): measure on site",
+                 so_coords=so_coords)
         else:
             emit("pothole", cells, _severity_pothole(depth, dia), m,
-                 f"depression {depth * 100:.1f} cm deep, {dia:.2f} m across, {volume * 1000:.1f} L missing material")
+                 f"depression {depth * 100:.1f} cm deep, {dia:.2f} m across, {volume * 1000:.1f} L missing material",
+                 so_coords=so_coords)
+
+    coarse_boxes_seen: list[tuple[float, float, float, float]] = []
+    for cells in label_components(region):
+        area_c = len(cells) * cell_area
+        if area_c < 0.4 * min_area:
+            continue
+        s_lo = float(surf.stations[cells[:, 0].min()] - 0.5 * c)
+        s_hi = float(surf.stations[cells[:, 0].max()] + 0.5 * c)
+        o_lo = float(surf.offsets[cells[:, 1].min()] - 0.5 * c)
+        o_hi = float(surf.offsets[cells[:, 1].max()] + 0.5 * c)
+        z_surf_c = float(np.nanmedian(surface[cells[:, 0], cells[:, 1]]))
+        ref = _refine_depression(surf, s_lo, s_hi, o_lo, o_hi, z_surf_c, dmin, max_depth_lim)
+        if ref is not None:
+            if ref["area_m2"] < min_area:
+                continue
+            used[cells[:, 0], cells[:, 1]] = True
+            coarse_boxes_seen.append((s_lo, s_hi, o_lo, o_hi))
+            _emit_depression(
+                cells, ref["area_m2"], ref["depth_max_m"], ref["depth_median_m"], ref["volume_m3"],
+                ref["unreliable"], ref["circularity"], ref["flat_share"], ref["bowl"],
+                so_coords=(ref["s_coords"], ref["o_coords"], ref["z_coords"]),
+            )
+            continue
+
+        if area_c < min_area:
+            continue
+        r = res[cells[:, 0], cells[:, 1]]
+        deep = surface[cells[:, 0], cells[:, 1]] - mn[cells[:, 0], cells[:, 1]]
+        depth = float(np.nanmax(deep)) if len(cells) < 10 else float(np.nanpercentile(deep, 90))
+        depth_med = float(-np.nanmedian(r))
+        unreliable = depth > max_depth_lim
+        filled_c = fill_holes(cells)
+        area_f = len(filled_c) * cell_area
+        volume = float(-np.nansum(r) * cell_area)
+        per = perimeter(cells) * c * (math.pi / 4)
+        circ = float(min(1.0, 4 * math.pi * area_f / (per * per))) if per > 0 else 0.0
+        flat = float(np.mean(np.abs(-r - depth_med) <= 0.25 * depth_med)) if depth_med > 0 else 0.0
+        ci = cells[:, 0].astype(float) - cells[:, 0].mean()
+        cj = cells[:, 1].astype(float) - cells[:, 1].mean()
+        rho2 = (ci * ci + cj * cj) * c * c / max(area_c / math.pi, 1e-6)
+        ok_r = np.isfinite(r)
+        bowl = 1.0
+        if ok_r.sum() >= 8 and depth_med > 0:
+            a_ = np.stack([np.ones(ok_r.sum()), rho2[ok_r]], 1)
+            (c0, c2), *_ = np.linalg.lstsq(a_, -r[ok_r], rcond=None)
+            bowl = float(-c2 / c0) if c0 > 0 else 1.0
+        used[cells[:, 0], cells[:, 1]] = True
+        coarse_boxes_seen.append((s_lo, s_hi, o_lo, o_hi))
+        _emit_depression(cells, area_c, depth, depth_med, volume, unreliable, circ, flat, bowl)
+
+    # Sub-grid seeding when requested minimum pothole diameter is below 2x the coarse raster cell
+    if min_diam < 2.0 * c:
+        for s_lo, s_hi, o_lo, o_hi, z_c in _detect_depressions_subgrid(surf, road, dmin, min_area):
+            if any(s_lo <= b[1] and b[0] <= s_hi and o_lo <= b[3] and b[2] <= o_hi for b in coarse_boxes_seen):
+                continue
+            ref = _refine_depression(surf, s_lo, s_hi, o_lo, o_hi, z_c, dmin, max_depth_lim)
+            if ref is None or ref["area_m2"] < min_area:
+                continue
+            # Mark coarse cells overlapping refined pothole as used so roughness doesn't double-count it
+            ci_u = np.clip(np.floor((ref["s_coords"] - surf.s0) / c).astype(int), 0, surf.nu - 1)
+            cj_u = np.clip(np.floor((ref["o_coords"] - surf.o0) / c).astype(int), 0, surf.nv - 1)
+            used[ci_u, cj_u] = True
+            coarse_boxes_seen.append((s_lo, s_hi, o_lo, o_hi))
+            dummy_cells = np.column_stack([ci_u, cj_u])
+            _emit_depression(
+                dummy_cells, ref["area_m2"], ref["depth_max_m"], ref["depth_median_m"], ref["volume_m3"],
+                ref["unreliable"], ref["circularity"], ref["flat_share"], ref["bowl"],
+                so_coords=(ref["s_coords"], ref["o_coords"], ref["z_coords"]),
+            )
 
     # --- heaves / bumps (but not vehicles or debris standing on the road) -------
     hmin = float(p["heave_min_height_m"])

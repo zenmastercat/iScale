@@ -89,3 +89,54 @@ def test_analyze_detects_pothole_on_uphill_road_above_z_1m():
     potholes = [f for f in an["findings"] if f["type"] == "pothole"]
     assert len(potholes) == 1, f"Expected uphill pothole at y=20 m, got {potholes}"
     assert abs(potholes[0]["y"] - 20.0) < 0.3
+
+
+def test_pothole_local_refinement_achieves_accurate_depth_area_volume_on_parabolic_bowl():
+    """On a crowned road with a realistic 6.5 cm parabolic bowl (R=0.35 m, noise=5 mm),
+    local road-plane refinement must measure depth within 0.6 cm, area within 10%, volume within 12%."""
+    rng = np.random.default_rng(19)
+    s, o = np.meshgrid(np.arange(0.0, 20.0, 0.03), np.arange(-3.0, 3.0, 0.03), indexing="ij")
+    x, y = o.ravel(), s.ravel()
+    R, D = 0.35, 0.065
+    z = -0.02 * (x * x) / 3.0 + rng.normal(0.0, 0.005, x.size)
+    r2 = (x - 0.5) ** 2 + (y - 10.0) ** 2
+    inside = r2 < R * R
+    z[inside] -= D * (1.0 - r2[inside] / (R * R))
+    poses = np.repeat(np.eye(4)[None], 21, axis=0)
+    poses[:, :3, 3] = np.c_[np.zeros(21), np.linspace(0.0, 20.0, 21), np.full(21, 1.4)]
+    rec = Reconstruction(points=np.c_[x, y, z].astype(np.float32), poses=poses, meta={"metric": True, "up_axis": "z"})
+    an = analyze(rec)
+    potholes = [f for f in an["findings"] if f["type"] == "pothole"]
+    assert len(potholes) == 1, potholes
+    m = potholes[0]["metrics"]
+    gt_area = math.pi * R * R
+    gt_vol = 0.5 * gt_area * D
+    assert abs(m["depth_max_m"] - D) < 0.006, f"depth={m['depth_max_m']} vs {D}"
+    assert abs(m["area_m2"] - gt_area) / gt_area < 0.10, f"area={m['area_m2']} vs {gt_area:.4f}"
+    assert abs(m["volume_m3"] - gt_vol) / gt_vol < 0.12, f"vol={m['volume_m3']} vs {gt_vol:.5f}"
+
+
+def test_small_dense_pothole_detected_and_measured_accurately_when_min_area_allows():
+    """A 9 cm wide, 4.2 cm deep pothole in a dense 5 mm cloud (like real stereo/laser scans)
+    must not vanish into a 10 cm cell median or blow up 700% in area."""
+    rng = np.random.default_rng(23)
+    # Dense patch around pothole + standard collar
+    s, o = np.meshgrid(np.arange(1.5, 4.5, 0.006), np.arange(-1.5, 1.5, 0.006), indexing="ij")
+    x, y = o.ravel(), s.ravel()
+    R, D = 0.045, 0.042
+    z = rng.normal(0.0, 0.0015, x.size)
+    r2 = x * x + (y - 3.0) ** 2
+    inside = r2 < R * R
+    z[inside] -= D * (1.0 - r2[inside] / (R * R))
+    poses = np.repeat(np.eye(4)[None], 13, axis=0)
+    poses[:, :3, 3] = np.c_[np.zeros(13), np.linspace(0.0, 6.0, 13), np.full(13, 0.6)]
+    rec = Reconstruction(points=np.c_[x, y, z].astype(np.float32), poses=poses, meta={"metric": True, "up_axis": "z"})
+    an = analyze(rec, {"pothole_min_area_m2": 0.002, "pothole_min_depth_m": 0.015})
+    potholes = [f for f in an["findings"] if f["type"] == "pothole"]
+    assert len(potholes) == 1, potholes
+    m = potholes[0]["metrics"]
+    gt_area = math.pi * R * R
+    gt_vol = 0.5 * gt_area * D
+    assert abs(m["depth_max_m"] - D) < 0.006, f"depth={m['depth_max_m']} vs {D}"
+    assert abs(m["area_m2"] - gt_area) / gt_area < 0.15, f"area={m['area_m2']} vs {gt_area:.5f}"
+    assert abs(m["volume_m3"] - gt_vol) / gt_vol < 0.18, f"vol={m['volume_m3']} vs {gt_vol:.6f}"
