@@ -30,7 +30,7 @@ export function TopBar() {
   }));
 
   return (
-    <header className={`sticky top-0 z-30 border-b bg-card/95 backdrop-blur ${fullScreenOnPhone ? "hidden md:block" : ""}`}>
+    <header className={`sticky top-0 z-30 border-b bg-card/95 backdrop-blur print:hidden ${fullScreenOnPhone ? "hidden md:block" : ""}`}>
       <div className="flex min-h-14 flex-wrap items-center gap-2 px-4 py-2 md:px-8">
         <span className="order-1 rounded bg-sidebar px-2 py-1 md:hidden">
           <Logo className="text-base" />

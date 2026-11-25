@@ -13,7 +13,7 @@ export function SideRail() {
   const pathname = usePathname();
   const { withSel } = useSelection();
   return (
-    <nav aria-label="Main" className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col bg-sidebar px-3 py-6 text-sidebar-foreground md:flex">
+    <nav aria-label="Main" className="sticky top-0 hidden print:hidden h-dvh w-60 shrink-0 flex-col bg-sidebar px-3 py-6 text-sidebar-foreground md:flex">
       <Link href={withSel("/")} className="mb-8 px-3">
         <Logo />
       </Link>
@@ -49,7 +49,7 @@ export function BottomBar() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-sidebar pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-sidebar pb-[env(safe-area-inset-bottom)] md:hidden print:hidden"
     >
       <ul className="grid grid-cols-6">
         {NAV.filter((n) => !n.desktopOnly).map(({ href, short, icon: Icon }) => {

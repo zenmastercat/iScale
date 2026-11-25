@@ -14,7 +14,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         <SideRail />
         <div className="flex min-w-0 flex-1 flex-col">
           <TopBar />
-          <main id="main" className="flex-1 px-4 pt-6 pb-24 md:px-8 md:pb-10">
+          <main id="main" className="flex-1 px-4 pt-6 pb-24 md:px-8 md:pb-10 print:p-0">
             {children}
           </main>
         </div>
