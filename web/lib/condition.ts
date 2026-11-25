@@ -4,6 +4,8 @@ import type { Rating, Segment } from "@/lib/types";
 export interface Band {
   rating: Rating;
   label: string;
+  /** Thai label */
+  th: string;
   /** lowest score in the band (inclusive) */
   min: number;
   color: string;
@@ -14,17 +16,17 @@ export interface Band {
 }
 
 export const CONDITION_BANDS: Band[] = [
-  { rating: "good", label: "Good", min: 85, color: "#3fb37f", bg: "bg-cond-good", range: "85+" },
-  { rating: "satisfactory", label: "Satisfactory", min: 70, color: "#9fc84a", bg: "bg-cond-satisfactory", range: "70–84" },
-  { rating: "fair", label: "Fair", min: 55, color: "#e8c547", bg: "bg-cond-fair", range: "55–69" },
-  { rating: "poor", label: "Poor", min: 40, color: "#ef8f36", bg: "bg-cond-poor", range: "40–54" },
-  { rating: "very poor", label: "Very poor", min: 25, color: "#e0503a", bg: "bg-cond-very-poor", range: "25–39" },
-  { rating: "failed", label: "Failed", min: 0, color: "#8c1d2c", bg: "bg-cond-failed", range: "0–24" },
+  { rating: "good", label: "Good", th: "ดี", min: 85, color: "#3fb37f", bg: "bg-cond-good", range: "85+" },
+  { rating: "satisfactory", label: "Satisfactory", th: "ค่อนข้างดี", min: 70, color: "#9fc84a", bg: "bg-cond-satisfactory", range: "70–84" },
+  { rating: "fair", label: "Fair", th: "พอใช้", min: 55, color: "#e8c547", bg: "bg-cond-fair", range: "55–69" },
+  { rating: "poor", label: "Poor", th: "แย่", min: 40, color: "#ef8f36", bg: "bg-cond-poor", range: "40–54" },
+  { rating: "very poor", label: "Very poor", th: "แย่มาก", min: 25, color: "#e0503a", bg: "bg-cond-very-poor", range: "25–39" },
+  { rating: "failed", label: "Failed", th: "ใช้งานไม่ได้", min: 0, color: "#8c1d2c", bg: "bg-cond-failed", range: "0–24" },
 ];
 
 export const NO_DATA_BAND: Band = {
   rating: "no data",
-  label: "No data",
+  label: "No data", th: "ไม่มีข้อมูล",
   min: -1,
   color: "#6b7280",
   bg: "bg-cond-none",

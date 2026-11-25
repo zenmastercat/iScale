@@ -8,3 +8,4 @@ export { ProcessingState } from "./processing-state";
 export { SEVERITY, SeverityBadge, SeverityIcon } from "./severity-badge";
 export { StatusPill, statusLabel, type PillStatus } from "./status-pill";
 export { SurveyGate } from "./survey-gate";
+export { HowWeMeasure } from "./how-we-measure";

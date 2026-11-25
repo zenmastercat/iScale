@@ -20,14 +20,14 @@ export const ROUTES = {
 } as const;
 
 /** desktopOnly: in the side rail but not the phone bottom bar (6 columns is the most that fits). */
-export const NAV: { href: string; label: string; short: string; icon: LucideIcon; desktopOnly?: boolean }[] = [
-  { href: ROUTES.overview, label: "Overview", short: "Overview", icon: LayoutDashboard },
-  { href: ROUTES.map, label: "Map", short: "Map", icon: Map },
-  { href: ROUTES.findings, label: "Findings", short: "Findings", icon: Table2, desktopOnly: true },
-  { href: ROUTES.fixFirst, label: "Fix first", short: "Fix first", icon: ListOrdered },
-  { href: ROUTES.plan, label: "Repair plan", short: "Plan", icon: Wrench },
-  { href: ROUTES.verification, label: "Verification", short: "Verify", icon: ClipboardCheck },
-  { href: ROUTES.surveys, label: "Surveys", short: "Surveys", icon: Route },
-  { href: ROUTES.report, label: "Report", short: "Report", icon: FileText, desktopOnly: true },
-  { href: ROUTES.team, label: "Team", short: "Team", icon: Users, desktopOnly: true },
+export const NAV: { href: string; label: string; short: string; th: string; shortTh: string; icon: LucideIcon; desktopOnly?: boolean }[] = [
+  { href: ROUTES.overview, label: "Overview", short: "Overview", th: "ภาพรวม", shortTh: "ภาพรวม", icon: LayoutDashboard },
+  { href: ROUTES.map, label: "Map", short: "Map", th: "แผนที่", shortTh: "แผนที่", icon: Map },
+  { href: ROUTES.findings, label: "Findings", short: "Findings", th: "รายการที่พบ", shortTh: "รายการ", icon: Table2, desktopOnly: true },
+  { href: ROUTES.fixFirst, label: "Fix first", short: "Fix first", th: "ซ่อมก่อน", shortTh: "ซ่อมก่อน", icon: ListOrdered },
+  { href: ROUTES.plan, label: "Repair plan", short: "Plan", th: "แผนซ่อม", shortTh: "แผน", icon: Wrench },
+  { href: ROUTES.verification, label: "Verification", short: "Verify", th: "ตรวจผลการซ่อม", shortTh: "ตรวจผล", icon: ClipboardCheck },
+  { href: ROUTES.surveys, label: "Surveys", short: "Surveys", th: "การสำรวจ", shortTh: "สำรวจ", icon: Route },
+  { href: ROUTES.report, label: "Report", short: "Report", th: "รายงาน", shortTh: "รายงาน", icon: FileText, desktopOnly: true },
+  { href: ROUTES.team, label: "Team", short: "Team", th: "ทีม", shortTh: "ทีม", icon: Users, desktopOnly: true },
 ];

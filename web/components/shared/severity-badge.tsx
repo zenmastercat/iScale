@@ -1,10 +1,12 @@
+"use client";
+import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type { Severity } from "@/lib/types";
 
-export const SEVERITY: Record<Severity, { label: string; text: string; bg: string; fill: string; color: string }> = {
-  high: { label: "High", text: "text-sev-high-fg", bg: "bg-sev-high-bg", fill: "fill-sev-high", color: "#c2361f" },
-  medium: { label: "Medium", text: "text-sev-medium-fg", bg: "bg-sev-medium-bg", fill: "fill-sev-medium", color: "#c27a12" },
-  low: { label: "Low", text: "text-sev-low-fg", bg: "bg-sev-low-bg", fill: "fill-sev-low", color: "#23775a" },
+export const SEVERITY: Record<Severity, { label: string; th: string; text: string; bg: string; fill: string; color: string }> = {
+  high: { label: "High", th: "สูง", text: "text-sev-high-fg", bg: "bg-sev-high-bg", fill: "fill-sev-high", color: "#c2361f" },
+  medium: { label: "Medium", th: "กลาง", text: "text-sev-medium-fg", bg: "bg-sev-medium-bg", fill: "fill-sev-medium", color: "#c27a12" },
+  low: { label: "Low", th: "ต่ำ", text: "text-sev-low-fg", bg: "bg-sev-low-bg", fill: "fill-sev-low", color: "#23775a" },
 };
 
 /** Shape per severity so colour is never the only cue: high ▲, medium ●, low ▼. */
@@ -48,6 +50,7 @@ export function SeverityBadge({
   size?: "sm" | "md";
   className?: string;
 }) {
+  const { lang } = useLang();
   if (!severity) return null;
   const s = SEVERITY[severity];
   return (
@@ -61,7 +64,7 @@ export function SeverityBadge({
       )}
     >
       <SeverityIcon severity={severity} size={size === "sm" ? 9 : 11} />
-      {s.label}
+      {lang === "th" ? s.th : s.label}
     </span>
   );
 }

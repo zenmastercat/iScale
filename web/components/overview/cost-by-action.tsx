@@ -1,25 +1,27 @@
 "use client";
 import { formatMoney, formatNumber } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 import type { SpotPlan } from "@/lib/types";
 
 const UNIT: Record<string, string> = { m2: "m²", m: "m", each: "" };
 
 /** Repair estimate split by action (plan.by_action), biggest first, with a bar for the share of the total. */
 export function CostByAction({ plan }: { plan: SpotPlan }) {
+  const t = useT();
   const rows = [...plan.by_action].sort((a, b) => b.cost - a.cost);
   const max = Math.max(...rows.map((r) => r.cost), 1);
   const cur = plan.currency;
-  if (!rows.length) return <p className="text-sm text-muted-foreground">Nothing to repair.</p>;
+  if (!rows.length) return <p className="text-sm text-muted-foreground">{t("Nothing to repair.", "ไม่มีงานซ่อม")}</p>;
   return (
     <table className="w-full text-sm md:text-[13px]">
       <caption className="sr-only">Repair cost by action ({cur})</caption>
       <thead>
         <tr className="border-b text-xs font-semibold tracking-wider text-grey-600 uppercase">
-          <th scope="col" className="py-2 pr-2 text-left font-semibold">Action</th>
-          <th scope="col" className="py-2 pr-2 text-right font-semibold">Repairs</th>
-          <th scope="col" className="py-2 pr-2 text-right font-semibold">Quantity</th>
-          <th scope="col" className="w-1/3 py-2 pr-2 text-left font-semibold"><span className="sr-only">Share</span></th>
-          <th scope="col" className="py-2 text-right font-semibold">Cost</th>
+          <th scope="col" className="py-2 pr-2 text-left font-semibold">{t("Action", "วิธีซ่อม")}</th>
+          <th scope="col" className="py-2 pr-2 text-right font-semibold">{t("Repairs", "จุด")}</th>
+          <th scope="col" className="py-2 pr-2 text-right font-semibold">{t("Quantity", "ปริมาณ")}</th>
+          <th scope="col" className="w-1/3 py-2 pr-2 text-left font-semibold"><span className="sr-only">{t("Share", "สัดส่วน")}</span></th>
+          <th scope="col" className="py-2 text-right font-semibold">{t("Cost", "ค่าซ่อม")}</th>
         </tr>
       </thead>
       <tbody>
@@ -41,11 +43,11 @@ export function CostByAction({ plan }: { plan: SpotPlan }) {
       </tbody>
       <tfoot className="text-grey-700">
         <tr className="border-t">
-          <th scope="row" colSpan={4} className="py-1.5 pr-2 text-left font-normal">Mobilisation (once)</th>
+          <th scope="row" colSpan={4} className="py-1.5 pr-2 text-left font-normal">{t("Mobilisation (once)", "ค่าเคลื่อนย้าย (ครั้งเดียว)")}</th>
           <td className="num py-1.5 text-right whitespace-nowrap">{formatMoney(plan.mobilization, cur)}</td>
         </tr>
         <tr className="border-t-2 text-grey-900">
-          <th scope="row" colSpan={4} className="py-1.5 pr-2 text-left font-semibold">Total</th>
+          <th scope="row" colSpan={4} className="py-1.5 pr-2 text-left font-semibold">{t("Total", "รวม")}</th>
           <td className="num py-1.5 text-right font-semibold whitespace-nowrap">{formatMoney(plan.total, cur)}</td>
         </tr>
       </tfoot>

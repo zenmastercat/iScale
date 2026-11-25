@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SEVERITY, SeverityIcon } from "@/components/shared/severity-badge";
 import { isOpenDefect } from "@/lib/chainage";
 import { findingsQuery, OPEN_STATUSES } from "@/lib/findings-filter";
+import { useT } from "@/lib/i18n";
 import type { Finding, Severity } from "@/lib/types";
 
 const SEVS: Severity[] = ["high", "medium", "low"];
@@ -17,6 +18,7 @@ export function DefectMatrix({
   labelFor: (code: string) => string;
   withSel: (path: string, extra?: Record<string, string>) => string;
 }) {
+  const t = useT();
   const open = findings.filter(isOpenDefect);
   const rows = new Map<string, Record<Severity, number>>();
   for (const f of open) {
@@ -30,7 +32,7 @@ export function DefectMatrix({
   const col = { high: 0, medium: 0, low: 0 } as Record<Severity, number>;
   for (const [, r] of sorted) for (const s of SEVS) col[s] += r[s];
 
-  if (!open.length) return <p className="text-sm text-muted-foreground">No open defects.</p>;
+  if (!open.length) return <p className="text-sm text-muted-foreground">{t("No open defects.", "ไม่มีข้อบกพร่องที่ยังไม่ซ่อม")}</p>;
 
   const href = (type?: string, sev?: Severity) =>
     withSel("/findings", findingsQuery({ kind: "defect", status: OPEN_STATUSES, type: type ? [type] : undefined, severity: sev ? [sev] : undefined }));
@@ -43,7 +45,7 @@ export function DefectMatrix({
     ) : (
       <span className="num inline-flex min-w-11 justify-end px-2 text-grey-400">
         <span aria-hidden>·</span>
-        <span className="sr-only">none</span>
+        <span className="sr-only">{t("none", "ไม่มี")}</span>
       </span>
     );
 
@@ -53,16 +55,16 @@ export function DefectMatrix({
       <caption className="sr-only">Open defects by type and severity</caption>
       <thead>
         <tr className="border-b text-xs font-semibold tracking-wider text-grey-600 uppercase">
-          <th scope="col" className="py-2 pr-2 text-left font-semibold">Type</th>
+          <th scope="col" className="py-2 pr-2 text-left font-semibold">{t("Type", "ชนิด")}</th>
           {SEVS.map((s) => (
             <th key={s} scope="col" className="py-2 text-right font-semibold">
               <span className="inline-flex items-center gap-1 px-2">
                 <SeverityIcon severity={s} size={10} />
-                {SEVERITY[s].label}
+                {t(SEVERITY[s].label, SEVERITY[s].th)}
               </span>
             </th>
           ))}
-          <th scope="col" className="py-2 text-right font-semibold"><span className="px-2">Total</span></th>
+          <th scope="col" className="py-2 text-right font-semibold"><span className="px-2">{t("Total", "รวม")}</span></th>
         </tr>
       </thead>
       <tbody>
@@ -78,7 +80,7 @@ export function DefectMatrix({
       </tbody>
       <tfoot>
         <tr className="border-t-2">
-          <th scope="row" className="py-0.5 pr-2 text-left font-semibold">All types</th>
+          <th scope="row" className="py-0.5 pr-2 text-left font-semibold">{t("All types", "ทุกชนิด")}</th>
           {SEVS.map((s) => (
             <td key={s} className="text-right">{cell(col[s], href(undefined, s), true, `${col[s]} ${SEVERITY[s].label.toLowerCase()} open defects`)}</td>
           ))}

@@ -10,7 +10,9 @@ import { FixFirstTable } from "@/components/overview/fix-first-table";
 import { SegmentChange } from "@/components/overview/segment-change";
 import { getAnalysis, qk } from "@/lib/api";
 import { findingsQuery, OPEN_STATUSES } from "@/lib/findings-filter";
+import { useT } from "@/lib/i18n";
 import { SummarySentence } from "@/components/overview/summary-sentence";
+import { HowWeMeasure } from "@/components/shared/how-we-measure";
 import { KpiTile } from "@/components/shared/kpi-tile";
 import { PageHeader } from "@/components/shared/page-header";
 import { SurveyGate } from "@/components/shared/survey-gate";
@@ -55,6 +57,7 @@ function OverviewBody() {
   const priority = usePriority(5);
   const labelFor = useCatalogLabel();
   const comparison = useComparison();
+  const t = useT();
 
   const stats = useMemo(() => {
     const an = analysis.data;
@@ -91,58 +94,58 @@ function OverviewBody() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-3 xl:grid-cols-4">
         <KpiTile
-          label="Condition index"
+          label={t("Condition index", "ดัชนีสภาพถนน")}
           value={stats.score === null ? "–" : formatNumber(stats.score)}
           unit="/100"
-          sub={`${bandFor(stats.score).label} · PCI-like, 0–100`}
+          sub={`${bandFor(stats.score).label} · ${t("PCI-like, 0–100", "คล้าย PCI, 0–100")}`}
           href={withSel("/map")}
         />
         <KpiTile
-          label="Open defects"
+          label={t("Open defects", "ข้อบกพร่องที่ยังไม่ซ่อม")}
           value={stats.open.length}
-          sub={`${stats.by.high} high · ${stats.by.medium} medium · ${stats.by.low} low`}
+          sub={t(`${stats.by.high} high · ${stats.by.medium} medium · ${stats.by.low} low`, `สูง ${stats.by.high} · กลาง ${stats.by.medium} · ต่ำ ${stats.by.low}`)}
           href={withSel("/findings", findingsQuery({ kind: "defect", status: OPEN_STATUSES }))}
         />
         <KpiTile
-          label="Repair estimate"
+          label={t("Repair estimate", "ประมาณค่าซ่อม")}
           value={cost === null ? "…" : formatNumber(cost)}
           unit={currency}
-          sub={plan.data ? `incl. ${formatMoney(plan.data.mobilization, currency)} mobilisation` : " "}
+          sub={plan.data ? t(`incl. ${formatMoney(plan.data.mobilization, currency)} mobilisation`, `รวมค่าเคลื่อนย้าย ${formatMoney(plan.data.mobilization, currency)}`) : " "}
           href={withSel("/plan")}
         />
         <KpiTile
-          label="Road surveyed"
+          label={t("Road surveyed", "ระยะทางที่สำรวจ")}
           value={formatNumber(stats.lengthM)}
           unit="m"
-          sub={`${an.segments.length} segments · ${stats.assets} assets on record`}
+          sub={t(`${an.segments.length} segments · ${stats.assets} assets on record`, `${an.segments.length} ช่วง · ทรัพย์สิน ${stats.assets} รายการ`)}
           href={withSel("/findings", findingsQuery({ kind: "asset" }))}
         />
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:gap-4 xl:grid-cols-5">
-        <Card title="Condition along the route" note="25 m segments · marks are open defects" className="xl:col-span-3">
+        <Card title={t("Condition along the route", "สภาพถนนตลอดเส้นทาง")} note={t("25 m segments · marks are open defects", "ช่วงละ 25 ม. · สัญลักษณ์คือจุดที่ยังไม่ซ่อม")} className="xl:col-span-3">
           <ChainageStrip segments={an.segments} findings={an.findings} labelFor={labelFor} />
           <div className="mt-6 md:mt-4">
             <ConditionShareBar segments={an.segments} />
           </div>
         </Card>
-        <Card title="Open defects by type" note="Counts open the list" className="xl:col-span-2">
+        <Card title={t("Open defects by type", "ข้อบกพร่องตามชนิด")} note={t("Counts open the list", "กดตัวเลขเพื่อดูรายการ")} className="xl:col-span-2">
           <DefectMatrix findings={an.findings} labelFor={labelFor} withSel={withSel} />
         </Card>
       </div>
 
       <div className={`grid grid-cols-1 gap-6 md:gap-4 ${comparison ? "xl:grid-cols-2" : ""}`}>
-        <Card title="Repair cost by action" note={`All open repairs · ${currency}`}>
+        <Card title={t("Repair cost by action", "ค่าซ่อมตามวิธีซ่อม")} note={t(`All open repairs · ${currency}`, `งานซ่อมทั้งหมด · ${currency}`)}>
           {plan.data ? <CostByAction plan={plan.data} /> : <Skeleton className="h-40 w-full" />}
         </Card>
         {comparison && (
-          <Card title="Condition change per segment" note={`${comparison.beforeName} → ${comparison.afterName}`}>
+          <Card title={t("Condition change per segment", "การเปลี่ยนแปลงสภาพแต่ละช่วง")} note={`${comparison.beforeName} → ${comparison.afterName}`}>
             <SegmentChange {...comparison} withSel={withSel} />
           </Card>
         )}
       </div>
 
-      <Card title="Fix first" note="Ranked by severity × safety × traffic">
+      <Card title={t("Fix first", "ซ่อมก่อน")} note={t("Ranked by severity × safety × traffic", "เรียงตามความรุนแรง × ความปลอดภัย × จราจร")}>
         {priority.isLoading ? (
           <Skeleton className="h-64 w-full" />
         ) : priority.data?.items.length ? (
@@ -152,11 +155,11 @@ function OverviewBody() {
               href={withSel("/fix-first")}
               className="mt-4 inline-flex min-h-11 items-center font-medium text-link underline underline-offset-4 hover:text-brand"
             >
-              See the full list
+              {t("See the full list", "ดูรายการทั้งหมด")}
             </Link>
           </>
         ) : (
-          <p className="text-muted-foreground">Nothing to fix: no open defects.</p>
+          <p className="text-muted-foreground">{t("Nothing to fix: no open defects.", "ไม่มีจุดที่ต้องซ่อม")}</p>
         )}
       </Card>
     </div>
@@ -165,11 +168,13 @@ function OverviewBody() {
 
 export default function OverviewPage() {
   const { project, survey } = useSelection();
+  const t = useT();
   return (
     <>
       <PageHeader
-        title="Overview"
+        title={t("Overview", "ภาพรวม")}
         crumb={project ? `${project.name}${survey ? ` / ${survey.name}` : ""}` : undefined}
+        actions={<HowWeMeasure />}
       />
       <SurveyGate>
         <OverviewBody />

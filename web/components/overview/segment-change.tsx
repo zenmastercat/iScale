@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { ConditionChip } from "@/components/shared/condition-chip";
 import { formatChainage, formatNumber } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 import type { Segment } from "@/lib/types";
 
 /**
@@ -21,6 +22,7 @@ export function SegmentChange({
   afterName: string;
   withSel: (path: string, extra?: Record<string, string>) => string;
 }) {
+  const t = useT();
   const byId = new Map(after.map((s) => [s.id, s]));
   const rows = before.map((b) => {
     const a = byId.get(b.id);
@@ -33,19 +35,19 @@ export function SegmentChange({
   return (
     <>
       <p className="mb-3 text-sm text-muted-foreground md:text-[13px]">
-        <span className="num font-medium text-grey-900">{improved}</span> better ·{" "}
-        <span className="num font-medium text-grey-900">{worse}</span> worse ·{" "}
-        <span className="num font-medium text-grey-900">{rows.length - improved - worse}</span> about the same
+        <span className="num font-medium text-grey-900">{improved}</span> {t("better", "ดีขึ้น")} ·{" "}
+        <span className="num font-medium text-grey-900">{worse}</span> {t("worse", "แย่ลง")} ·{" "}
+        <span className="num font-medium text-grey-900">{rows.length - improved - worse}</span> {t("about the same", "ใกล้เคียงเดิม")}
       </p>
       <div className="relative max-h-[22rem] overflow-auto">
         <table className="w-full text-sm md:text-[13px]">
           <caption className="sr-only">Condition per segment: {beforeName} compared with {afterName}</caption>
           <thead className="sticky top-0 bg-card">
             <tr className="border-b text-xs font-semibold tracking-wider text-grey-600 uppercase">
-              <th scope="col" className="py-2 pr-2 text-left font-semibold">Segment</th>
+              <th scope="col" className="py-2 pr-2 text-left font-semibold">{t("Segment", "ช่วง")}</th>
               <th scope="col" className="py-2 pr-2 text-left font-semibold">{beforeName}</th>
               <th scope="col" className="py-2 pr-2 text-left font-semibold">{afterName}</th>
-              <th scope="col" className="py-2 text-right font-semibold">Change</th>
+              <th scope="col" className="py-2 text-right font-semibold">{t("Change", "เปลี่ยนแปลง")}</th>
             </tr>
           </thead>
           <tbody>
@@ -58,7 +60,7 @@ export function SegmentChange({
                   </Link>
                 </th>
                 <td className="py-1 pr-2"><ConditionChip score={b.condition} showLabel={false} /></td>
-                <td className="py-1 pr-2">{a ? <ConditionChip score={a.condition} showLabel={false} /> : <span className="text-muted-foreground">not driven</span>}</td>
+                <td className="py-1 pr-2">{a ? <ConditionChip score={a.condition} showLabel={false} /> : <span className="text-muted-foreground">{t("not driven", "ไม่ได้สำรวจ")}</span>}</td>
                 <td className="num py-1 text-right whitespace-nowrap">
                   {d === null ? (
                     <span className="text-muted-foreground">–</span>

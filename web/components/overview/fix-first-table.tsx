@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { Money } from "@/components/shared/num";
 import { SeverityBadge } from "@/components/shared/severity-badge";
+import { useT } from "@/lib/i18n";
 import { useSelection } from "@/lib/selection";
 import type { Finding, PriorityItem } from "@/lib/types";
 
@@ -27,18 +28,19 @@ export function FixFirstTable({
   currency: string;
 }) {
   const { withSel } = useSelection();
+  const t = useT();
   return (
     <div className="relative overflow-x-auto">
       <table className="w-full min-w-[720px] text-left">
         <thead>
           <tr className="border-b text-xs font-semibold tracking-wider text-grey-600 uppercase">
-            <th scope="col" className="py-3 md:py-2 pr-4 font-semibold">Rank</th>
-            <th scope="col" className="py-3 md:py-2 pr-4 font-semibold">Finding</th>
-            <th scope="col" className="py-3 md:py-2 pr-4 font-semibold">Severity</th>
-            <th scope="col" className="py-3 md:py-2 pr-4 font-semibold">Segment</th>
-            <th scope="col" className="py-3 md:py-2 pr-4 font-semibold">Evidence</th>
-            <th scope="col" className="py-3 md:py-2 pr-4 text-right font-semibold">Cost</th>
-            <th scope="col" className="py-3 md:py-2"><span className="sr-only">Open</span></th>
+            <th scope="col" className="py-3 md:py-2 pr-4 font-semibold">{t("Rank", "อันดับ")}</th>
+            <th scope="col" className="py-3 md:py-2 pr-4 font-semibold">{t("Finding", "รายการ")}</th>
+            <th scope="col" className="py-3 md:py-2 pr-4 font-semibold">{t("Severity", "ความรุนแรง")}</th>
+            <th scope="col" className="py-3 md:py-2 pr-4 font-semibold">{t("Segment", "ช่วง")}</th>
+            <th scope="col" className="py-3 md:py-2 pr-4 font-semibold">{t("Evidence", "หลักฐาน")}</th>
+            <th scope="col" className="py-3 md:py-2 pr-4 text-right font-semibold">{t("Cost", "ค่าซ่อม")}</th>
+            <th scope="col" className="py-3 md:py-2"><span className="sr-only">{t("Open", "เปิด")}</span></th>
           </tr>
         </thead>
         <tbody>
@@ -63,9 +65,9 @@ export function FixFirstTable({
                   <Link
                     href={withSel("/map", { finding: it.id })}
                     className="inline-flex min-h-11 items-center px-1 font-medium text-link underline underline-offset-4 hover:text-brand"
-                    aria-label={`Open ${it.label} ${it.id} on the map`}
+                    aria-label={t(`Open ${it.label} ${it.id} on the map`, `เปิด ${it.label} ${it.id} บนแผนที่`)}
                   >
-                    Open
+                    {t("Open", "เปิด")}
                   </Link>
                 </td>
               </tr>

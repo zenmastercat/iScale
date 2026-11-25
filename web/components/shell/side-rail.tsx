@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSelection } from "@/lib/selection";
 import { Logo } from "./logo";
+import { useLang } from "@/lib/i18n";
 import { NAV } from "./nav";
 
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
@@ -12,14 +13,15 @@ const isActive = (pathname: string, href: string) => (href === "/" ? pathname ==
 export function SideRail() {
   const pathname = usePathname();
   const { withSel } = useSelection();
+  const { lang } = useLang();
   return (
     <nav aria-label="Main" className="sticky top-0 hidden print:hidden h-dvh w-60 shrink-0 flex-col bg-sidebar px-3 py-6 text-sidebar-foreground md:flex">
       <Link href={withSel("/")} className="mb-8 px-3">
         <Logo />
       </Link>
-      <p className="mb-2 px-3 text-xs font-medium tracking-wider text-white/70 uppercase">Workspace</p>
+      <p className="mb-2 px-3 text-xs font-medium tracking-wider text-white/70 uppercase">{lang === "th" ? "พื้นที่ทำงาน" : "Workspace"}</p>
       <ul className="flex flex-col gap-1">
-        {NAV.map(({ href, label, icon: Icon }) => {
+        {NAV.map(({ href, label, th, icon: Icon }) => {
           const active = isActive(pathname, href);
           return (
             <li key={href}>
@@ -32,7 +34,7 @@ export function SideRail() {
                 )}
               >
                 <Icon aria-hidden className="size-5" strokeWidth={1.75} />
-                {label}
+                {lang === "th" ? th : label}
               </Link>
             </li>
           );
@@ -46,13 +48,14 @@ export function SideRail() {
 export function BottomBar() {
   const pathname = usePathname();
   const { withSel } = useSelection();
+  const { lang } = useLang();
   return (
     <nav
       aria-label="Main"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-sidebar pb-[env(safe-area-inset-bottom)] md:hidden print:hidden"
     >
       <ul className="grid grid-cols-6">
-        {NAV.filter((n) => !n.desktopOnly).map(({ href, short, icon: Icon }) => {
+        {NAV.filter((n) => !n.desktopOnly).map(({ href, short, shortTh, icon: Icon }) => {
           const active = isActive(pathname, href);
           return (
             <li key={href}>
@@ -65,7 +68,7 @@ export function BottomBar() {
                 )}
               >
                 <Icon aria-hidden className={cn("size-5", active && "text-[#8ec0f0]")} strokeWidth={1.75} />
-                {short}
+                {lang === "th" ? shortTh : short}
               </Link>
             </li>
           );
