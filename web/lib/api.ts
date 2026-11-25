@@ -162,6 +162,9 @@ export const DEMO_ORIGIN = { lat: 13.806486, lon: 100.520277 };
  * Same as POST /api/demo (project "Demo district (synthetic)", a baseline and an after-repairs survey, processing
  * starts at once), but at DEMO_ORIGIN so the route follows real streets on the map.
  */
+/** Imports the recorded Sukhumvit pothole run as a finished survey (POST /api/demo/sukhumvit). */
+export const createSukhumvitDemo = () => api<ProjectSummary>("/api/demo/sukhumvit", { method: "POST" });
+
 export async function createDemo(): Promise<ProjectSummary> {
   const proj = await createProject("Demo district (synthetic)", DEMO_ORIGIN);
   const survey = (name: string, repaired: boolean) => {

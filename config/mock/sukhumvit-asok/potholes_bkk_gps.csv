@@ -1,0 +1,18 @@
+﻿ID,Road,Latitude,Longitude,Google_Maps_Link,Area_m2,Est_Material_kg,Est_Cost_THB,Image_Path,Frames,Hits,Min_Dist_Y_m,Avg_Lat_X_m,Max_Width_m,Max_Conf,Alerted
+#1,Sukhumvit Rd (Waypoints),13.736598,100.560587,"https://www.google.com/maps?q=13.736598,100.560587",10.6095,1342.11,24507.98,pothole_crops/pothole_id_1.jpg,6..186,16,2.85,0.45,2.12,0.9,True
+#2,Sukhumvit Rd (Waypoints),13.736534,100.56073,"https://www.google.com/maps?q=13.736534,100.56073",10.78,1363.67,24896.06,pothole_crops/pothole_id_2.jpg,39..186,29,2.32,0.97,2.53,0.91,True
+#3,Sukhumvit Rd (Waypoints),13.736514,100.560792,"https://www.google.com/maps?q=13.736514,100.560792",11.2131,1418.47,25882.46,pothole_crops/pothole_id_3.jpg,39..186,46,0.77,0.38,2.39,0.93,True
+#4,Sukhumvit Rd (Waypoints),13.736515,100.560783,"https://www.google.com/maps?q=13.736515,100.560783",10.3918,1314.56,24012.08,pothole_crops/pothole_id_4.jpg,54..186,45,0.77,0.62,2.08,0.93,True
+#5,Sukhumvit Rd (Waypoints),13.736486,100.560873,"https://www.google.com/maps?q=13.736486,100.560873",7.2972,923.1,16965.8,pothole_crops/pothole_id_5.jpg,69..183,26,0.55,-0.24,1.82,0.83,True
+#6,Sukhumvit Rd (Waypoints),13.736478,100.560876,"https://www.google.com/maps?q=13.736478,100.560876",11.3743,1438.84,26249.12,pothole_crops/pothole_id_6.jpg,69..180,28,2.51,0.45,2.45,0.89,True
+#7,Sukhumvit Rd (Waypoints),13.736479,100.560878,"https://www.google.com/maps?q=13.736479,100.560878",9.1255,1154.39,21129.02,pothole_crops/pothole_id_7.jpg,117..180,29,1.49,0.29,1.83,0.91,True
+#8,Sukhumvit Rd (Waypoints),13.736472,100.560898,"https://www.google.com/maps?q=13.736472,100.560898",8.5091,1076.41,19725.38,pothole_crops/pothole_id_8.jpg,117..180,19,2.47,0.16,2.04,0.91,True
+#9,Sukhumvit Rd (Waypoints),13.736467,100.560934,"https://www.google.com/maps?q=13.736467,100.560934",7.9416,1004.61,18432.98,pothole_crops/pothole_id_9.jpg,129..180,21,0.89,-0.88,1.81,0.88,True
+#10,Sukhumvit Rd (Waypoints),13.736452,100.560961,"https://www.google.com/maps?q=13.736452,100.560961",8.5212,1077.93,19752.74,pothole_crops/pothole_id_10.jpg,132..177,11,3.57,-0.43,2.34,0.86,True
+#11,Sukhumvit Rd (Waypoints),13.736443,100.560967,"https://www.google.com/maps?q=13.736443,100.560967",9.1928,1162.89,21282.02,pothole_crops/pothole_id_11.jpg,135..177,9,2.6,0.27,2.58,0.91,True
+#12,Sukhumvit Rd (Waypoints),13.736434,100.560996,"https://www.google.com/maps?q=13.736434,100.560996",8.4328,1066.75,19551.5,pothole_crops/pothole_id_12.jpg,165..174,5,3.94,-0.12,2.49,0.86,True
+#13,Sukhumvit Rd (Waypoints),13.736422,100.561012,"https://www.google.com/maps?q=13.736422,100.561012",9.2695,1172.6,21456.8,pothole_crops/pothole_id_13.jpg,168..171,3,10.07,0.49,2.55,0.88,False
+#14,Sukhumvit Rd (Waypoints),13.73643,100.561013,"https://www.google.com/maps?q=13.73643,100.561013",0.2433,30.79,904.22,pothole_crops/pothole_id_14.jpg,171..171,2,11.65,-0.43,0.3,0.82,False
+#15,Sukhumvit Rd (Waypoints),13.736445,100.560979,"https://www.google.com/maps?q=13.736445,100.560979",9.9707,1261.31,23053.58,pothole_crops/pothole_id_15.jpg,177..180,2,3.15,-0.54,2.6,0.9,True
+#16,Sukhumvit Rd (Waypoints),13.736432,100.56102,"https://www.google.com/maps?q=13.736432,100.56102",1.0628,134.44,2769.92,pothole_crops/pothole_id_16.jpg,180..183,2,8.24,-0.89,0.85,0.85,False
+#17,Sukhumvit Rd (Waypoints),13.736443,100.560988,"https://www.google.com/maps?q=13.736443,100.560988",1.588,200.88,3965.84,pothole_crops/pothole_id_17.jpg,183..183,1,5.09,-0.68,0.89,0.84,False

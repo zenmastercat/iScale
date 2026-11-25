@@ -207,7 +207,19 @@ export interface Finding {
   lon: number;
   status: FindingStatus;
   history?: FindingHistoryEntry[];
+  /** an engineer's judgement of the 3D check (POST .../review); `by` is the user id in the stored analysis */
+  review?: { verdict: "correct" | "wrong" | "unsure"; note?: string; at: number; by?: string; by_name?: string };
   note?: string;
+  /** imported camera run: a detector crop is served at GET /api/projects/{pid}/surveys/{sid}/findings/{id}/photo */
+  photo?: boolean;
+  /** weak detector track (few hits): check it first */
+  needs_review?: boolean;
+  /** detector confidence 0..1 */
+  confidence?: number;
+  detector?: {
+    track_id: string; frames: string; hits: number; max_conf: number; alerted: boolean; min_dist_y_m: number;
+    est_cost_thb: number; est_material_kg: number; est_volume_m3: number; crop: string;
+  };
   workorder_id?: string;
   verification?: { status: VerifyStatus; evidence: string; after_survey: string };
   /** added by GET .../analysis; null when not costed (assets, some defect types) */

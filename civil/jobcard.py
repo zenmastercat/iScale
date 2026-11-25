@@ -222,7 +222,9 @@ def finding_card(pid: str, sid: str, fid: str, request: Request):
     t = traffic.live_info(f["lat"], f["lon"], (seg or {}).get("traffic")) if seg and seg.get("traffic") else None
     sv = store.get_survey(pid, sid)
     try:
-        photo = best_frame(pid, sid, f)
+        from . import mock_import
+
+        photo = mock_import.photo_card(pid, sid, f) or best_frame(pid, sid, f)
     except (OSError, ValueError, KeyError):
         photo = None
     return build("finding", f, company_id=me["company_id"], lang=_lang(request), photo=photo, t=t,

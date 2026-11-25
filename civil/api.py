@@ -233,6 +233,24 @@ def demo(request: Request):
     return proj
 
 
+@app.post("/api/demo/sukhumvit")
+def demo_sukhumvit(request: Request):
+    """Import the recorded Sukhumvit pothole run (config/mock/sukhumvit-asok) as one finished survey."""
+    from . import mock_import
+
+    return mock_import.import_sukhumvit(auth.require(request)["company_id"])
+
+
+@app.get("/api/projects/{pid}/surveys/{sid}/findings/{fid}/photo")
+def finding_photo(pid: str, sid: str, fid: str):
+    from . import mock_import
+
+    f = mock_import.photo_path(pid, sid, fid)
+    if f is None:
+        raise KeyError("not found")
+    return FileResponse(f, media_type="image/jpeg")
+
+
 # --- surveys ---------------------------------------------------------------------------------
 @app.post("/api/projects/{pid}/surveys")
 async def create_survey(pid: str, request: Request, name: str = Form(...), decoder: str = Form(...), params: str = Form("{}"),
