@@ -47,7 +47,7 @@ function MapBody({ layers }: { layers: Layers }) {
               segmentId={segmentId}
               assetCodes={assetCodes}
               labelFor={labelFor}
-              onSelect={(id) => router.replace(withSel("/map", { finding: id }), { scroll: false })}
+              onSelect={(id) => router.push(withSel("/map", { finding: id }), { scroll: false })}
             />
           )}
         </div>

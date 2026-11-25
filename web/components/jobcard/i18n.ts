@@ -14,6 +14,7 @@ export const T = {
     fixedToast: "Marked as fixed", failToast: "Could not update the finding", noCost: "No cost estimate for this finding type.",
     missingFinding: "Choose a finding", missingHint: "Open a finding from the map and press Open job card.",
     loadError: "Could not load the job card",
+    confirmTitle: "Mark this repair as fixed?", confirmBody: "The finding is recorded as fixed. You can verify it on the next survey.", cancel: "Cancel",
   },
   th: {
     title: "ใบงาน", back: "กลับ", lang: "EN",
@@ -28,5 +29,6 @@ export const T = {
     fixedToast: "บันทึกว่าซ่อมแล้ว", failToast: "ไม่สามารถอัปเดตได้", noCost: "ไม่มีประมาณการสำหรับประเภทนี้",
     missingFinding: "เลือกรายการ", missingHint: "เปิดรายการจากแผนที่ แล้วกด Open job card",
     loadError: "โหลดใบงานไม่สำเร็จ",
+    confirmTitle: "ยืนยันว่าซ่อมเสร็จแล้ว?", confirmBody: "ระบบจะบันทึกว่าซ่อมแล้ว และตรวจสอบได้ในการสำรวจรอบถัดไป", cancel: "ยกเลิก",
   },
 } as const;

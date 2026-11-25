@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Money, Num, SeverityBadge, StatusPill } from "@/components/shared";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiError, getJobCard, patchFinding, qk } from "@/lib/api";
@@ -46,6 +47,7 @@ export function JobCardView({ findingId }: { findingId: string }) {
   const pid = projectId ?? "";
   const sid = surveyId ?? "";
   const [lang, setLang] = useState<Lang>("en");
+  const [confirm, setConfirm] = useState(false);
   const t = T[lang];
   const analysis = useAnalysis();
   const q = useQuery({ queryKey: qk.jobCard(pid, sid, findingId), queryFn: () => getJobCard(pid, sid, findingId), enabled: !!pid && !!sid });
@@ -53,7 +55,9 @@ export function JobCardView({ findingId }: { findingId: string }) {
     mutationFn: () => patchFinding(pid, sid, findingId, { status: "fixed" }),
     onSuccess: () => {
       toast.success(t.fixedToast);
-      qc.invalidateQueries({ queryKey: ["project", pid] });
+      setConfirm(false);
+      for (const key of [qk.analysis(pid, sid), qk.priority(pid, sid), qk.workOrders(pid), qk.jobCard(pid, sid, findingId)])
+        qc.invalidateQueries({ queryKey: key });
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : t.failToast),
   });
@@ -139,11 +143,25 @@ export function JobCardView({ findingId }: { findingId: string }) {
         <Button
           className="min-h-12 flex-1 bg-brand text-base text-white hover:bg-brand/90"
           disabled={!c || isFixed || fixed.isPending || !c.severity}
-          onClick={() => fixed.mutate()}
+          onClick={() => setConfirm(true)}
         >
           {isFixed ? <><Check className="size-4" aria-hidden />{t.fixed}</> : fixed.isPending ? t.saving : t.markFixed}
         </Button>
       </div>
+      <Dialog open={confirm} onOpenChange={setConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.confirmTitle}</DialogTitle>
+            <DialogDescription>{t.confirmBody}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" className="min-h-11" onClick={() => setConfirm(false)}>{t.cancel}</Button>
+            <Button className="min-h-11 bg-brand text-white hover:bg-brand/90" disabled={fixed.isPending} onClick={() => fixed.mutate()}>
+              {fixed.isPending ? t.saving : t.markFixed}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

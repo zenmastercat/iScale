@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImageOff } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { useEffect, useRef } from "react";
 import { Money, Num, SeverityBadge, StatusPill } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -27,12 +28,18 @@ function Metric({ label, children }: { label: string; children: React.ReactNode 
 
 export function FindingDrawer({ findingId, onClose }: { findingId: string | null; onClose: () => void }) {
   const wide = useMediaQuery("(min-width: 768px)");
+  const lastId = useRef(findingId);
+  useEffect(() => {
+    if (findingId) lastId.current = findingId;
+  }, [findingId]);
   const analysis = useAnalysis();
   const finding = findingId ? analysis.data?.findings.find((f) => f.id === findingId) : undefined;
   return (
     <Sheet open={!!findingId} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
         side={wide ? "right" : "bottom"}
+        initialFocus={() => document.querySelector<HTMLElement>('[data-slot="sheet-close"]')}
+        finalFocus={() => (lastId.current ? document.querySelector<HTMLElement>(`[data-finding-id="${CSS.escape(lastId.current)}"]`) : null)}
         className={wide ? "w-full sm:max-w-md" : "max-h-[85dvh] overflow-y-auto rounded-t-lg"}
       >
         {findingId && analysis.data && !finding ? (
@@ -65,7 +72,10 @@ function DrawerBody({ f, segments }: { f: Finding; segments: import("@/lib/types
     mutationFn: () => createWorkOrder(pid, { survey_id: sid, finding_ids: [f.id] }),
     onSuccess: (wo) => {
       toast.success(`Added to work order ${wo.id}`);
-      qc.invalidateQueries({ queryKey: ["project", pid] });
+      qc.invalidateQueries({ queryKey: qk.workOrders(pid) });
+      qc.invalidateQueries({ queryKey: qk.analysis(pid, sid) });
+      qc.invalidateQueries({ queryKey: qk.priority(pid, sid) });
+      qc.invalidateQueries({ queryKey: qk.jobCard(pid, sid, f.id) });
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Could not create the work order"),
   });
