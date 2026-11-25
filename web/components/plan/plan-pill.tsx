@@ -1,8 +1,10 @@
 import { Check, Clock } from "lucide-react";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 /** Funded / Deferred: icon + word, never colour alone. */
 export function PlanPill({ funded }: { funded: boolean }) {
+  const t = useT();
   const Icon = funded ? Check : Clock;
   return (
     <span
@@ -12,7 +14,7 @@ export function PlanPill({ funded }: { funded: boolean }) {
       )}
     >
       <Icon aria-hidden className="size-3.5" strokeWidth={2.25} />
-      {funded ? "Funded" : "Deferred"}
+      {funded ? t("Funded", "ได้รับงบ") : t("Deferred", "เลื่อนไว้")}
     </span>
   );
 }

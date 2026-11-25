@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { createWorkOrder, qk } from "@/lib/api";
 import { formatMoney, formatNumber } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 import { useSelection } from "@/lib/selection";
 import type { SegmentPlan, SpotPlan } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,7 @@ type Mode = "spot" | "segment";
 const DEBOUNCE_MS = 150;
 
 function usePlanScreen() {
+  const t = useT();
   const { projectId, surveyId, withSel } = useSelection();
   const qc = useQueryClient();
   const [mode, setModeRaw] = useState<Mode>("spot");
@@ -32,8 +34,8 @@ function usePlanScreen() {
   const [debounced, setDebounced] = useState<number | null>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(budget), DEBOUNCE_MS);
-    return () => clearTimeout(t);
+    const h = setTimeout(() => setDebounced(budget), DEBOUNCE_MS);
+    return () => clearTimeout(h);
   }, [budget]);
 
   const spotAll = usePlan("spot", null);
@@ -61,9 +63,9 @@ function usePlanScreen() {
       qc.invalidateQueries({ queryKey: qk.analysis(projectId!, surveyId!) });
       qc.invalidateQueries({ queryKey: qk.priority(projectId!, surveyId!) });
       qc.invalidateQueries({ queryKey: ["project", projectId!, "survey", surveyId!, "plan"] });
-      toast.success(`Work order ${wo.id} created with ${wo.items.length} repairs`);
+      toast.success(t(`Work order ${wo.id} created with ${wo.items.length} repairs`, `สร้างใบสั่งงาน ${wo.id} แล้ว มี ${wo.items.length} งานซ่อม`));
     },
-    onError: (e: Error) => toast.error(`Could not create the work order: ${e.message}`),
+    onError: (e: Error) => toast.error(`${t("Could not create the work order", "สร้างใบสั่งงานไม่ได้")}: ${e.message}`),
   });
 
   function setBudgetClamped(v: number) {
@@ -78,7 +80,7 @@ function usePlanScreen() {
   }
 
   return {
-    mode, setMode, budget, setBudget, unlimited, max, shown, currency, plan, stale, spotPlan, fundedIds,
+    t, mode, setMode, budget, setBudget, unlimited, max, shown, currency, plan, stale, spotPlan, fundedIds,
     makeOrder, setBudgetClamped, spotAll, segAll, withSel,
   };
 }
@@ -86,13 +88,13 @@ function usePlanScreen() {
 type PlanScreen = ReturnType<typeof usePlanScreen>;
 
 function PlanBody({ s }: { s: PlanScreen }) {
-  const { mode, setMode, budget, setBudget, unlimited, max, shown, currency, plan, stale, spotPlan,
+  const { t, mode, setMode, budget, setBudget, unlimited, max, shown, currency, plan, stale, spotPlan,
     makeOrder, setBudgetClamped, spotAll, segAll, withSel } = s;
   const all = mode === "spot" ? spotAll.data : segAll.data;
   if (spotAll.isError || segAll.isError)
     return (
       <p role="alert" className="text-sev-high-fg">
-        Could not load the plan: {(spotAll.error ?? segAll.error)?.message}
+        {t("Could not load the plan", "โหลดแผนซ่อมไม่ได้")}: {(spotAll.error ?? segAll.error)?.message}
       </p>
     );
   if (!plan || !all) return <Skeleton className="h-96 w-full" />;
@@ -108,21 +110,21 @@ function PlanBody({ s }: { s: PlanScreen }) {
   const presets = [0.25, 0.5, 0.75].map((p) => ({ label: `${p * 100}%`, value: Math.round((unlimited * p) / 50) * 50 }));
 
   return (
-    <div className="flex flex-col gap-6">
-      <section aria-label="Budget" className="rounded-lg border bg-card p-5 md:p-7">
+    <div className="flex flex-col gap-6 md:gap-4">
+      <section aria-label={t("Budget", "งบประมาณ")} className="rounded-lg border bg-card p-5 md:p-4">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-muted-foreground">Budget</p>
-            <p className="num text-5xl font-semibold tracking-tight text-brand md:text-6xl" aria-live="polite">
-              {budget === null ? "No limit" : formatMoney(shown, currency)}
+            <p className="text-sm font-medium text-muted-foreground">{t("Budget", "งบประมาณ")}</p>
+            <p className="num text-5xl font-semibold tracking-tight text-brand md:text-5xl" aria-live="polite">
+              {budget === null ? t("No limit", "ไม่จำกัด") : formatMoney(shown, currency)}
             </p>
             {budget === null && (
-              <p className="num mt-1 text-sm text-muted-foreground">Everything costs {formatMoney(unlimited, currency)}</p>
+              <p className="num mt-1 text-sm text-muted-foreground">{t("Everything costs", "ซ่อมทั้งหมดใช้")} {formatMoney(unlimited, currency)}</p>
             )}
           </div>
           <div
             role="group"
-            aria-label="Plan mode"
+            aria-label={t("Plan mode", "รูปแบบแผน")}
             className="inline-flex rounded-lg border p-0.5"
           >
             {(["spot", "segment"] as const).map((m) => (
@@ -136,7 +138,7 @@ function PlanBody({ s }: { s: PlanScreen }) {
                   mode === m ? "bg-brand text-white" : "text-grey-700 hover:bg-grey-50",
                 )}
               >
-                {m === "spot" ? "Spot repairs" : "Whole segments"}
+                {m === "spot" ? t("Spot repairs", "ซ่อมเป็นจุด") : t("Whole segments", "ซ่อมทั้งช่วง")}
               </button>
             ))}
           </div>
@@ -144,7 +146,7 @@ function PlanBody({ s }: { s: PlanScreen }) {
 
         <div className="mt-6 flex min-h-11 items-center">
           <Slider
-            aria-label="Budget"
+            aria-label={t("Budget", "งบประมาณ")}
             min={0}
             max={max}
             step={50}
@@ -158,8 +160,10 @@ function PlanBody({ s }: { s: PlanScreen }) {
           <span>{formatNumber(max)}</span>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
-          Drag to set how much you can spend. Repairs are funded in priority order until the money runs out; the rest
-          wait. The mobilisation fee is paid once.
+          {t(
+            "Drag to set how much you can spend. Repairs are funded in priority order until the money runs out; the rest wait. The mobilisation fee is paid once.",
+            "ลากเพื่อกำหนดงบที่ใช้ได้ งานซ่อมจะได้รับงบตามลำดับความสำคัญจนงบหมด งานที่เหลือรอก่อน ค่าเคลื่อนย้ายจ่ายครั้งเดียว",
+          )}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {presets.map((p) => (
@@ -168,7 +172,7 @@ function PlanBody({ s }: { s: PlanScreen }) {
             </Button>
           ))}
           <Button variant={budget === null ? "default" : "outline"} className="min-h-11" onClick={() => setBudget(null)}>
-            No limit
+            {t("No limit", "ไม่จำกัด")}
           </Button>
         </div>
 
@@ -179,47 +183,47 @@ function PlanBody({ s }: { s: PlanScreen }) {
 
       <div className={cn("grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 transition-opacity", stale && "opacity-70")}>
         <KpiTile
-          label="Funded"
+          label={t("Funded", "ได้รับงบ")}
           value={plan.items.length}
-          sub={<>{mode === "spot" ? "repairs" : "segments"} · <span className="num">{formatMoney(fundedCost, currency)}</span></>}
+          sub={<>{mode === "spot" ? t("repairs", "งานซ่อม") : t("segments", "ช่วง")} · <span className="num">{formatMoney(fundedCost, currency)}</span></>}
         />
         <KpiTile
-          label="Deferred"
+          label={t("Deferred", "เลื่อนไว้")}
           value={plan.deferred.length}
-          sub={<>{mode === "spot" ? "repairs" : "segments"} · <span className="num">{formatMoney(deferredCost, currency)}</span></>}
+          sub={<>{mode === "spot" ? t("repairs", "งานซ่อม") : t("segments", "ช่วง")} · <span className="num">{formatMoney(deferredCost, currency)}</span></>}
         />
         <KpiTile
-          label="Mobilisation"
+          label={t("Mobilisation", "ค่าเคลื่อนย้าย")}
           value={spotPlan ? formatNumber(spotPlan.mobilization) : "–"}
           unit={spotPlan ? currency : undefined}
-          sub={spotPlan ? "one-off, included in the funded cost" : "not applied to whole segments"}
+          sub={spotPlan ? t("one-off, included in the funded cost", "จ่ายครั้งเดียว รวมในยอดที่ได้รับงบ") : t("not applied to whole segments", "ไม่คิดกับการซ่อมทั้งช่วง")}
         />
         <KpiTile
-          label="High severity covered"
+          label={t("High severity covered", "งานรุนแรงสูงที่ได้รับงบ")}
           value={high ? `${high.covered}/${high.total}` : "–"}
-          sub={high ? (high.covered === high.total ? "all high-severity defects funded" : "high-severity defects still deferred") : "spot repairs only"}
+          sub={high ? (high.covered === high.total ? t("all high-severity defects funded", "ได้รับงบครบทุกจุดที่รุนแรงสูง") : t("high-severity defects still deferred", "ยังมีจุดรุนแรงสูงที่เลื่อนไว้")) : t("spot repairs only", "เฉพาะซ่อมเป็นจุด")}
         />
       </div>
 
-      <section aria-label="Plan items" className="rounded-lg border bg-card p-5 md:p-7">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-grey-900">
-            {mode === "spot" ? "Repairs" : "Segments"}{" "}
+      <section aria-label={t("Plan items", "รายการในแผน")} className="rounded-lg border bg-card p-5 md:p-4">
+        <div className="mb-5 md:mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg md:text-base font-semibold text-grey-900">
+            {mode === "spot" ? t("Repairs", "งานซ่อม") : t("Segments", "ช่วงถนน")}{" "}
             <span className="num text-sm font-normal text-muted-foreground">
-              {plan.items.length} funded · {plan.deferred.length} deferred
+              {plan.items.length} {t("funded", "ได้รับงบ")} · {plan.deferred.length} {t("deferred", "เลื่อนไว้")}
             </span>
           </h2>
         </div>
         {makeOrder.isSuccess && (
           <p role="status" className="mb-4 text-sm">
-            Work order <span className="num font-medium">{makeOrder.data.id}</span> created.{" "}
+            {t("Work order", "ใบสั่งงาน")} <span className="num font-medium">{makeOrder.data.id}</span> {t("created.", "สร้างแล้ว")}{" "}
             <Link href={withSel("/verification")} className="font-medium text-link underline underline-offset-4">
-              Track it in Verification
+              {t("Track it in Verification", "ติดตามในหน้าตรวจยืนยัน")}
             </Link>
           </p>
         )}
         {plan.items.length + plan.deferred.length === 0 ? (
-          <EmptyState title="Nothing to repair" description="This survey has no open defects to plan." />
+          <EmptyState title={t("Nothing to repair", "ไม่มีงานซ่อม")} description={t("This survey has no open defects to plan.", "การสำรวจนี้ไม่มีข้อบกพร่องที่ต้องวางแผนซ่อม")} />
         ) : plan.mode === "spot" ? (
           <SpotTable items={plan.items} deferred={plan.deferred} currency={currency} />
         ) : (
@@ -234,11 +238,11 @@ function PlanBody({ s }: { s: PlanScreen }) {
 export default function RepairPlanPage() {
   const { project, survey } = useSelection();
   const screen = usePlanScreen();
-  const { mode, fundedIds, makeOrder, stale } = screen;
+  const { t, mode, fundedIds, makeOrder, stale } = screen;
   return (
     <>
       <PageHeader
-        title="Repair plan"
+        title={t("Repair plan", "แผนซ่อม")}
         crumb={project ? `${project.name}${survey ? ` / ${survey.name}` : ""}` : undefined}
         actions={
           survey?.status === "done" && mode === "spot" ? (
@@ -248,7 +252,7 @@ export default function RepairPlanPage() {
               onClick={() => makeOrder.mutate()}
             >
               <ClipboardList aria-hidden />
-              {makeOrder.isPending ? "Creating…" : `Create work order (${fundedIds.length})`}
+              {makeOrder.isPending ? t("Creating…", "กำลังสร้าง…") : `${t("Create work order", "สร้างใบสั่งงาน")} (${fundedIds.length})`}
             </Button>
           ) : null
         }

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { runVerify } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 import { useSelection } from "@/lib/selection";
 import { invalidateRepairState } from "./invalidate";
 import type { WorkOrder } from "@/lib/types";
@@ -13,6 +14,7 @@ import type { WorkOrder } from "@/lib/types";
 const NONE = "__none__";
 
 export function VerifyPanel({ orders, workorderId }: { orders: WorkOrder[]; workorderId: string | null }) {
+  const t = useT();
   const { projectId, project } = useSelection();
   const qc = useQueryClient();
   const surveys = project?.survey_list.filter((s) => s.status === "done") ?? [];
@@ -29,14 +31,14 @@ export function VerifyPanel({ orders, workorderId }: { orders: WorkOrder[]; work
       runVerify(projectId!, { before, after, workorder_id: wo === NONE ? null : wo }),
     onSuccess: (v) => {
       invalidateRepairState(qc, projectId!, project?.baseline);
-      toast.success(`Verified ${v.counts.verified}, not fixed ${v.counts.not_fixed}, not covered ${v.counts.not_covered}`);
+      toast.success(t(`Verified ${v.counts.verified}, still present ${v.counts.not_fixed}, not covered ${v.counts.not_covered}`, `ยืนยันแล้ว ${v.counts.verified} ยังพบอยู่ ${v.counts.not_fixed} สำรวจไม่ถึง ${v.counts.not_covered}`));
     },
-    onError: (e: Error) => toast.error(`Verification failed: ${e.message}`),
+    onError: (e: Error) => toast.error(`${t("Verification failed", "ตรวจยืนยันไม่สำเร็จ")}: ${e.message}`),
   });
 
   const sItems = surveys.map((s) => ({ value: s.id, label: s.name }));
   const woItems = [
-    { value: NONE, label: "All repaired findings" },
+    { value: NONE, label: t("All repaired findings", "ทุกรายการที่ซ่อม") },
     ...orders.map((o) => ({ value: o.id, label: `${o.id} · ${o.title}` })),
   ];
   const ok = !!before && !!after && before !== after;
@@ -58,18 +60,18 @@ export function VerifyPanel({ orders, workorderId }: { orders: WorkOrder[]; work
   return (
     <div>
       <div className="flex flex-wrap items-end gap-4">
-        {field("Before survey (baseline)", "verify-before", sItems, before, setBefore)}
-        {field("After survey (repairs done)", "verify-after", sItems, after, setAfter)}
-        {field("Work order", "verify-wo", woItems, wo, setWo)}
+        {field(t("Before survey (baseline)", "การสำรวจก่อนซ่อม (ฐาน)"), "verify-before", sItems, before, setBefore)}
+        {field(t("After survey (repairs done)", "การสำรวจหลังซ่อม"), "verify-after", sItems, after, setAfter)}
+        {field(t("Work order", "ใบสั่งงาน"), "verify-wo", woItems, wo, setWo)}
         <Button type="button" variant="default" className="min-h-11" disabled={!ok || run.isPending} onClick={() => run.mutate()}>
           <ShieldCheck aria-hidden />
-          {run.isPending ? "Checking…" : "Run verification"}
+          {run.isPending ? t("Checking…", "กำลังตรวจ…") : t("Run verification", "เริ่มตรวจยืนยัน")}
         </Button>
       </div>
       {surveys.length < 2 && (
-        <p className="mt-3 text-sm text-muted-foreground">Verification needs two processed surveys: a before and an after.</p>
+        <p className="mt-3 text-sm text-muted-foreground">{t("Verification needs two processed surveys: a before and an after.", "การตรวจยืนยันต้องมีการสำรวจที่ประมวลผลแล้วสองรอบ คือก่อนและหลังซ่อม")}</p>
       )}
-      {before && before === after && <p role="alert" className="mt-3 text-sm text-sev-high-fg">Pick two different surveys.</p>}
+      {before && before === after && <p role="alert" className="mt-3 text-sm text-sev-high-fg">{t("Pick two different surveys.", "เลือกการสำรวจสองรอบที่ต่างกัน")}</p>}
     </div>
   );
 }
