@@ -55,6 +55,7 @@ Then in the laptop browser open **`http://<laptop-ip>:3000`** (not localhost, so
 |---|---|
 | No internet | Everything works except the map's street background (plain grey with a notice). Keep going. |
 | Phone can't open the QR link | Venue wifi may isolate devices. Turn on the **phone's hotspot**, join it with the laptop, restart terminal 2 (new IP), reload the laptop page. |
+| Page says **Can't reach the iScale server** | Terminal 1 stopped or crashed. Start it again, press **Retry**; you stay on the same page. |
 | Demo stuck processing | Check terminal 1 for errors. Stop both, start again with a new `CIVIL_DATA_DIR`. |
 | "already linked to another device" | That username was claimed by another browser. Use a new username, or Team → Reset device. |
 | A page errors | Use the old UI at `http://127.0.0.1:8765/` (static/) as a fallback for that step. |
