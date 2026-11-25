@@ -4,6 +4,7 @@ import { KeyRound, Smartphone, UserPlus } from "lucide-react";
 import QRCode from "qrcode";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
+import { GroupAdmin } from "@/components/chat/group-admin";
 import { PageHeader } from "@/components/shared/page-header";
 import { TeamTableSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
@@ -199,6 +200,7 @@ export default function TeamPage() {
       <PageHeader title={t("Team", "ทีม")} crumb={me?.company} />
       <div className="flex flex-col gap-6 md:gap-4">
         {isAdmin && <AddPerson />}
+        {isAdmin && <GroupAdmin />}
         <section aria-labelledby="team-h" className="rounded-lg border bg-card p-5 md:p-4">
           <h2 id="team-h" className="mb-3 text-lg font-semibold text-grey-900 md:text-base">
             {t("People", "สมาชิก")} {team.data && <span className="num text-sm font-normal text-muted-foreground">({team.data.length})</span>}

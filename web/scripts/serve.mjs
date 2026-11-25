@@ -16,6 +16,7 @@
 import { createHash } from "node:crypto";
 import { createReadStream, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import http from "node:http";
+import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -170,16 +171,54 @@ async function basemap(req, res, url) {
   }
 }
 
-http
-  .createServer((req, res) => {
+const server = http.createServer((req, res) => {
+  try {
+    handle(req, res);
+  } catch (e) {
+    if (!res.headersSent) res.writeHead(400, { "content-type": "text/plain" });
+    res.end(`bad request: ${e instanceof Error ? e.message : e}`);
+  }
+});
+server.listen(PORT, HOST, () => console.log(`iScale web: http://${HOST}:${PORT}  (api → ${API.origin})`));
+
+/**
+ * Crew chat: GET /xmpp is the XMPP-over-WebSocket the backend passes on to its chat server. Only that path is passed
+ * through, after the same Host check as everything else. The backend wants Host and Origin to agree and to be its own
+ * (it checks the session cookie too), so both are rewritten to the backend's, but only after our own Origin check above.
+ */
+server.on("upgrade", (req, socket, head) => {
+  const host = String(req.headers.host ?? "").toLowerCase();
+  // A browser always sends Origin on a WebSocket: it must be one of our own hosts (stops a page on another site opening
+  // this socket with the user's cookie). Only after that is it rewritten below, to what the backend expects.
+  let originHost = "";
+  if (req.headers.origin) {
     try {
-      handle(req, res);
-    } catch (e) {
-      if (!res.headersSent) res.writeHead(400, { "content-type": "text/plain" });
-      res.end(`bad request: ${e instanceof Error ? e.message : e}`);
+      originHost = new URL(String(req.headers.origin)).host.toLowerCase();
+    } catch {
+      originHost = "?";
     }
-  })
-  .listen(PORT, HOST, () => console.log(`iScale web: http://${HOST}:${PORT}  (api → ${API.origin})`));
+  }
+  if (!ALLOWED.has(host) || (req.headers.origin && !ALLOWED.has(originHost)) || !/^\/xmpp(\?|$)/.test(req.url ?? "")) {
+    socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
+    return socket.destroy();
+  }
+  const up = net.connect(Number(API.port) || 80, API.hostname);
+  up.on("error", () => {
+    socket.write("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n");
+    socket.destroy();
+  });
+  socket.on("error", () => up.destroy());
+  up.on("connect", () => {
+    const headers = { ...req.headers, host: API.host, "x-forwarded-for": req.socket.remoteAddress ?? "", "x-forwarded-proto": "http" };
+    if (headers.origin) headers.origin = `http://${API.host}`;
+    delete headers.forwarded;
+    const lines = Object.entries(headers).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`);
+    up.write(`${req.method} ${req.url} HTTP/1.1\r\n${lines.join("\r\n")}\r\n\r\n`);
+    if (head?.length) up.write(head);
+    socket.pipe(up);
+    up.pipe(socket);
+  });
+});
 
 function handle(req, res) {
     if (!ALLOWED.has(String(req.headers.host ?? "").toLowerCase())) {
