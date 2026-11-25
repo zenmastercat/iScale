@@ -256,15 +256,44 @@ def render(f: dict, ev: dict, panel: str = "top") -> bytes:
 
 
 # --- routes ----------------------------------------------------------------------------------------
-@router.get("/check")
-def get_check(pid: str, sid: str, fid: str):
-    _, f = _finding(pid, sid, fid)
-    ev = _evidence(_recon(pid, sid), f)
-    m = f.get("metrics") or {}
+def _review_out(f: dict):
     rev = f.get("review")
     if rev:
         who = auth.person(rev.get("by")) or {}
         rev = {**{k: rev[k] for k in ("verdict", "note", "at") if k in rev}, "by": who.get("username"), "by_name": who.get("display_name")}
+    return rev
+
+
+def _photo_check(f: dict) -> dict:
+    """A camera-only survey has no point cloud: the evidence is the detector's crop, so review on the photo."""
+    d = f.get("detector") or {}
+    conf = f.get("confidence", d.get("max_conf"))
+    bits = []
+    if conf is not None:
+        bits.append(f"confidence {conf * 100:.0f}%")
+    if d.get("hits") is not None:
+        bits.append(f"{d['hits']} detections")
+    if d.get("frames"):
+        bits.append(f"in frames {d['frames']}")
+    text = ("Photo only: the detector marked this spot" + (f" ({', '.join(bits)})" if bits else "")
+            + ". There is no 3D for this survey, so the depth was not measured; check the photo.")
+    warn = []
+    if f.get("needs_review"):
+        warn.append("Weak detector track (few detections): check this one first.")
+    return {"id": f["id"], "type": f["type"], "severity": f.get("severity"), "source": f.get("source"),
+            "verdict": {"code": "photo_only", "text": text, "warnings": warn}, "photo_only": True,
+            "detector_points": 0, "detector_points_inside": 0, "points": 0, "measured_depth_m": None, "area_m2": None,
+            "confidence": conf, "review": _review_out(f), "images": {}}
+
+
+@router.get("/check")
+def get_check(pid: str, sid: str, fid: str):
+    _, f = _finding(pid, sid, fid)
+    if f.get("photo") and not store.recon_path(pid, sid).is_file():
+        return _photo_check(f)
+    ev = _evidence(_recon(pid, sid), f)
+    m = f.get("metrics") or {}
+    rev = _review_out(f)
     return {"id": f["id"], "type": f["type"], "severity": f.get("severity"), "source": f.get("source"),
             "verdict": verdict(f, ev), "detector_points": ev["det_points"], "detector_points_inside": ev["det_inside"],
             "points": ev["points"], "measured_depth_m": m.get("depth_max_m"), "area_m2": m.get("area_m2"),

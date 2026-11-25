@@ -188,6 +188,14 @@ def build(kind: str, f: dict, *, company_id: str, lang: str, photo: dict | None,
     m = f.get("metrics") or {}
     tiles = [(k, lbl, unit) for k, lbl, unit in (("area_m2", "Size", "m²"), ("depth_max_m", "Depth", "m"),
                                                   ("volume_m3", "Volume", "m³"), ("diameter_m", "Width", "m")) if m.get(k) is not None]
+    if m.get("depth_assumed"):  # camera-only finding: say so on the card instead of presenting 5 cm as measured
+        th = lang.lower().startswith("th")
+        tiles = [(k, lbl, unit) for k, lbl, unit in tiles if k not in ("depth_max_m", "volume_m3")]
+        m = {**m, "depth_assumed_cm": round(float(m["depth_max_m"]) * 100, 1),
+             "volume_est_l": round(float(m["volume_m3"]) * 1000, 1) if m.get("volume_m3") is not None else None}
+        tiles += [("depth_assumed_cm", "ความลึก (สมมติ)" if th else "Depth (assumed)", "cm")]
+        if m["volume_est_l"] is not None:
+            tiles += [("volume_est_l", "ปริมาตร (ประมาณ)" if th else "Volume (estimated)", "L")]
     return {
         "kind": kind, "id": f["id"], "type": f["type"], "label": it.label if it else f["type"], "severity": sev,
         "status": f.get("status", "open"),

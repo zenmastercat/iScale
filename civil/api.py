@@ -251,6 +251,17 @@ def finding_photo(pid: str, sid: str, fid: str):
     return FileResponse(f, media_type="image/jpeg")
 
 
+@app.get("/api/projects/{pid}/surveys/{sid}/findings/{fid}/detection")
+def finding_detection(pid: str, sid: str, fid: str):
+    """The detector's own view of an imported finding: its box and confidence drawn on the crop."""
+    from . import mock_import
+
+    f = mock_import.photo_path(pid, sid, fid, detection=True)
+    if f is None:
+        raise KeyError("not found")
+    return FileResponse(f, media_type="image/jpeg")
+
+
 # --- surveys ---------------------------------------------------------------------------------
 @app.post("/api/projects/{pid}/surveys")
 async def create_survey(pid: str, request: Request, name: str = Form(...), decoder: str = Form(...), params: str = Form("{}"),
