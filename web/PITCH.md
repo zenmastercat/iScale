@@ -21,11 +21,12 @@ A fresh data folder gives first-run setup and an empty project list. Use a new o
 CIVIL_DATA_DIR=$HOME/iscale-pitch-$(date +%H%M) uv run civil serve        # :8765
 
 # terminal 2: the built site (fast, no compile pauses)
-cd web && HOST=0.0.0.0 CIVIL_ALLOWED_HOSTS=$(hostname -I | awk '{print $1}') pnpm serve
+IP=$(ip -4 route get 1.1.1.1 | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}')   # macOS: IP=$(ipconfig getifaddr en0)
+cd web && HOST=0.0.0.0 CIVIL_ALLOWED_HOSTS=$IP pnpm serve        # tested: LAN ip 200, other hosts 400
 ```
 
 Then in the laptop browser open **`http://<laptop-ip>:3000`** (not localhost, so the QR codes work for phones).
-`hostname -I` prints the IP. On macOS use `ipconfig getifaddr en0`.
+`echo $IP` prints it (e.g. `192.168.30.146`).
 
 1. `/login` shows **Set up iScale for your team**. Company: *Bang Sue District Works*, your name, username `presenter`.
 2. Press **Load demo street**. Processing takes ~20–30 s: talk over it (step 1 of the story).
