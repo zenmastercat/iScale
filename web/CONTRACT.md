@@ -28,7 +28,7 @@ Sign in at `/login`. Press **Load demo street** on any page with no project.
 | Who | Owns (create anything inside) | Routes |
 |---|---|---|
 | **Lead** | `package.json`, lockfile, all configs, `app/layout.tsx`, `app/globals.css`, `app/(app)/layout.tsx`, `app/(app)/page.tsx`, `app/login/`, `lib/**`, `components/ui/**`, `components/shared/**`, `components/shell/**`, `components/overview/**`, `CONTRACT.md`, `scripts/` | `/`, `/login` |
-| **A** (Map, finding drawer, job card) | `app/(app)/map/`, `app/(app)/job/`, `components/map/`, `components/jobcard/` | `/map`, `/job` |
+| **A** (Map, finding drawer, job card, Findings table) | `app/(app)/map/`, `app/(app)/job/`, `app/(app)/findings/`, `components/map/`, `components/jobcard/`, `components/findings/` | `/map`, `/job`, `/findings` |
 | **B** (Repair plan, Fix first, Verification, Surveys) | `app/(app)/plan/`, `app/(app)/fix-first/`, `app/(app)/verification/`, `app/(app)/surveys/`, `components/plan/`, `components/fix-first/`, `components/verification/`, `components/surveys/` | `/plan`, `/fix-first`, `/verification`, `/surveys` |
 | Everyone | `STATUS.md`: your own section only | |
 
@@ -68,7 +68,7 @@ export default function MapPage() {
 
 ## Routes (`components/shell/nav.ts`, `ROUTES`)
 
-`/` Overview · `/map` Map (`?finding=<fid>` opens the drawer, `?segment=<sid>` focuses a segment) ·
+`/` Overview · `/findings` every finding (filters in the URL, see `lib/findings-filter.ts`; desktop rail only) · `/map` Map (`?finding=<fid>` opens the drawer, `?segment=<sid>` focuses a segment) ·
 `/fix-first` · `/plan` · `/verification` · `/surveys` · `/job?finding=<fid>` phone job card · `/login`.
 The Overview already links to `/map?finding=…`, `/map?segment=…` and `/fix-first`. Please support those params.
 
@@ -154,6 +154,12 @@ Installed packages you may import: `@tanstack/react-query`, `react-map-gl` (use 
 `grey-50…900` · `sev-{high,medium,low}` (marks), `-fg` (text), `-bg` (fill) ·
 `bg-cond-{good,satisfactory,fair,poor,very-poor,failed,none}` · radius 6px (`rounded-lg`) ·
 `class="num"` on every figure (Plex Mono, tabular-nums).
+
+## Density (decided 25 Nov)
+
+Users are signed-in staff, so pages are **dense on desktop, roomy on phones**. On `md+`: card padding `md:p-4`
+(not 5–7), gaps `md:gap-4`, table text `md:text-[13px]`, row padding `md:py-1.5`, headings `md:text-base`.
+Below `md` keep today's sizes and the 44 px targets. Figures always in `num`.
 
 ## Accessibility (checked at review)
 

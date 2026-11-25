@@ -52,7 +52,7 @@ export function BottomBar() {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-sidebar pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <ul className="grid grid-cols-6">
-        {NAV.map(({ href, short, icon: Icon }) => {
+        {NAV.filter((n) => !n.desktopOnly).map(({ href, short, icon: Icon }) => {
           const active = isActive(pathname, href);
           return (
             <li key={href}>
