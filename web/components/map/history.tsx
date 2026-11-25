@@ -5,6 +5,8 @@ import { useT } from "@/lib/i18n";
 import type { FindingHistoryEntry } from "@/lib/types";
 
 const MAX = 5;
+const CHECK_TH: Record<string, string> = { correct: "ถูกต้อง", wrong: "ผิด", unsure: "ไม่แน่ใจ" };
+const UID = /^u[0-9a-f]{8,}$/i;
 const VERIFY_TH: Record<string, string> = { verified: "ยืนยันแล้ว", not_fixed: "ยังพบอยู่", not_covered: "สำรวจไม่ถึง" };
 const WO_TH: Record<string, string> = { open: "เปิด", scheduled: "นัดหมายแล้ว", completed: "เสร็จแล้ว", verified: "ยืนยันแล้ว", partially_verified: "ยืนยันบางส่วน", cancelled: "ยกเลิก" };
 
@@ -17,11 +19,12 @@ function useEventLabel() {
     if (e === "planned") return t("Added to a work order", "เพิ่มในใบสั่งงาน");
     if (e.startsWith("workorder ")) return t(`Work order ${e.slice(10)}`, `ใบสั่งงาน: ${WO_TH[e.slice(10)] ?? e.slice(10)}`);
     if (e.startsWith("verification: ")) return t(`Verification: ${humanize(e.slice(14)).toLowerCase()}`, `ผลตรวจสอบ: ${VERIFY_TH[e.slice(14)] ?? e.slice(14)}`);
+    if (e.startsWith("3D check: ")) return t(`3D check: ${e.slice(10)}`, `ตรวจ 3D: ${CHECK_TH[e.slice(10)] ?? e.slice(10)}`);
     return humanize(e);
   };
 }
 
-export function History({ entries }: { entries: FindingHistoryEntry[] | undefined }) {
+export function History({ entries, names = {} }: { entries: FindingHistoryEntry[] | undefined; names?: Record<string, string> }) {
   const t = useT();
   const label = useEventLabel();
   const [all, setAll] = useState(false);
@@ -38,7 +41,7 @@ export function History({ entries }: { entries: FindingHistoryEntry[] | undefine
             <div className="font-medium">{label(h.event)}</div>
             <div className="text-xs text-muted-foreground">
               <span className="num">{formatDate(h.t)}</span>
-              {h.by && ` · ${h.by}`}
+              {h.by && (names[h.by] || !UID.test(h.by)) && ` · ${names[h.by] ?? h.by}`}
               {h.workorder && <> · <span className="num">{h.workorder}</span></>}
               {h.fields?.length ? ` · ${h.fields.join(", ")}` : ""}
             </div>

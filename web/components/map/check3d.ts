@@ -15,6 +15,7 @@ export interface CheckResult {
   images: Record<string, string>;
   /** camera-only survey: no point cloud, the detector crop is the evidence */
   photo_only?: boolean;
+  confidence?: number | null;
 }
 
 const base = (pid: string, sid: string, fid: string) =>

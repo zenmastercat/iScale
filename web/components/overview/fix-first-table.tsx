@@ -10,6 +10,7 @@ const EVIDENCE: Record<string, string> = {
   geometry: "Measured",
   decoder: "Measured + detector",
   manual: "Tagged by hand",
+  detector: "Camera detector (depth assumed)",
 };
 
 export function evidenceSource(f?: Finding) {
@@ -17,7 +18,7 @@ export function evidenceSource(f?: Finding) {
   return EVIDENCE[f.source] ?? f.source;
 }
 
-const EVIDENCE_TH: Record<string, string> = { geometry: "วัดจริง", decoder: "วัดจริง + ตัวตรวจจับ", manual: "บันทึกด้วยมือ" };
+const EVIDENCE_TH: Record<string, string> = { geometry: "วัดจริง", decoder: "วัดจริง + ตัวตรวจจับ", manual: "บันทึกด้วยมือ", detector: "ตัวตรวจจับจากกล้อง (ความลึกสมมติ)" };
 /** Thai label for evidenceSource (CSV exports keep the English one). */
 export function evidenceSourceTh(f?: Finding) {
   if (!f) return "หมุดที่แชร์";
@@ -58,7 +59,7 @@ export function FixFirstTable({
                 <td className="num py-3 md:py-2 pr-4 font-semibold text-brand">#{it.rank}</td>
                 <td className="py-3 md:py-2 pr-4">
                   <p className="font-medium text-grey-900">{it.label}</p>
-                  {f?.evidence && <p className="text-sm text-muted-foreground">{f.evidence}</p>}
+                  {f?.evidence && <p className="text-sm text-muted-foreground">{t(f.evidence, f.evidence_th ?? f.evidence)}</p>}
                 </td>
                 <td className="py-3 md:py-2 pr-4">
                   <SeverityBadge severity={it.severity} size="sm" />

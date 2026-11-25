@@ -51,8 +51,8 @@ export const formatCm = (m: number | null | undefined, digits = 1) =>
 export const formatPercent = (share: number, digits = 0) => `${formatNumber(share * 100, digits)}%`;
 
 /** unix seconds → "24 Nov 2026, 17:40" */
-export function formatDate(unixSeconds: number, withTime = true): string {
-  return new Intl.DateTimeFormat("en-GB", {
+export function formatDate(unixSeconds: number, withTime = true, lang: "en" | "th" = "en"): string {
+  return new Intl.DateTimeFormat(lang === "th" ? "th-TH" : "en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",

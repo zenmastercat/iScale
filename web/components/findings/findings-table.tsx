@@ -132,7 +132,7 @@ export function FindingsTable({
         <td className="px-2 py-1"><StatusPill status={r.f.status} className="gap-1 py-0 text-xs" /></td>
         <td className="num px-2 py-1">{r.f.segment_id ?? "–"}</td>
         <td className="num px-2 py-1 text-right whitespace-nowrap">{r.chainage !== null ? formatChainage(r.chainage) : "–"}</td>
-        <td className="px-2 py-1 text-right"><Num value={r.depthCm} digits={1} unit="cm" /></td>
+        <td className="px-2 py-1 text-right">{r.depthCm !== null && r.f.metrics.depth_assumed ? <span title={t("Assumed depth: not measured (camera only)", "ความลึกสมมติ: ไม่ได้วัด (กล้องอย่างเดียว)")}>~<Num value={r.depthCm} digits={1} unit="cm" /></span> : <Num value={r.depthCm} digits={1} unit="cm" />}</td>
         <td className="px-2 py-1 text-right"><Num value={r.area} digits={2} unit="m²" /></td>
         <td className="px-2 py-1 text-right"><Num value={r.volumeL} digits={1} unit="L" /></td>
         <td className="px-2 py-1 text-right">{r.cost !== null ? <Money amount={r.cost} style="symbol" symbol={r.f.cost?.symbol} /> : "–"}</td>
@@ -237,7 +237,7 @@ export function FindingsTable({
                 <span className="num text-xs text-muted-foreground">{r.f.segment_id}{r.chainage !== null && ` · ${formatChainage(r.chainage)}`}</span>
               </span>
               <span className="flex flex-wrap gap-x-3 text-sm text-muted-foreground">
-                {r.depthCm !== null && <Num value={r.depthCm} digits={1} unit="cm" />}
+                {r.depthCm !== null && <>{r.f.metrics.depth_assumed && <span title={t("Assumed depth", "ความลึกสมมติ")}>~</span>}<Num value={r.depthCm} digits={1} unit="cm" /></>}
                 {r.area !== null && <Num value={r.area} digits={2} unit="m²" />}
                 {r.cost !== null && <Money amount={r.cost} style="symbol" symbol={r.f.cost?.symbol} />}
               </span>

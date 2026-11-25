@@ -5,14 +5,15 @@ import { usePlan } from "@/components/plan/use-plan";
 import { Money, Num } from "@/components/shared/num";
 import { SeverityIcon } from "@/components/shared/severity-badge";
 import { reviewOf, VERDICT, type Review } from "@/components/report/review";
-import { woLabel } from "@/components/verification/words";
+import { woLabel, woTitle } from "@/components/verification/words";
+import { TypeLabel } from "@/components/surveys/type-label";
+import { Loading } from "@/components/report/loading";
 import { QueryError } from "@/components/surveys/query-error";
-import { Skeleton } from "@/components/ui/skeleton";
 import { findingChainage, isOpenDefect } from "@/lib/chainage";
 import { bandFor, conditionShares, routeCondition } from "@/lib/condition";
 import { getAnalysis, qk } from "@/lib/api";
 import { formatChainage, formatDate, formatNumber, formatPercent } from "@/lib/format";
-import { useT } from "@/lib/i18n";
+import { useLang, useT } from "@/lib/i18n";
 import { useAnalysis, useAuthState, useCatalogLabel, useVerification, useWorkOrders } from "@/lib/queries";
 import { useSelection } from "@/lib/selection";
 import type { Severity, SpotPlan } from "@/lib/types";
@@ -52,6 +53,7 @@ function Figure({ label, value, sub }: { label: string; value: React.ReactNode; 
 /** The one-page council report. White A4 sheet on screen; the same markup is what gets printed. */
 export function ReportSheet() {
   const t = useT();
+  const { lang } = useLang();
   const labelFor = useCatalogLabel();
   const [today] = useState(() => Date.now() / 1000);
   const { project, survey } = useSelection();
@@ -104,7 +106,7 @@ export function ReportSheet() {
         onRetry={() => { analysis.refetch(); planQ.refetch(); }}
       />
     );
-  if (!stats || !planQ.data || planQ.data.mode !== "spot") return <Skeleton className="mx-auto h-[600px] w-full max-w-[210mm]" />;
+  if (!stats || !planQ.data || planQ.data.mode !== "spot") return <Loading className="mx-auto h-[600px] w-full max-w-[210mm]" />;
 
   const plan: SpotPlan = planQ.data;
   const top = [...plan.items, ...plan.deferred].sort((a, b) => b.priority - a.priority).slice(0, 10);
@@ -127,9 +129,9 @@ export function ReportSheet() {
           <h1 className="mt-1 text-xl font-semibold text-brand print:text-black">{project?.name}</h1>
           <p className="text-grey-700 print:text-black">{survey?.name}</p>
         </div>
-        <dl className="text-right text-[11px]">
+        <dl className="shrink-0 text-right text-[11px] whitespace-nowrap">
           <dt className="sr-only">{t("Date", "วันที่")}</dt>
-          <dd className="num">{formatDate(today, false)}</dd>
+          <dd className="num">{formatDate(today, false, lang)}</dd>
           {auth?.user && <dd>{auth.user.company}</dd>}
         </dl>
       </header>
@@ -203,7 +205,7 @@ export function ReportSheet() {
               {top.map((i, n) => (
                 <tr key={i.finding_id}>
                   <td className={`${TD} num`}>{n + 1}</td>
-                  <td className={TD}>{i.label} <span className="num text-grey-600 print:text-black">{i.finding_id}</span></td>
+                  <td className={TD}><TypeLabel type={i.type} fallback={i.label} /> <span className="num text-grey-600 print:text-black">{i.finding_id}</span></td>
                   <td className={TD}>
                     <span className="inline-flex items-center gap-1">
                       <SeverityIcon severity={i.severity} />
@@ -262,9 +264,9 @@ export function ReportSheet() {
                   </td>
                   <td className={TD}>
                     {/* `by` is a user id; only the signed-in user can be named without another request */}
-                    {r.by && auth?.user && (r.by === auth.user.username) ? auth.user.display_name : t("Engineer", "วิศวกร")}
+                    {r.by_name ?? (r.by && auth?.user && r.by === auth.user.username ? auth.user.display_name : t("Engineer", "วิศวกร"))}
                   </td>
-                  <td className={`${TD} num`}>{r.at ? formatDate(r.at > 1e12 ? r.at / 1000 : r.at, false) : "–"}</td>
+                  <td className={`${TD} num`}>{r.at ? formatDate(r.at > 1e12 ? r.at / 1000 : r.at, false, lang) : "–"}</td>
                 </tr>
               ))}
             </tbody>
@@ -281,7 +283,7 @@ export function ReportSheet() {
       {orders.isError ? (
         <QueryError what={t("Could not load work orders", "โหลดใบสั่งงานไม่ได้")} error={orders.error} onRetry={() => orders.refetch()} />
       ) : orders.isLoading ? (
-        <Skeleton className="h-10 w-full" />
+        <Loading className="h-10 w-full" />
       ) : woList.length === 0 ? (
         <p className="text-grey-700 print:text-black">{t("No work orders yet.", "ยังไม่มีใบสั่งงาน")}</p>
       ) : (
@@ -297,7 +299,7 @@ export function ReportSheet() {
           <tbody>
             {woList.map((w) => (
               <tr key={w.id}>
-                <td className={TD}><span className="num">{w.id}</span> {w.title}</td>
+                <td className={TD}><span className="num">{w.id}</span> {woTitle(t, w.title)}</td>
                 <td className={TD}>{woLabel(t, w.status)}</td>
                 <td className={`${TD} num text-right`}>{w.items.length}</td>
                 <td className={`${TD} text-right`}><Money amount={w.total} currency={w.currency} /></td>
@@ -311,7 +313,7 @@ export function ReportSheet() {
       {verification.isError ? (
         <QueryError what={t("Could not load the verification", "โหลดผลตรวจยืนยันไม่ได้")} error={verification.error} onRetry={() => verification.refetch()} />
       ) : verification.isLoading ? (
-        <Skeleton className="h-10 w-full" />
+        <Loading className="h-10 w-full" />
       ) : v ? (
         <div className="print:break-inside-avoid">
           <p className="text-grey-700 print:text-black">

@@ -13,9 +13,10 @@ import { findingChainage } from "@/lib/chainage";
 import { formatChainage } from "@/lib/format";
 import { useAnalysis, useCatalogLabel } from "@/lib/queries";
 import { useSelection } from "@/lib/selection";
-import { useT } from "@/lib/i18n";
+import { useLang, useT } from "@/lib/i18n";
 import type { Finding } from "@/lib/types";
 import { AiEvidence } from "./ai-evidence";
+import { checkKey, getCheck } from "./check3d";
 import { History } from "./history";
 import { QrBlock } from "./qr-block";
 import { TrustBadge } from "./trust";
@@ -67,10 +68,13 @@ function DrawerBody({ f, segments }: { f: Finding; segments: import("@/lib/types
   const { projectId, surveyId, withSel } = useSelection();
   const label = useCatalogLabel();
   const t = useT();
+  const { lang } = useLang();
   const qc = useQueryClient();
   const pid = projectId ?? "";
   const sid = surveyId ?? "";
   const card = useQuery({ queryKey: qk.jobCard(pid, sid, f.id), queryFn: () => getJobCard(pid, sid, f.id), enabled: !!pid && !!sid });
+  const check = useQuery({ queryKey: checkKey(pid, sid, f.id), queryFn: () => getCheck(pid, sid, f.id), enabled: !!pid && !!sid && !!f.review, retry: false });
+  const reviewerNames: Record<string, string> = f.review?.by && check.data?.review?.by_name ? { [f.review.by]: check.data.review.by_name } : {};
   const chain = findingChainage(f, segments);
   const m = f.metrics;
   const photo = card.data?.location.photo;
@@ -123,7 +127,7 @@ function DrawerBody({ f, segments }: { f: Finding; segments: import("@/lib/types
       )}
 
       <div className="grid grid-cols-2 gap-2">
-        {m.depth_max_m !== undefined && <Metric label={t("Depth", "ความลึก")}><Num value={m.depth_max_m * 100} digits={1} unit="cm" /></Metric>}
+        {m.depth_max_m !== undefined && <Metric label={m.depth_assumed ? t("Depth (assumed)", "ความลึก (สมมติ)") : t("Depth", "ความลึก")}><Num value={m.depth_max_m * 100} digits={1} unit="cm" /></Metric>}
         {m.diameter_m !== undefined && <Metric label={t("Across", "ความกว้าง")}><Num value={m.diameter_m} digits={2} unit="m" /></Metric>}
         {m.volume_m3 !== undefined && <Metric label={t("Missing", "ปริมาตรที่หาย")}><Num value={m.volume_m3 * 1000} digits={1} unit="L" /></Metric>}
         {m.area_m2 !== undefined && <Metric label={t("Area", "พื้นที่")}><Num value={m.area_m2} digits={2} unit="m²" /></Metric>}
@@ -133,7 +137,7 @@ function DrawerBody({ f, segments }: { f: Finding; segments: import("@/lib/types
 
       <p className="text-sm leading-relaxed">
         <span className="font-semibold">{t("Why flagged: ", "เหตุที่พบ: ")}</span>
-        {f.evidence}
+        {lang === "th" && f.evidence_th ? f.evidence_th : f.evidence}
       </p>
 
       {(card.isLoading || cost) && (
@@ -158,7 +162,7 @@ function DrawerBody({ f, segments }: { f: Finding; segments: import("@/lib/types
         </Button>
       </div>
       <AiEvidence findingId={f.id} status={f.status} detector={f.detector} confidence={f.confidence} detectionPhoto={f.detection_photo} />
-      <History entries={f.history} />
+      <History entries={f.history} names={reviewerNames} />
       <QrBlock findingId={f.id} />
       {!f.severity && <p className="text-xs text-muted-foreground">{t("Assets are inventory and can't be added to a work order.", "สินทรัพย์เป็นรายการสำรวจ เพิ่มในใบสั่งงานไม่ได้")}</p>}
     </div>

@@ -7,16 +7,16 @@ import { Money, Num } from "@/components/shared/num";
 import { Button } from "@/components/ui/button";
 import { patchWorkOrder } from "@/lib/api";
 import { formatDate } from "@/lib/format";
-import { useT } from "@/lib/i18n";
+import { useLang, useT } from "@/lib/i18n";
 import { useSelection } from "@/lib/selection";
 import { invalidateRepairState } from "./invalidate";
-import { woLabel } from "./words";
+import { woLabel, woTitle } from "./words";
 import type { WorkOrder, WorkOrderStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const NEXT: Partial<Record<WorkOrderStatus, { to: WorkOrderStatus; label: [string, string]; icon: typeof CalendarClock }>> = {
-  open: { to: "scheduled", label: ["Mark scheduled", "ทำเครื่องหมายนัดหมายแล้ว"], icon: CalendarClock },
-  scheduled: { to: "completed", label: ["Mark completed", "ทำเครื่องหมายเสร็จแล้ว"], icon: CheckCircle2 },
+  open: { to: "scheduled", label: ["Mark scheduled", "ตั้งเป็นนัดหมายแล้ว"], icon: CalendarClock },
+  scheduled: { to: "completed", label: ["Mark completed", "ตั้งเป็นเสร็จแล้ว"], icon: CheckCircle2 },
 };
 
 export function WorkOrderList({
@@ -29,6 +29,7 @@ export function WorkOrderList({
   onSelect: (id: string) => void;
 }) {
   const t = useT();
+  const { lang } = useLang();
   const { projectId, project } = useSelection();
   const qc = useQueryClient();
   const move = useMutation({
@@ -62,11 +63,11 @@ export function WorkOrderList({
                 className="min-h-11 text-left"
               >
                 <p className="font-medium text-grey-900">
-                  <span className="num">{wo.id}</span> · {wo.title}
+                  <span className="num">{wo.id}</span> · {woTitle(t, wo.title)}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   <Num value={wo.items.length} /> {t("repairs", "งานซ่อม")} · <Money amount={wo.total} currency={wo.currency} /> ·{" "}
-                  {formatDate(wo.created)}
+                  {formatDate(wo.created, true, lang)}
                 </p>
               </button>
               <div className="flex items-center gap-3">

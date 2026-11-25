@@ -13,7 +13,9 @@ import {
   listWorkOrders,
   qk,
 } from "@/lib/api";
+import { CATALOG_TH } from "@/lib/catalog-th";
 import { humanize } from "@/lib/format";
+import { useLang } from "@/lib/i18n";
 import { useSelection } from "@/lib/selection";
 
 export function useAuthState() {
@@ -27,9 +29,11 @@ export function useMeta() {
 /** label("manhole_sunken") → "Sunken manhole" (from /api/meta catalog), humanized fallback */
 export function useCatalogLabel() {
   const { data } = useMeta();
+  const { lang } = useLang();
   return useCallback(
-    (code: string) => data?.catalog.find((c) => c.code === code)?.label ?? humanize(code),
-    [data],
+    (code: string) =>
+      (lang === "th" ? CATALOG_TH[code] : undefined) ?? data?.catalog.find((c) => c.code === code)?.label ?? humanize(code),
+    [data, lang],
   );
 }
 

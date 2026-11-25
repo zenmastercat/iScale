@@ -4,7 +4,7 @@ export const T = {
   en: {
     title: "Job card", back: "Back", lang: "ไทย",
     location: "Location", materials: "Materials", timing: "Timing", steps: "Steps",
-    photo: "No drive frame for this survey", depth: "Depth", across: "Across", missing: "Missing", cutArea: "Cut area",
+    photo: "No drive frame for this survey", depth: "Depth", depthAssumed: "Depth (assumed)", volumeEst: "Volume (estimated)", across: "Across", missing: "Missing", cutArea: "Cut area",
     area: "Area", coords: "Coordinates", address: "Address", noAddress: "Address not available",
     method: "Method", bill: "Bill of materials", item: "Item", qty: "Qty", amount: "Amount", total: "Total",
     materialsOnly: "Materials only. Labour, equipment and traffic control are not included.",
@@ -20,7 +20,7 @@ export const T = {
   th: {
     title: "ใบงาน", back: "กลับ", lang: "EN",
     location: "ตำแหน่ง", materials: "วัสดุ", timing: "เวลา", steps: "ขั้นตอน",
-    photo: "ไม่มีภาพจากการสำรวจ", depth: "ความลึก", across: "ความกว้าง", missing: "ปริมาตรที่หาย", cutArea: "พื้นที่ตัด",
+    photo: "ไม่มีภาพจากการสำรวจ", depth: "ความลึก", depthAssumed: "ความลึก (สมมติ)", volumeEst: "ปริมาตร (ประมาณ)", across: "ความกว้าง", missing: "ปริมาตรที่หาย", cutArea: "พื้นที่ตัด",
     area: "พื้นที่", coords: "พิกัด", address: "ที่อยู่", noAddress: "ไม่มีข้อมูลที่อยู่",
     method: "วิธีซ่อม", bill: "รายการวัสดุ", item: "รายการ", qty: "จำนวน", amount: "จำนวนเงิน", total: "รวม",
     materialsOnly: "เฉพาะค่าวัสดุ ไม่รวมค่าแรง เครื่องจักร และการจัดการจราจร",

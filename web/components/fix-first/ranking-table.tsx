@@ -1,4 +1,5 @@
 "use client";
+import { TypeLabel } from "@/components/surveys/type-label";
 import { MapPin, Users } from "lucide-react";
 import Link from "next/link";
 import { Money, Num } from "@/components/shared/num";
@@ -31,7 +32,7 @@ export function RankingTable({
         </span>
       </span>
     ) : (
-      (f?.evidence ?? it.action)
+      (f ? t(f.evidence, f.evidence_th ?? f.evidence) : it.action)
     );
   const costBlock = (it: PriorityItem) => (
     <>
@@ -52,7 +53,7 @@ export function RankingTable({
           <div className="flex items-start justify-between gap-3">
             <p className="font-medium text-grey-900">
               <span className="num mr-2 font-semibold text-brand">#{it.rank}</span>
-              {it.label}
+              <TypeLabel type={findingsById.get(it.id)?.type ?? ""} fallback={it.label} />
             </p>
             <SeverityBadge severity={it.severity} size="sm" />
           </div>
@@ -112,7 +113,7 @@ export function RankingTable({
               <tr key={`${it.kind}-${it.id}`} className="border-b last:border-0">
                 <td className="num py-3 md:py-1.5 pr-4 font-semibold text-brand">#{it.rank}</td>
                 <td className="py-3 md:py-1.5 pr-4">
-                  <p className="font-medium text-grey-900">{it.label}</p>
+                  <p className="font-medium text-grey-900"><TypeLabel type={findingsById.get(it.id)?.type ?? ""} fallback={it.label} /></p>
                   <p className="text-sm md:text-[13px] text-muted-foreground">{detail(it, f)}</p>
                 </td>
                 <td className="py-3 md:py-1.5 pr-4"><SeverityBadge severity={it.severity} size="sm" /></td>

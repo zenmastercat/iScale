@@ -6,6 +6,8 @@ export interface Review {
   note?: string;
   /** user id (not a name) */
   by?: string;
+  /** display name added by the server when it can */
+  by_name?: string;
   /** unix seconds */
   at?: number;
 }

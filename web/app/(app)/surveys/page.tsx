@@ -16,7 +16,7 @@ import { SurveysSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
 import { retrySurvey, setBaseline } from "@/lib/api";
 import { formatDate, formatNumber } from "@/lib/format";
-import { useT } from "@/lib/i18n";
+import { useLang, useT } from "@/lib/i18n";
 import { useMeta } from "@/lib/queries";
 import { useSelection } from "@/lib/selection";
 import type { Survey } from "@/lib/types";
@@ -46,6 +46,7 @@ function StatusCell({ s }: { s: Survey }) {
 
 export default function SurveysPage() {
   const t = useT();
+  const { lang } = useLang();
   const { projectId, project, projects, projectsLoading, loadError, retryLoad, surveyId, setSurvey, withSel } = useSelection();
   const { data: meta } = useMeta();
   const qc = useQueryClient();
@@ -61,7 +62,8 @@ export default function SurveysPage() {
     onError: (e: Error) => toast.error(e.message),
   });
   const [confirm, setConfirm] = useState<Survey | null>(null);
-  const decoderLabel = (n: string) => meta?.decoders.find((d) => d.name === n)?.label ?? n;
+  const decoderLabel = (n: string) =>
+    n === "mock_camera" ? t("Camera run (sample)", "ข้อมูลจากกล้อง (ตัวอย่าง)") : meta?.decoders.find((d) => d.name === n)?.label ?? n;
 
   return (
     <>
@@ -124,7 +126,7 @@ export default function SurveysPage() {
                     <td className="py-3 md:py-1.5 pr-4"><StatusCell s={s} /></td>
                     <td className="py-3 md:py-1.5 pr-4 text-right">{s.stats ? <Num value={s.stats.length_m} unit="m" /> : "–"}</td>
                     <td className="py-3 md:py-1.5 pr-4 text-right">{s.stats ? <Num value={s.stats.findings} /> : "–"}</td>
-                    <td className="py-3 md:py-1.5 pr-4 text-sm md:text-[13px]">{formatDate(s.created)}</td>
+                    <td className="py-3 md:py-1.5 pr-4 text-sm md:text-[13px]">{formatDate(s.created, true, lang)}</td>
                     <td className="py-3 md:py-1.5">
                       <div className="flex flex-wrap justify-end gap-2">
                         {s.status === "done" && s.id !== surveyId && (

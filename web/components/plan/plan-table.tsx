@@ -1,4 +1,5 @@
 "use client";
+import { TypeLabel } from "@/components/surveys/type-label";
 import Link from "next/link";
 import { ConditionChip } from "@/components/shared/condition-chip";
 import { Money, Num } from "@/components/shared/num";
@@ -40,7 +41,7 @@ export function SpotTable({ items, deferred, currency }: { items: PlanItem[]; de
             <PlanPill funded={funded} />
             <SeverityBadge severity={i.severity} size="sm" />
           </div>
-          <p className="mt-2 font-medium text-grey-900">{i.label}</p>
+          <p className="mt-2 font-medium text-grey-900"><TypeLabel type={i.type} fallback={i.label} /></p>
           <p className="text-sm md:text-[13px] text-muted-foreground">{i.action_label}</p>
           <dl className="mt-3 grid grid-cols-3 gap-3 text-sm md:text-[13px]">
             <div><dt className="text-muted-foreground">{t("Segment", "ช่วง")}</dt><dd className="num">{i.segment_id}</dd></div>
@@ -79,7 +80,7 @@ export function SpotTable({ items, deferred, currency }: { items: PlanItem[]; de
                   href={withSel("/map", { finding: i.finding_id })}
                   className="inline-flex min-h-11 flex-col justify-center font-medium text-link underline-offset-4 hover:underline"
                 >
-                  {i.label}
+                  <TypeLabel type={i.type} fallback={i.label} />
                   <span className="num text-xs font-normal text-muted-foreground">{i.finding_id}</span>
                 </Link>
               </td>

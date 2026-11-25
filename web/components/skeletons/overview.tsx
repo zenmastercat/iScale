@@ -87,7 +87,7 @@ export function OverviewSkeleton() {
             <Box className="h-32 w-full rounded-md" />
             <Box className="mt-6 h-3 w-full rounded-full md:mt-4" />
             <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
-              {["w-10", "w-14", "w-8", "w-12", "w-10"].map((w, i) => (
+              {["w-16", "w-20", "w-14", "w-16", "w-20", "w-14"].map((w, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <Box className="size-3 rounded-[2px]" />
                   <Box className={`h-3 ${w}`} />

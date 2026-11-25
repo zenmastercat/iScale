@@ -10,7 +10,7 @@ import { useT } from "@/lib/i18n";
 import { useSelection } from "@/lib/selection";
 import { cn } from "@/lib/utils";
 import type { FindingStatus } from "@/lib/types";
-import { checkKey, getCheck, postReview, type ReviewVerdict } from "./check3d";
+import { checkKey, getCheck, postReview, type CheckResult, type ReviewVerdict } from "./check3d";
 
 const VERDICTS: { v: ReviewVerdict; en: string; th: string; Icon: typeof Check }[] = [
   { v: "correct", en: "Correct", th: "ถูกต้อง", Icon: Check },
@@ -101,14 +101,14 @@ export function AiEvidence({ findingId, status, detector, confidence, detectionP
       <div className="flex flex-col gap-2">
         {c.photo_only && (
           <>
-            <p className="text-xs text-muted-foreground">{t("Review the photo above: no 3D model for camera-only runs", "ตรวจจากภาพด้านบน: รันจากกล้องอย่างเดียวไม่มีโมเดล 3D")}</p>
+            <p className="text-xs text-muted-foreground">{t("No 3D model for camera runs: judge from the detector's view below", "รันจากกล้องไม่มีโมเดล 3D: ตัดสินจากมุมมองของตัวตรวจจับด้านล่าง")}</p>
             {detectionPhoto && (
               <figure className="flex flex-col gap-1">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={`/api/projects/${encodeURIComponent(pid)}/surveys/${encodeURIComponent(sid)}/findings/${encodeURIComponent(findingId)}/detection`}
                   alt={t("What the detector saw: its box and confidence on the camera frame", "สิ่งที่ตัวตรวจจับเห็น: กรอบและความมั่นใจบนภาพจากกล้อง")}
-                  className="w-full rounded-md border bg-grey-50 object-contain"
+                  className="w-full rounded-md border bg-grey-50 object-contain [image-rendering:auto]"
                   loading="lazy"
                 />
                 <figcaption className="text-xs text-muted-foreground">{t("Detector's view: box, confidence and distance ahead of the camera", "มุมมองของตัวตรวจจับ: กรอบ ความมั่นใจ และระยะห่างจากกล้อง")}</figcaption>
@@ -141,11 +141,11 @@ export function AiEvidence({ findingId, status, detector, confidence, detectionP
       {stats}
       <div className="text-sm">
         <p className="font-medium">{t("What the AI saw", "สิ่งที่ AI เห็น")}</p>
-        <p className="mt-0.5 text-muted-foreground">{c.verdict.text}</p>
+        <p className="mt-0.5 text-muted-foreground">{verdictText(c, t)}</p>
         {c.verdict.warnings.length > 0 && (
           <ul className="mt-2 flex flex-col gap-1 rounded-md border border-sev-medium bg-sev-medium-bg p-2 text-xs text-sev-medium-fg">
             {c.verdict.warnings.map((w, i) => (
-              <li key={i}>{w}</li>
+              <li key={i}>{warningText(w, t)}</li>
             ))}
           </ul>
         )}
@@ -182,4 +182,24 @@ export function AiEvidence({ findingId, status, detector, confidence, detectionP
       </div>
     </section>
   );
+}
+
+type Tr = (en: string, th: string) => string;
+
+/** The backend writes English; for the camera-only case we rebuild the sentence from its numbers. */
+function verdictText(c: CheckResult, t: Tr) {
+  if (c.verdict.code !== "photo_only") return c.verdict.text;
+  const conf = c.confidence != null ? `${t("confidence", "ความมั่นใจ")} ${Math.round(c.confidence * 100)}%` : "";
+  return t(
+    c.verdict.text,
+    `เฉพาะภาพถ่าย: ตัวตรวจจับทำเครื่องหมายจุดนี้${conf ? ` (${conf})` : ""} ไม่มีข้อมูล 3D สำหรับการสำรวจนี้ จึงไม่ได้วัดความลึก โปรดตรวจจากภาพ`,
+  );
+}
+
+const WARN_TH: [RegExp, string][] = [
+  [/^Weak detector track/, "แทร็กของตัวตรวจจับอ่อน (พบน้อยครั้ง): ควรตรวจรายการนี้ก่อน"],
+];
+function warningText(w: string, t: Tr) {
+  const hit = WARN_TH.find(([re]) => re.test(w));
+  return hit ? t(w, hit[1]) : w;
 }

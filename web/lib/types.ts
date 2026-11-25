@@ -212,6 +212,8 @@ export interface Finding {
   /** an engineer's judgement of the 3D check (POST .../review); `by` is the user id in the stored analysis */
   review?: { verdict: "correct" | "wrong" | "unsure"; note?: string; at: number; by?: string; by_name?: string };
   note?: string;
+  /** Thai version of `evidence` (imported camera run only) */
+  evidence_th?: string;
   /** imported camera run: a detector crop is served at GET /api/projects/{pid}/surveys/{sid}/findings/{id}/photo */
   photo?: boolean;
   /** imported camera run: the detector's own view (its box + "#id conf y" label) at GET .../findings/{id}/detection */

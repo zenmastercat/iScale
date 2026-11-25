@@ -15,3 +15,9 @@ export const WO_STATUS: Record<WorkOrderStatus, [string, string]> = {
   partially_verified: ["Partly verified", "ยืนยันบางส่วน"],
   cancelled: ["Cancelled", "ยกเลิก"],
 };
+
+/** Work order titles are made by the server as "N repairs"; show them in Thai when asked. */
+export function woTitle(t: (en: string, th: string) => string, title: string): string {
+  const m = /^(\d+) repairs?$/.exec(title);
+  return m ? t(title, `${m[1]} งานซ่อม`) : title;
+}

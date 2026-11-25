@@ -119,7 +119,7 @@ export function JobCardView({ findingId }: { findingId: string }) {
           </TabsList>
           <div className="bg-grey-50 p-4 pb-40 md:pb-24">
             <TabsContent value="location" className="flex flex-col gap-3">
-              <Location c={c} t={t} />
+              <Location c={c} t={t} evidenceTh={finding?.evidence_th} />
             </TabsContent>
             <TabsContent value="materials" className="flex flex-col gap-3">
               <Materials c={c} t={t} />
@@ -171,10 +171,12 @@ export function JobCardView({ findingId }: { findingId: string }) {
   );
 }
 
-function Location({ c, t }: { c: JobCard; t: (typeof T)[Lang] }) {
+function Location({ c, t, evidenceTh }: { c: JobCard; t: (typeof T)[Lang]; evidenceTh?: string }) {
+  const { lang } = useLang();
+  const evidence = lang === "th" && evidenceTh ? evidenceTh : c.location.evidence;
   const L = c.location;
   const tiles = L.tiles.filter((x) => x.value !== null);
-  const label: Record<string, string> = { depth_max_m: t.depth, diameter_m: t.across, volume_m3: t.missing, area_m2: t.area };
+  const label: Record<string, string> = { depth_max_m: t.depth, diameter_m: t.across, volume_m3: t.missing, area_m2: t.area, depth_assumed_cm: t.depthAssumed, volume_est_l: t.volumeEst };
   return (
     <>
       {L.photo ? (
@@ -197,7 +199,7 @@ function Location({ c, t }: { c: JobCard; t: (typeof T)[Lang] }) {
           </Tile>
         ))}
       </div>
-      <p className="text-sm">{L.evidence}</p>
+      <p className="text-sm">{evidence}</p>
     </>
   );
 }

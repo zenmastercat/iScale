@@ -35,10 +35,14 @@ export function AppShellSkeleton() {
           <div className="sticky top-0 z-30 border-b bg-card/95 backdrop-blur">
             <div className="flex min-h-14 flex-wrap items-center gap-2 px-4 py-2 md:px-8">
               <Box className="h-8 w-20 rounded md:hidden" />
-              <Box className="h-11 w-40 rounded-lg md:h-9" />
-              <Box className="h-11 w-40 rounded-lg md:h-9" />
-              <Box className="ml-auto h-9 w-24 rounded-md" />
-              <Box className="size-9 rounded-md" />
+              <div className="order-3 flex w-full flex-wrap items-center gap-2 md:order-2 md:w-auto">
+                <Box className="h-11 w-40 rounded-lg md:h-9" />
+                <Box className="h-11 w-40 rounded-lg md:h-9" />
+              </div>
+              <div className="order-2 ml-auto flex items-center gap-2 md:order-3">
+                <Box className="h-9 w-24 rounded-md" />
+                <Box className="size-9 rounded-md" />
+              </div>
             </div>
           </div>
 

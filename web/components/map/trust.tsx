@@ -9,6 +9,7 @@ export function TrustBadge({ source }: { source: Finding["source"] }) {
   const map: Record<string, { label: string; Icon: typeof Check }> = {
     decoder: { label: t("Measured + detector", "วัดจริง + ตัวตรวจจับ"), Icon: Check },
     geometry: { label: t("Measured", "วัดจริง"), Icon: Ruler },
+    detector: { label: t("Camera detector (depth assumed)", "ตัวตรวจจับจากกล้อง (ความลึกสมมติ)"), Icon: Check },
     manual: { label: t("Tagged by hand", "ปักหมุดด้วยมือ"), Icon: Hand },
   };
   const m = map[source] ?? { label: source, Icon: Check };
