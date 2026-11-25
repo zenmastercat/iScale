@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import os
 import re
 import secrets
 import time
@@ -44,10 +45,17 @@ SESSION_DAYS = 30
 CHALLENGE_TTL = 120
 ROLES = ("admin", "engineer")
 KINDS = ("company", "individual")
-SIGNUP_DEFAULT = {"company": True, "individual": True}
+# Self sign-up is off unless the host admin turns it on (Settings, Sign-up) or the server is started with
+# CIVIL_OPEN_SIGNUP=1: on a private server, accounts come from an admin (POST /team), not from strangers.
+_OPEN = os.environ.get("CIVIL_OPEN_SIGNUP", "") in ("1", "true", "yes")
+SIGNUP_DEFAULT = {"company": _OPEN, "individual": _OPEN}
 JOIN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I
 REGISTER_LIMIT = (10, 3600)  # accounts per client address per hour
 _register_log: dict[str, list[float]] = {}
+SIGNIN_LIMIT = (30, 60)  # challenge + login requests per client address per minute
+_signin_log: dict[str, list[float]] = {}
+# Secure cookie: on automatically over https; set CIVIL_SECURE_COOKIE=1 when a TLS proxy in front talks http to us.
+SECURE_COOKIE = os.environ.get("CIVIL_SECURE_COOKIE", "") in ("1", "true", "yes")
 
 router = APIRouter(prefix="/api")
 
@@ -111,10 +119,11 @@ def _hash(token: str) -> str:
 def create_session(response: Response, request: Request, uid: str) -> None:
     token = secrets.token_urlsafe(32)
     now = time.time()
+    db.run("DELETE FROM sessions WHERE expires<?", now)  # housekeeping: expired sessions are useless
     db.run("INSERT INTO sessions(token_hash, username, created, expires) VALUES(?,?,?,?)",
            _hash(token), uid, now, now + SESSION_DAYS * 86400)
     response.set_cookie(COOKIE, token, max_age=SESSION_DAYS * 86400, httponly=True, samesite="strict",
-                        secure=request.url.scheme == "https", path="/")
+                        secure=SECURE_COOKIE or request.url.scheme == "https", path="/")
 
 
 def session_user(request: Request) -> dict | None:
@@ -286,9 +295,26 @@ def setup(body: SetupIn):
     return {"ok": True, "username": username}
 
 
+def _client(request: Request) -> str:
+    return request.client.host if request.client else "?"
+
+
+def _signin_limit(request: Request) -> None:
+    """At most SIGNIN_LIMIT[0] challenge/login calls per client address per minute (stops nonce flooding
+    and hammering the signature check). The log is pruned so it can't grow without bound."""
+    now, ip = time.time(), _client(request)
+    if len(_signin_log) > 10_000:
+        for k in [k for k, v in _signin_log.items() if not v or now - v[-1] > SIGNIN_LIMIT[1]]:
+            del _signin_log[k]
+    hits = [t for t in _signin_log.get(ip, []) if now - t < SIGNIN_LIMIT[1]]
+    if len(hits) >= SIGNIN_LIMIT[0]:
+        raise HTTPException(429, "too many sign-in attempts; wait a minute")
+    _signin_log[ip] = hits + [now]
+
+
 def _rate_limit(request: Request, record: bool = False) -> None:
     """At most REGISTER_LIMIT[0] new accounts per client address per hour (counts created accounts only)."""
-    ip = request.client.host if request.client else "?"
+    ip = _client(request)
     now = time.time()
     hits = [t for t in _register_log.get(ip, []) if now - t < REGISTER_LIMIT[1]]
     if record:
@@ -381,7 +407,8 @@ def rotate_join_code(request: Request, off: bool = False):
 
 
 @router.post("/auth/challenge")
-def challenge(body: ChallengeIn):
+def challenge(body: ChallengeIn, request: Request):
+    _signin_limit(request)
     username = norm_username(body.username)
     u = get_user(username)
     if not u or u["disabled"]:
@@ -394,6 +421,7 @@ def challenge(body: ChallengeIn):
 
 @router.post("/auth/login")
 def login(body: LoginIn, request: Request, response: Response):
+    _signin_limit(request)
     username = norm_username(body.username)
     uid = vault.uid(username)
     with db.tx() as con:

@@ -114,3 +114,22 @@ def test_plain_accounts_from_older_versions_are_migrated(tmp_path, monkeypatch):
     assert u["display_name"] == "Old User" and u["uid"] == vault.uid("olduser")
     m = db.one("SELECT sender, recipient FROM messages")
     assert m == {"sender": vault.uid("olduser"), "recipient": vault.uid("other")}
+
+
+def test_sign_in_is_rate_limited_per_address(monkeypatch):
+    from civil import auth
+
+    monkeypatch.setattr(auth, "SIGNIN_LIMIT", (3, 60))
+    c = TestClient(app, headers=HDR)
+    codes = [c.post("/api/auth/challenge", json={"username": "nobody.here"}).status_code for _ in range(4)]
+    assert codes == [404, 404, 404, 429]
+
+
+def test_security_headers():
+    r = TestClient(app).get("/api/auth/state")
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert r.headers["x-frame-options"] == "DENY"
+    assert r.headers["referrer-policy"] == "same-origin"
+    assert "frame-ancestors 'none'" in r.headers["content-security-policy"]
+    assert r.headers["cache-control"] == "no-store"
+    assert "strict-transport-security" not in r.headers  # only over https

@@ -13,6 +13,7 @@ from helpers import HDR, admin, client_for, device_key, login, spki
 def server_is_set_up(monkeypatch):
     admin()  # the host company exists; self sign-up is refused before setup
     monkeypatch.setattr(auth, "_register_log", {})  # every test client shares one address
+    monkeypatch.setattr(auth, "SIGNUP_DEFAULT", {"company": True, "individual": True})  # these tests use open sign-up
 
 
 def test_no_sign_up_before_the_server_is_set_up(monkeypatch):
@@ -116,3 +117,17 @@ def test_too_many_accounts_from_one_address_are_refused(monkeypatch):
     assert register("individual", "su.r1")[2].status_code == 200
     assert register("individual", "su.r2")[2].status_code == 200
     assert register("individual", "su.r3")[2].status_code == 429
+
+
+def test_sign_up_is_closed_by_default(monkeypatch):
+    from civil import db
+
+    monkeypatch.setattr(auth, "SIGNUP_DEFAULT", {"company": False, "individual": False})
+    saved = db.get_setting("server", "signup", {})
+    db.set_setting("server", "signup", {})  # nothing chosen by an admin yet: the default applies
+    try:
+        assert TestClient(app).get("/api/auth/state").json()["signup"] == {"company": False, "individual": False}
+        assert register("individual", "su.closed")[2].status_code == 403
+        assert register("company", "su.closed2", company="Closed Co")[2].status_code == 403
+    finally:
+        db.set_setting("server", "signup", saved)

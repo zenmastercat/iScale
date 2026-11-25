@@ -86,6 +86,32 @@ async def guard(request: Request, call_next):
     return response
 
 
+PERMISSIONS = "camera=(self), geolocation=(self), microphone=(), payment=(), usb=(), interest-cohort=()"
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Browser hardening on every response (registered after `guard`, so it also covers its 401/403s)."""
+    response = await call_next(request)
+    h = response.headers
+    h.setdefault("X-Content-Type-Options", "nosniff")
+    h.setdefault("X-Frame-Options", "DENY")  # no clickjacking: never framed (CSP frame-ancestors for new browsers)
+    h.setdefault("Referrer-Policy", "same-origin")  # project/survey ids in URLs never leak to tile or map hosts
+    h.setdefault("Permissions-Policy", PERMISSIONS)
+    h.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+    h.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+    if request.url.path.startswith("/api/"):
+        # API answers are data, never documents: nothing may run or load if one is opened directly
+        h.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+        if h.get("content-type", "").startswith("application/json"):
+            h.setdefault("Cache-Control", "no-store")  # personal and company data: not kept in shared or disk caches
+    else:
+        h.setdefault("Content-Security-Policy", "frame-ancestors 'none'; object-src 'none'; base-uri 'self'")
+    if request.url.scheme == "https":
+        h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return response
+
+
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 
 
