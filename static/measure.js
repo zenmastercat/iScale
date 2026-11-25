@@ -92,7 +92,9 @@ export async function startMeasure({ target, photo, box = null, title = "", newP
 export async function openMeasure(opts) {
   const list = await refs();
   S = {
-    opts, refs: list.refs, ref: "a4", customW: "", customL: "", rulerL: "", refPts: [], outline: [], useBox: false,
+    opts, refs: list.refs, ref: opts.initialRef || "a4",
+    customW: opts.initialCustomW || "", customL: opts.initialCustomL || "", rulerL: opts.initialRulerL || "",
+    refPts: [], outline: [], useBox: false,
     firstEdge: null, depthCm: "", depthMode: null, zoom: 0, natW: 0, natH: 0, scale: 1, result: null, error: "",
     drag: null, busy: false, target: opts.target || opts.targets?.[0]?.target || null,
   };
@@ -212,11 +214,11 @@ function renderPanel() {
   p.innerHTML = `${sec(1, "Reference object", refBody)}${sec(2, isLine() ? "Ends of the ruler" : "Corners of the reference", cornersBody)}
     ${sec(3, "Pothole outline", outlineBody)}${sec(4, "Depth", depthBody)}
     <section class="ms-sec ms-out" aria-live="polite">${resultsHtml()}</section>
-    <footer class="ms-foot">${saveBody}<button class="btn primary big" type="button" data-ms="save" ${canSave() ? "" : "disabled"}>Save measurement</button></footer>`;
+    <footer class="ms-foot">${saveBody}<button class="btn primary big" type="button" data-ms="save" ${canSave() ? "" : "disabled"}>${!S.target && S.opts.onSelect ? "Use in project" : "Save measurement"}</button></footer>`;
   hint();
 }
 
-const canSave = () => !!(ready() && S.target && S.result?.result && !S.error && !S.busy);
+const canSave = () => !!(ready() && (S.target || S.opts.onSelect) && S.result?.result && !S.error && !S.busy);
 
 /** Refresh what changes while someone types (step marks, results, Save, hint) without rebuilding the inputs. */
 function updateLive() {
@@ -483,6 +485,12 @@ async function preview() {
 }
 
 async function save() {
+  if (!S.target && S.opts.onSelect && S.result?.result) {
+    const out = S.result, cb = S.opts.onSelect;
+    dlg.close();
+    cb(out);
+    return;
+  }
   if (!S.target || S.busy) return;
   S.busy = true;
   const btn = dlg.querySelector('[data-ms="save"]');

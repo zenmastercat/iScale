@@ -10,6 +10,7 @@ import { mountCheck } from "./check3d.js";
 import { openRecorder } from "./recorder.js";
 import { openMeasure, startMeasure } from "./measure.js";
 import { openSceneScale } from "./scene_scale.js";
+import { createProjectWizard } from "./project_wizard.js";
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -103,7 +104,19 @@ const mapApi = createMap($("#map"), {
 const viewer = createViewer($("#viewer"), { onSelect: (id) => openDrawer(id), onTag: tagAt });
 
 // ---------------------------------------------------------------- views
-const VIEWS = ["map", "scan", "inventory", "plan", "verify", "video", "messages", "settings"];
+const VIEWS = ["map", "scan", "inventory", "plan", "verify", "video", "messages", "settings", "create"];
+let projectWizard = null;
+function openProjectWizard() {
+  projectWizard ??= createProjectWizard($("#view-create"), {
+    api, toast, loc, openMeasure,
+    onCreated: async (pid, { openVideo } = {}) => {
+      await loadProjects(pid);
+      setView(openVideo ? "video" : "map");
+    },
+    onCancel: () => setView("map"),
+  });
+  return projectWizard.open();
+}
 function setView(v) {
   if (!VIEWS.includes(v)) v = "map";
   state.view = v;
@@ -119,6 +132,7 @@ function setView(v) {
   if (v === "plan") loadPlan();
   if (v === "verify") renderVerifyControls();
   if (v === "video") renderVideo();
+  if (v === "create") openProjectWizard();
   if (v === "settings" && state.user) {
     renderSettings($("#view-settings"), state.user, toast)
       .then(() => showGetStarted())
@@ -285,11 +299,14 @@ $("#demoBtn").addEventListener("click", async (e) => {
 
 // ---------------------------------------------------------------- render
 function renderEmpty() {
-  $("#summary").textContent = "Load the demo street or add a survey to begin.";
+  $("#summary").innerHTML = `Load the demo street or create a project to begin. <button class="btn small primary inline-cta" type="button" data-open-wizard>Create project</button>`;
   $("#strip").innerHTML = "";
   $("#legend").innerHTML = "";
-  $("#invTable").innerHTML = `<tbody><tr><td class="empty">Create a project or load the demo street to begin.</td></tr></tbody>`;
+  $("#invTable").innerHTML = `<tbody><tr><td class="empty">Create a project or load the demo street to begin. <button class="btn small primary inline-cta" type="button" data-open-wizard>Create project</button></td></tr></tbody>`;
 }
+$(".stage").addEventListener("click", (e) => {
+  if (e.target.closest("[data-open-wizard]")) setView("create");
+});
 
 function renderAll() {
   renderSummary();
@@ -830,7 +847,9 @@ async function renderVideo() {
   const body = $("#videoBody");
   const jobs = state.surveys.filter(isVideoJob);
   if (!state.project || !jobs.length) {
-    body.innerHTML = `<p class="empty">No drive videos yet. Choose Add survey, then the video source, and upload the drive with its gps.csv.</p>`;
+    body.innerHTML = !state.project
+      ? `<p class="empty">No project yet. <button class="btn small primary inline-cta" type="button" data-open-wizard>Create project</button></p>`
+      : `<p class="empty">No drive videos yet. Choose Add survey, then the video source, and upload the drive with its gps.csv.</p>`;
     return;
   }
   const token = ++videoRenderToken;
@@ -1010,7 +1029,7 @@ function fillDecoders() {
   help();
 }
 $("#newSurveyBtn").addEventListener("click", async () => {
-  if (!state.project) return toast("Create a project first.", true);
+  if (!state.project) { toast("Create a project first."); return setView("create"); }
   state.meta = await api("/api/meta");
   fillDecoders();
   $("#uploadProgress").hidden = true;
@@ -1049,22 +1068,7 @@ $("#surveyForm").addEventListener("submit", (e) => {
   xhr.setRequestHeader("X-Civil-Scan", "1");
   xhr.send(fd);
 });
-$("#newProjectBtn").addEventListener("click", () => {
-  const f = $("#projectForm");
-  f.origin_lat.value = state.meta.default_origin[0];
-  f.origin_lon.value = state.meta.default_origin[1];
-  $("#projectDialog").showModal();
-});
-$("#projectForm").addEventListener("submit", async (e) => {
-  if (e.submitter?.value !== "ok") return;
-  e.preventDefault();
-  const f = e.target;
-  try {
-    const p = await api("/api/projects", { method: "POST", body: JSON.stringify({ name: f.name.value, origin_lat: +f.origin_lat.value, origin_lon: +f.origin_lon.value }) });
-    $("#projectDialog").close();
-    await loadProjects(p.id);
-  } catch (err) { toast(err.message, true); }
-});
+$("#newProjectBtn").addEventListener("click", () => setView("create"));
 
 // ---------------------------------------------------------------- shared pins
 async function loadPins() {

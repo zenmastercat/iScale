@@ -23,7 +23,7 @@ export function createMap(el, opts) {
   }
 }
 
-function createGlMap(el, { onSelect, onSegment, onPin, onMapClick }) {
+function createGlMap(el, { onSelect, onSegment, onPin, onMapClick, center }) {
   const map = new maplibregl.Map({
     container: el,
     attributionControl: { compact: true },
@@ -46,7 +46,7 @@ function createGlMap(el, { onSelect, onSegment, onPin, onMapClick }) {
         },
       ],
     },
-    center: [100.5137, 13.8196],
+    center: center || [100.5137, 13.8196],
     zoom: 16,
     maxZoom: 22,
   });
@@ -65,6 +65,7 @@ function createGlMap(el, { onSelect, onSegment, onPin, onMapClick }) {
     map.addSource("findings", { type: "geojson", data: empty });
     map.addSource("pins", { type: "geojson", data: empty });
     map.addSource("me", { type: "geojson", data: empty });
+    map.addSource("pick", { type: "geojson", data: empty });
     map.addLayer({ id: "seg-hl", type: "line", source: "segments", filter: ["==", ["get", "hl"], true],
       layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#102D50", "line-width": 16, "line-opacity": 0.25 } });
     map.addLayer({ id: "seg-case", type: "line", source: "segments",
@@ -97,6 +98,14 @@ function createGlMap(el, { onSelect, onSegment, onPin, onMapClick }) {
     map.addLayer({ id: "me-dot", type: "circle", source: "me", filter: ["==", ["get", "part"], "dot"],
       paint: { "circle-radius": 7, "circle-color": ["case", ["get", "stale"], "#8a96a3", "#347BC3"],
         "circle-stroke-color": "#ffffff", "circle-stroke-width": 2.5 } });
+    // wizard location / route picker overlay
+    map.addLayer({ id: "pick-route-case", type: "line", source: "pick", filter: ["==", ["get", "part"], "route"],
+      layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": 7 } });
+    map.addLayer({ id: "pick-route", type: "line", source: "pick", filter: ["==", ["get", "part"], "route"],
+      layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#2f72b6", "line-width": 4 } });
+    map.addLayer({ id: "pick-pt", type: "circle", source: "pick", filter: ["==", ["get", "part"], "pt"],
+      paint: { "circle-radius": ["case", ["get", "origin"], 8, 5.5], "circle-color": ["case", ["get", "origin"], "#102D50", "#347BC3"],
+        "circle-stroke-color": "#ffffff", "circle-stroke-width": 2.2 } });
     map.on("click", "pin", (e) => {
       const f = e.features[0];
       if (f && !pinMode) { e.originalEvent.stopPropagation(); onPin && onPin(f.properties.id); }
@@ -126,6 +135,7 @@ function createGlMap(el, { onSelect, onSegment, onPin, onMapClick }) {
     if (pending) api.setData(...pending);
     if (pinsPending) api.setPins(pinsPending);
     if (mePending !== undefined) api.setMe(mePending);
+    if (pickPending !== undefined) api.setPick(...pickPending);
   });
 
   let lastData = null;
@@ -135,6 +145,7 @@ function createGlMap(el, { onSelect, onSegment, onPin, onMapClick }) {
   let pinsPending = null;
   let pins = [];
   let mePending;
+  let pickPending;
 
   function circlePoly(lon, lat, r) {
     const k = Math.cos((lat * Math.PI) / 180), ring = [];
@@ -238,6 +249,20 @@ function createGlMap(el, { onSelect, onSegment, onPin, onMapClick }) {
       visible[kind] = on;
       build();
     },
+    setPick(origin, route = []) {
+      if (!ready) { pickPending = [origin, route]; return; }
+      const feats = [];
+      if (route.length >= 2) {
+        feats.push({ type: "Feature", geometry: { type: "LineString", coordinates: route.map(([la, lo]) => [lo, la]) }, properties: { part: "route" } });
+      }
+      route.forEach(([la, lo], i) => {
+        feats.push({ type: "Feature", geometry: { type: "Point", coordinates: [lo, la] }, properties: { part: "pt", origin: i === 0 } });
+      });
+      if (origin && !route.length) {
+        feats.push({ type: "Feature", geometry: { type: "Point", coordinates: [origin.lon, origin.lat] }, properties: { part: "pt", origin: true } });
+      }
+      map.getSource("pick").setData({ type: "FeatureCollection", features: feats });
+    },
     resize() { map.resize(); },
   };
   return api;
@@ -249,7 +274,7 @@ function createGlMap(el, { onSelect, onSegment, onPin, onMapClick }) {
 const SEV_HEX = { high: "#D94B4B", medium: "#E99B37", low: "#329B76" };
 const NS = "http://www.w3.org/2000/svg";
 
-function createSvgMap(el, { onSelect, onSegment, onPin, onMapClick }) {
+function createSvgMap(el, { onSelect, onSegment, onPin, onMapClick, center }) {
   el.classList.add("svgmap");
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("width", "100%");
@@ -259,9 +284,9 @@ function createSvgMap(el, { onSelect, onSegment, onPin, onMapClick }) {
   note.className = "svgmap-note";
   note.textContent = "Map data © OpenStreetMap contributors · basic map (this browser has WebGL turned off)";
   el.appendChild(note);
-  let data = null, hl = new Set(), hlSeg = new Set(), pins = [], pinMode = false, me = null;
+  let data = null, hl = new Set(), hlSeg = new Set(), pins = [], pinMode = false, me = null, pick = null;
   const visible = { defects: true, assets: true };
-  let view = null; // {cx, cy, s}: lon/lat centre and pixels per metre
+  let view = center ? { cx: center[0], cy: center[1], lat0: center[1], s: 1.5 } : null; // {cx, cy, s}: lon/lat centre and pixels per metre
   const R = 6378137;
 
   function proj(lon, lat) {
@@ -352,13 +377,39 @@ function createSvgMap(el, { onSelect, onSegment, onPin, onMapClick }) {
     svg.appendChild(g);
   }
 
+  function drawPick(g) {
+    if (!pick) return;
+    const { origin, route } = pick;
+    if (route && route.length >= 2) {
+      const d = route.map(([la, lo], i) => `${i ? "L" : "M"}${proj(lo, la).map((v) => v.toFixed(1)).join(",")}`).join("");
+      for (const [w, col] of [[7, "#ffffff"], [4, "#2f72b6"]]) {
+        const p = document.createElementNS(NS, "path");
+        p.setAttribute("d", d); p.setAttribute("stroke", col); p.setAttribute("stroke-width", w);
+        p.setAttribute("fill", "none"); p.setAttribute("stroke-linecap", "round"); p.setAttribute("stroke-linejoin", "round");
+        p.style.pointerEvents = "none";
+        g.appendChild(p);
+      }
+    }
+    const pts = (route && route.length) ? route.map(([la, lo], i) => ({ lat: la, lon: lo, origin: i === 0 }))
+      : (origin ? [{ lat: origin.lat, lon: origin.lon, origin: true }] : []);
+    for (const pt of pts) {
+      const [x, y] = proj(pt.lon, pt.lat);
+      const c = document.createElementNS(NS, "circle");
+      c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", pt.origin ? 8 : 5.5);
+      c.setAttribute("fill", pt.origin ? "#102D50" : "#347BC3");
+      c.setAttribute("stroke", "#ffffff"); c.setAttribute("stroke-width", 2.2);
+      c.style.pointerEvents = "none";
+      g.appendChild(c);
+    }
+  }
+
   function draw() {
     svg.innerHTML = "";
     if (!view) return;
     drawTiles();
     const g = document.createElementNS(NS, "g");
     svg.appendChild(g);
-    if (!data) { drawPins(g); return; }
+    if (!data) { drawPins(g); drawPick(g); return; }
     const { analysis, catalog } = data;
     for (const s of analysis.segments) {
       if (!s.coords) continue;
@@ -463,6 +514,11 @@ function createSvgMap(el, { onSelect, onSegment, onPin, onMapClick }) {
     setPinMode(on) { pinMode = on; el.style.cursor = on ? "crosshair" : ""; },
     setMe(fix) { me = fix; if (fix && !view) view = { cx: fix.lon, cy: fix.lat, lat0: fix.lat, s: 2 }; draw(); },
     setVisible(kind, on) { visible[kind] = on; draw(); },
+    setPick(origin, route = []) {
+      pick = { origin, route };
+      if (!view && origin) view = { cx: origin.lon, cy: origin.lat, lat0: origin.lat, s: 1.5 };
+      draw();
+    },
     resize() { draw(); },
   };
   return api;
