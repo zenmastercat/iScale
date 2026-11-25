@@ -464,12 +464,18 @@ def export(pid: str, sid: str, fmt: str):
         w.writerow(["id", "type", "label", "severity", "status", "segment", "lat", "lon", "source", "evidence"])
         for f in an["findings"]:
             w.writerow([f["id"], f["type"], catalog.CATALOG[f["type"]].label, f.get("severity") or "", f.get("status"),
-                        f.get("segment_id") or "", f"{f['lat']:.7f}", f"{f['lon']:.7f}", f["source"], f["evidence"]])
+                        f.get("segment_id") or "", f"{f['lat']:.7f}", f"{f['lon']:.7f}", f["source"], _csv_text(f["evidence"])])
         return Response(buf.getvalue(), media_type="text/csv",
                         headers={"Content-Disposition": f'attachment; filename="findings-{sid}.csv"'})
     if fmt == "ply":
         return _export_ply(pid, sid)
     raise HTTPException(400, "format must be geojson, csv or ply")
+
+
+def _csv_text(v) -> str:
+    """Text a person may have typed: a leading = + - @ (or tab/CR) would make Excel run it as a formula."""
+    v = "" if v is None else str(v)
+    return "'" + v if v[:1] in ("=", "+", "-", "@", "\t", "\r") else v
 
 
 def _export_ply(pid: str, sid: str):
