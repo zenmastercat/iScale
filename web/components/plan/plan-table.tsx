@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { ConditionChip } from "@/components/shared/condition-chip";
 import { Money, Num } from "@/components/shared/num";
 import { SeverityBadge } from "@/components/shared/severity-badge";
 import { useSelection } from "@/lib/selection";
@@ -26,7 +27,32 @@ export function SpotTable({ items, deferred, currency }: { items: PlanItem[]; de
   const { withSel } = useSelection();
   const rows = [...items.map((i) => ({ i, funded: true })), ...deferred.map((i) => ({ i, funded: false }))];
   return (
-    <div className="overflow-x-auto">
+    <>
+    <ul className="flex flex-col gap-3 md:hidden">
+      {rows.map(({ i, funded }) => (
+        <li key={i.finding_id} className={`rounded-lg border p-4 ${funded ? "" : "bg-grey-50"}`}>
+          <div className="flex items-start justify-between gap-3">
+            <PlanPill funded={funded} />
+            <SeverityBadge severity={i.severity} size="sm" />
+          </div>
+          <p className="mt-2 font-medium text-grey-900">{i.label}</p>
+          <p className="text-sm text-muted-foreground">{i.action_label}</p>
+          <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
+            <div><dt className="text-muted-foreground">Segment</dt><dd className="num">{i.segment_id}</dd></div>
+            <div><dt className="text-muted-foreground">Priority</dt><dd><Num value={i.priority} digits={1} /></dd></div>
+            <div className="text-right"><dt className="text-muted-foreground">Cost</dt><dd className="font-medium"><Money amount={i.cost} currency={currency} /></dd></div>
+          </dl>
+          <Link
+            href={withSel("/map", { finding: i.finding_id })}
+            className="mt-3 flex min-h-11 w-full items-center justify-center rounded-lg border font-medium text-link hover:bg-grey-50"
+            aria-label={`Open ${i.label} ${i.finding_id} on the map`}
+          >
+            Open on map
+          </Link>
+        </li>
+      ))}
+    </ul>
+    <div className="hidden overflow-x-auto md:block">
       <table className="w-full min-w-[760px] text-left">
         <Head
           cols={[
@@ -62,6 +88,7 @@ export function SpotTable({ items, deferred, currency }: { items: PlanItem[]; de
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 
@@ -77,7 +104,31 @@ export function SegmentTable({
   const { withSel } = useSelection();
   const rows = [...items.map((i) => ({ i, funded: true })), ...deferred.map((i) => ({ i, funded: false }))];
   return (
-    <div className="overflow-x-auto">
+    <>
+    <ul className="flex flex-col gap-3 md:hidden">
+      {rows.map(({ i, funded }) => (
+        <li key={i.segment_id} className={`rounded-lg border p-4 ${funded ? "" : "bg-grey-50"}`}>
+          <div className="flex items-start justify-between gap-3">
+            <PlanPill funded={funded} />
+            <span className="num font-medium">{i.segment_id}</span>
+          </div>
+          <p className="mt-2 font-medium text-grey-900">{i.label}</p>
+          <p className="mt-1"><ConditionChip score={i.condition} /></p>
+          <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
+            <div><dt className="text-muted-foreground">Area</dt><dd><Num value={i.area_m2} unit="m²" /></dd></div>
+            <div><dt className="text-muted-foreground">Urgency</dt><dd><Num value={i.urgency} digits={1} /></dd></div>
+            <div className="text-right"><dt className="text-muted-foreground">Cost</dt><dd className="font-medium"><Money amount={i.cost} currency={currency} /></dd></div>
+          </dl>
+          <Link
+            href={withSel("/map", { segment: i.segment_id })}
+            className="mt-3 flex min-h-11 w-full items-center justify-center rounded-lg border font-medium text-link hover:bg-grey-50"
+          >
+            Open on map
+          </Link>
+        </li>
+      ))}
+    </ul>
+    <div className="hidden overflow-x-auto md:block">
       <table className="w-full min-w-[760px] text-left">
         <Head
           cols={[
@@ -105,7 +156,7 @@ export function SegmentTable({
               </td>
               <td className="py-3 pr-4 text-sm">{i.label}</td>
               <td className="py-3 pr-4 text-right">
-                <Num value={i.condition} /> <span className="text-sm text-muted-foreground">{i.rating}</span>
+                <ConditionChip score={i.condition} />
               </td>
               <td className="py-3 pr-4 text-right"><Num value={i.area_m2} unit="m²" /></td>
               <td className="py-3 pr-4 text-right"><Num value={i.urgency} digits={1} /></td>
@@ -115,5 +166,6 @@ export function SegmentTable({
         </tbody>
       </table>
     </div>
+    </>
   );
 }

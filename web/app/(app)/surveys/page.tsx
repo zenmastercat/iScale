@@ -1,12 +1,15 @@
 "use client";
 import { AlertTriangle, CheckCircle2, Loader2, RotateCw, Clock, Star } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Link from "next/link";
 import { toast } from "sonner";
 import { AddSurveyDialog } from "@/components/surveys/add-survey-dialog";
 import { DemoButton } from "@/components/shared/demo-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Num } from "@/components/shared/num";
+import { ProcessingState } from "@/components/shared/processing-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -45,7 +48,7 @@ export default function SurveysPage() {
   const refresh = () => qc.invalidateQueries({ queryKey: ["project", projectId!] });
   const baseline = useMutation({
     mutationFn: (sid: string) => setBaseline(projectId!, sid),
-    onSuccess: () => { refresh(); qc.invalidateQueries({ queryKey: ["projects"] }); toast.success("Baseline updated"); },
+    onSuccess: () => { refresh(); qc.invalidateQueries({ queryKey: ["projects"] }); setConfirm(null); toast.success("Baseline updated"); },
     onError: (e: Error) => toast.error(e.message),
   });
   const retry = useMutation({
@@ -53,6 +56,7 @@ export default function SurveysPage() {
     onSuccess: () => { refresh(); toast.success("Processing again"); },
     onError: (e: Error) => toast.error(e.message),
   });
+  const [confirm, setConfirm] = useState<Survey | null>(null);
   const decoderLabel = (n: string) => meta?.decoders.find((d) => d.name === n)?.label ?? n;
 
   return (
@@ -65,8 +69,14 @@ export default function SurveysPage() {
       ) : !project!.survey_list.length ? (
         <EmptyState title="No surveys yet" description="Add a drive video, a LiDAR point cloud, or the demo street." action={<AddSurveyDialog />} />
       ) : (
+        <div className="flex flex-col gap-4">
+        {project!.survey_list
+          .filter((s) => s.status === "queued" || s.status === "running")
+          .map((s) => (
+            <ProcessingState key={s.id} survey={s} />
+          ))}
         <section className="rounded-lg border bg-card p-5 md:p-7" aria-label="Surveys">
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[820px] text-left">
               <thead>
                 <tr className="border-b text-xs font-semibold tracking-wider text-grey-600 uppercase">
@@ -105,7 +115,7 @@ export default function SurveysPage() {
                           </Link>
                         )}
                         {s.status === "done" && s.id !== project!.baseline && (
-                          <Button variant="outline" className="min-h-11" disabled={baseline.isPending} onClick={() => baseline.mutate(s.id)}>Set as baseline</Button>
+                          <Button variant="outline" className="min-h-11" onClick={() => setConfirm(s)}>Set as baseline</Button>
                         )}
                         {s.status === "error" && (
                           <Button variant="outline" className="min-h-11" disabled={retry.isPending} onClick={() => retry.mutate(s.id)}>
@@ -120,7 +130,25 @@ export default function SurveysPage() {
             </table>
           </div>
         </section>
+        </div>
       )}
+      <Dialog open={!!confirm} onOpenChange={(o) => !o && !baseline.isPending && setConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set “{confirm?.name}” as the baseline?</DialogTitle>
+            <DialogDescription>
+              The baseline is the “before” drive that repairs are checked against. Verification will compare later
+              surveys with this one.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" className="min-h-11" onClick={() => setConfirm(null)}>Cancel</Button>
+            <Button className="min-h-11" disabled={baseline.isPending} onClick={() => confirm && baseline.mutate(confirm.id)}>
+              {baseline.isPending ? "Saving…" : "Set as baseline"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

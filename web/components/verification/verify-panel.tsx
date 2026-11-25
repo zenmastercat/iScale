@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { runVerify } from "@/lib/api";
 import { useSelection } from "@/lib/selection";
+import { invalidateRepairState } from "./invalidate";
 import type { WorkOrder } from "@/lib/types";
 
 const NONE = "__none__";
@@ -27,7 +28,7 @@ export function VerifyPanel({ orders, workorderId }: { orders: WorkOrder[]; work
     mutationFn: () =>
       runVerify(projectId!, { before, after, workorder_id: wo === NONE ? null : wo }),
     onSuccess: (v) => {
-      qc.invalidateQueries({ queryKey: ["project", projectId!] });
+      invalidateRepairState(qc, projectId!, project?.baseline);
       toast.success(`Verified ${v.counts.verified}, not fixed ${v.counts.not_fixed}, not covered ${v.counts.not_covered}`);
     },
     onError: (e: Error) => toast.error(`Verification failed: ${e.message}`),
@@ -60,7 +61,7 @@ export function VerifyPanel({ orders, workorderId }: { orders: WorkOrder[]; work
         {field("Before survey (baseline)", "verify-before", sItems, before, setBefore)}
         {field("After survey (repairs done)", "verify-after", sItems, after, setAfter)}
         {field("Work order", "verify-wo", woItems, wo, setWo)}
-        <Button className="min-h-11" disabled={!ok || run.isPending} onClick={() => run.mutate()}>
+        <Button type="button" variant="default" className="min-h-11" disabled={!ok || run.isPending} onClick={() => run.mutate()}>
           <ShieldCheck aria-hidden />
           {run.isPending ? "Checking…" : "Run verification"}
         </Button>

@@ -59,7 +59,7 @@ export function VerificationResults({ v }: { v: Verification }) {
       {rows.length === 0 ? (
         <p className="text-muted-foreground">No results in this filter.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full min-w-[860px] text-left">
             <thead>
               <tr className="border-b text-xs font-semibold tracking-wider text-grey-600 uppercase">

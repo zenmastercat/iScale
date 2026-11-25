@@ -23,10 +23,10 @@ import { cn } from "@/lib/utils";
 type Mode = "spot" | "segment";
 const DEBOUNCE_MS = 150;
 
-function PlanBody() {
+function usePlanScreen() {
   const { projectId, surveyId, withSel } = useSelection();
   const qc = useQueryClient();
-  const [mode, setMode] = useState<Mode>("spot");
+  const [mode, setModeRaw] = useState<Mode>("spot");
   // null = no limit (everything funded)
   const [budget, setBudget] = useState<number | null>(null);
   const [debounced, setDebounced] = useState<number | null>(null);
@@ -70,6 +70,25 @@ function PlanBody() {
     setBudget(v >= unlimited ? null : Math.max(0, v));
   }
 
+  function setMode(m: Mode) {
+    // the two modes have different totals, so a budget set for one is meaningless in the other
+    setModeRaw(m);
+    setBudget(null);
+    setDebounced(null);
+  }
+
+  return {
+    mode, setMode, budget, setBudget, unlimited, max, shown, currency, plan, stale, spotPlan, fundedIds,
+    makeOrder, setBudgetClamped, spotAll, segAll, withSel,
+  };
+}
+
+type PlanScreen = ReturnType<typeof usePlanScreen>;
+
+function PlanBody({ s }: { s: PlanScreen }) {
+  const { mode, setMode, budget, setBudget, unlimited, max, shown, currency, plan, stale, spotPlan,
+    makeOrder, setBudgetClamped, spotAll, segAll, withSel } = s;
+  const all = mode === "spot" ? spotAll.data : segAll.data;
   if (spotAll.isError || segAll.isError)
     return (
       <p role="alert" className="text-sev-high-fg">
@@ -133,6 +152,15 @@ function PlanBody() {
             onValueChange={(v) => setBudgetClamped(Array.isArray(v) ? v[0] : v)}
           />
         </div>
+        <div className="num mt-1 flex justify-between text-sm text-muted-foreground" aria-hidden>
+          <span>0</span>
+          <span>{formatNumber(max / 2)}</span>
+          <span>{formatNumber(max)}</span>
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Drag to set how much you can spend. Repairs are funded in priority order until the money runs out; the rest
+          wait. The mobilisation fee is paid once.
+        </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {presets.map((p) => (
             <Button key={p.label} variant="outline" className="min-h-11" onClick={() => setBudgetClamped(p.value)}>
@@ -181,16 +209,6 @@ function PlanBody() {
               {plan.items.length} funded · {plan.deferred.length} deferred
             </span>
           </h2>
-          {mode === "spot" && (
-            <Button
-              className="min-h-11"
-              disabled={!fundedIds.length || makeOrder.isPending || stale}
-              onClick={() => makeOrder.mutate()}
-            >
-              <ClipboardList aria-hidden />
-              {makeOrder.isPending ? "Creating…" : `Create work order (${fundedIds.length})`}
-            </Button>
-          )}
         </div>
         {makeOrder.isSuccess && (
           <p role="status" className="mb-4 text-sm">
@@ -215,11 +233,28 @@ function PlanBody() {
 
 export default function RepairPlanPage() {
   const { project, survey } = useSelection();
+  const screen = usePlanScreen();
+  const { mode, fundedIds, makeOrder, stale } = screen;
   return (
     <>
-      <PageHeader title="Repair plan" crumb={project ? `${project.name}${survey ? ` / ${survey.name}` : ""}` : undefined} />
+      <PageHeader
+        title="Repair plan"
+        crumb={project ? `${project.name}${survey ? ` / ${survey.name}` : ""}` : undefined}
+        actions={
+          survey?.status === "done" && mode === "spot" ? (
+            <Button
+              className="min-h-11"
+              disabled={!fundedIds.length || makeOrder.isPending || stale}
+              onClick={() => makeOrder.mutate()}
+            >
+              <ClipboardList aria-hidden />
+              {makeOrder.isPending ? "Creating…" : `Create work order (${fundedIds.length})`}
+            </Button>
+          ) : null
+        }
+      />
       <SurveyGate>
-        <PlanBody />
+        <PlanBody s={screen} />
       </SurveyGate>
     </>
   );

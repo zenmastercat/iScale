@@ -21,7 +21,7 @@ const SOURCES: { key: Source; label: string; decoder: string; hint: string; acce
 const inputCls = "h-11 w-full rounded-lg border bg-card px-3 text-base";
 
 export function AddSurveyDialog() {
-  const { projectId, setProject } = useSelection();
+  const { projectId, setProject, setSurvey } = useSelection();
   const { data: meta } = useMeta();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -54,6 +54,7 @@ export function AddSurveyDialog() {
         toast.success("Demo street added. Processing takes about 20 seconds.");
       } else {
         qc.invalidateQueries({ queryKey: qk.project(projectId!) });
+        setSurvey(r.survey!.id); // other pages then show the processing state until it is done
         toast.success(`Uploaded ${r.survey!.name}. Processing has started.`);
       }
       setOpen(false);

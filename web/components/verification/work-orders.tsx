@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { patchWorkOrder } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { useSelection } from "@/lib/selection";
+import { invalidateRepairState } from "./invalidate";
 import type { WorkOrder, WorkOrderStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -33,12 +34,12 @@ export function WorkOrderList({
   selected: string | null;
   onSelect: (id: string) => void;
 }) {
-  const { projectId } = useSelection();
+  const { projectId, project } = useSelection();
   const qc = useQueryClient();
   const move = useMutation({
     mutationFn: ({ id, to }: { id: string; to: WorkOrderStatus }) => patchWorkOrder(projectId!, id, to),
     onSuccess: (wo) => {
-      qc.invalidateQueries({ queryKey: ["project", projectId!] });
+      invalidateRepairState(qc, projectId!, project?.baseline);
       toast.success(`${wo.id} is now ${LABEL[wo.status].toLowerCase()}`);
     },
     onError: (e: Error) => toast.error(`Could not update the work order: ${e.message}`),
