@@ -46,7 +46,9 @@ export function useAnalysis() {
 
 export function usePriority(limit = 100) {
   const { pid, sid, ready } = useReadySurvey();
-  return useQuery({ queryKey: qk.priority(pid, sid), queryFn: () => getPriority(pid, sid, limit), enabled: ready });
+  // limit is part of the key: usePriority(5) must not fill the cache that usePriority() reads.
+  // Invalidating qk.priority(pid, sid) still hits every limit (prefix match).
+  return useQuery({ queryKey: [...qk.priority(pid, sid), limit], queryFn: () => getPriority(pid, sid, limit), enabled: ready });
 }
 
 export function useSpotPlan(budget?: number | null) {

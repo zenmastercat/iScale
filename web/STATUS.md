@@ -25,7 +25,14 @@ Done (24 Nov):
   escaped `overflow-x-auto`; wrappers are now `relative`), Select triggers stuck at 32 px (kit's `data-[size=default]:h-8`
   beat `h-11`; now 44 px on phones), Budget slider input had no label (thumb gets the aria-label) and a 12 px thumb (now 20 px, 44 px hit area).
 
-Open: Verification layout vs design (B), MapLibre zoom buttons 29 px (A). /job on phones now hides the top bar (done by the lead).
+25 Nov, user decisions: build a Findings table (A) and a compact Overview (lead) before the freeze; dense on
+desktop only (CONTRACT.md "Density"). Printable report, segment line diagram, portfolio view: after the pitch.
+- Compact Overview (lead, done): clickable KPI tiles → /findings (filtered), /plan, /map; condition strip next to an
+  open-defect type × severity grid (each count links to /findings?type=&severity=&status=open,planned,not_fixed);
+  repair cost by action (plan.by_action + mobilisation + total); condition change per segment, baseline → other drive.
+- Fixed: usePriority(5) on the Overview shared a cache key with usePriority() on Fix first (the full list could show 5 rows).
+
+Earlier open items: Verification layout vs design (B), MapLibre zoom buttons 29 px (A). /job on phones now hides the top bar (done by the lead).
 
 ### Dev servers (only ONE `next dev` per folder)
 Everyone shares the lead's `http://127.0.0.1:3000`, proxied to a throwaway backend on :8767 (signed in,
@@ -51,6 +58,7 @@ A: Round 3 (lint + typecheck clean, not browser-tested): marker click now pushes
 A: Round 4 (lint + typecheck clean, not browser-tested): markers are <button> with aria-label "<id>, <label>, <sev> severity[, status]"; drawer focuses its close button on open and returns focus to the marker on close; resolved (fixed/verified/dismissed) markers are muted with a check; offline tile failure shows a notice over the plain background; layer toggles aria-pressed, min-h-11.
 A: Job card vs design gaps I can't confirm without a browser: exact tile order/labels depend on the backend tiles list; button height is 48px vs ~50px in the PNG; the photo placeholder has no diagonal corner mark. Header, tabs, tile grid, address card and the Navigate/Mark as fixed pair follow the design.
 A: Round 5: map zoom buttons are 44px below md (arbitrary-variant class on the map wrapper, max-md:[&_.maplibregl-ctrl-group_button]:size-11). Lint/typecheck clean, not browser-tested.
+A: Findings table /findings (lint + typecheck clean, not browser-tested): app/(app)/findings/page.tsx, components/findings/{rows.ts,filter-bar.tsx,findings-table.tsx}. All 13 columns, sticky header + totals row, header click sorts (aria-sort, numbers right-aligned in num), kind/severity/status/type/segment filters + search, "n of N findings", Clear filters, Export CSV (client Blob, filtered rows, formula-guarded). Every filter and sort lives in the URL via parseFindingsFilter/findingsQuery (router.replace; search is debounced 250 ms). Below md: compact cards. Default sort is chainage ascending. Multi-selects are native <details> checklists (no Popover component in ui/). Empty values sort last. Please check: deep link /findings?severity=high&status=open.
 A: Not done: pins (/api/pins/{id}/card), 3D view.
 Lead (24 Nov): reviewed in a browser and committed. Fixed: worker import, nativeButton on link buttons, depth in cm.
 Pins and the 3D view are cut from scope.
@@ -66,6 +74,8 @@ B: /surveys: uploading selects the new survey, so other pages show ProcessingSta
 B: Round 3 (typecheck + eslint clean; no browser here): /plan has 0 / mid / max labels and a one-line explanation under the slider, and "Create work order (n)" sits in the page header. Whole segments: checked on the API that budget applies (none 13,222 → 10 funded; 4,000 → 1 funded/9 deferred; 9,000 → 6/4) and the table shows ConditionChip, treatment, area, urgency, cost. Switching mode resets the budget to No limit (the two modes have different totals).
 B: /fix-first has Export CSV and Export GeoJSON links (exportUrl, a href download, min-h-11). /surveys: Retry on failed surveys was already there; "Set as baseline" now asks for confirmation in a dialog.
 B: Round 3 item 1 done (supersedes the GAP note): /verification now follows the design PNG. Header chips Before: X -> After: Y and a crumb with the work order and its status; three round-icon tiles (Verified fixed / Still present / Not covered by the after drive); card 'Each repair, before and after' with All(n)/Verified/Still present/Not covered filters; result cards with Before/After bars + cm, the evidence sentence verbatim and a pill. Work orders and Run controls are below the results. Layout stacks below md (one column, pill beside the name). Typecheck and eslint clean; NOT checked in a browser or at 390 px (no Chrome here). Gaps vs the PNG: after value for a fixed finding is surface_delta_m (+0.4 cm), bars scale to the largest before/after size in the list; the design's rows show the segment next to the id (F-0001 · S001) but the verification result has no segment_id, so only the id is shown.
+B: Verification bars fixed for area defects: Before/After show the measure that exists (cm for depth/step/height, else area in m²) with its unit; bars scale per unit (cm rows vs cm, m² rows vs m²); no value = no bar (not_covered still draws the grey 'no data' bar). Typecheck and eslint clean; not re-checked in a browser.
+B: Density (CONTRACT 'Density') applied on md+ only to /plan, /fix-first, /verification, /surveys: card padding md:p-4, section gaps md:gap-4, headings md:text-base, tables md:text-[13px] with md:py-1.5 rows, budget figure md:text-5xl, verification rows md:p-3 and narrower columns so evidence fits on one line at lg+. Below md nothing changed (cards, 44 px targets). No behaviour change. Typecheck and eslint clean; not browser-checked. KpiTile/EmptyState are shared and untouched, so KPI tiles keep their own padding.
 
 ## Requests to the lead
 _(packages, types, shared components: write here and message the lead)_

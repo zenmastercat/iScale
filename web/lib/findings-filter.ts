@@ -20,6 +20,9 @@ export interface FindingsFilter {
   sort?: { key: SortKey; desc: boolean };
 }
 
+/** Statuses that isOpenDefect() counts as open (use with kind=defect to match the Overview's "open"). */
+export const OPEN_STATUSES: FindingStatus[] = ["open", "planned", "not_fixed"];
+
 const SEVERITIES: Severity[] = ["high", "medium", "low"];
 const STATUSES: FindingStatus[] = ["open", "planned", "fixed", "verified", "not_fixed", "dismissed"];
 const list = (v: string | null) => (v ? v.split(",").map((s) => s.trim()).filter(Boolean) : undefined);

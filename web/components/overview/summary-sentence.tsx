@@ -16,8 +16,8 @@ export function SummarySentence({
   currency: string;
 }) {
   return (
-    <section aria-label="Summary" className="rounded-lg border bg-card px-6 py-6 md:px-8">
-      <p className="text-xl leading-relaxed text-grey-900 md:text-2xl md:leading-relaxed">
+    <section aria-label="Summary" className="rounded-lg border bg-card px-6 py-6 md:px-5 md:py-4">
+      <p className="text-xl leading-relaxed text-grey-900 md:text-xl md:leading-relaxed">
         <b className="num font-semibold">{formatNumber(lengthM)} m</b> of road scored{" "}
         <b className="font-semibold">{score === null ? "no score" : `${formatNumber(score)} out of 100`}</b>.{" "}
         {open === 0 ? (

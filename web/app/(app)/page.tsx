@@ -1,9 +1,15 @@
 "use client";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useMemo } from "react";
 import { ChainageStrip } from "@/components/overview/chainage-strip";
 import { ConditionShareBar } from "@/components/overview/condition-share-bar";
+import { CostByAction } from "@/components/overview/cost-by-action";
+import { DefectMatrix } from "@/components/overview/defect-matrix";
 import { FixFirstTable } from "@/components/overview/fix-first-table";
+import { SegmentChange } from "@/components/overview/segment-change";
+import { getAnalysis, qk } from "@/lib/api";
+import { findingsQuery, OPEN_STATUSES } from "@/lib/findings-filter";
 import { SummarySentence } from "@/components/overview/summary-sentence";
 import { KpiTile } from "@/components/shared/kpi-tile";
 import { PageHeader } from "@/components/shared/page-header";
@@ -15,16 +21,31 @@ import { formatMoney, formatNumber } from "@/lib/format";
 import { useAnalysis, useCatalogLabel, usePriority, useSpotPlan } from "@/lib/queries";
 import { useSelection } from "@/lib/selection";
 
-function Card({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+function Card({ title, note, className, children }: { title: string; note?: string; className?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border bg-card p-5 md:p-7" aria-label={title}>
-      <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-semibold text-grey-900">{title}</h2>
-        {note && <p className="text-sm text-muted-foreground">{note}</p>}
+    <section className={`min-w-0 rounded-lg border bg-card p-5 md:p-4 ${className ?? ""}`} aria-label={title}>
+      <div className="mb-5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 md:mb-3">
+        <h2 className="text-lg font-semibold text-grey-900 md:text-base">{title}</h2>
+        {note && <p className="text-sm text-muted-foreground md:text-xs">{note}</p>}
       </div>
       {children}
     </section>
   );
+}
+
+/** The survey to compare against: baseline ↔ the newest other processed survey. */
+function useComparison() {
+  const { project, projectId, surveyId } = useSelection();
+  const base = project?.baseline;
+  const others = (project?.survey_list ?? []).filter((s) => s.id !== base && s.status === "done").sort((a, b) => b.created - a.created);
+  const beforeId = base;
+  const afterId = surveyId && surveyId !== base ? surveyId : others[0]?.id;
+  const enabled = !!projectId && !!beforeId && !!afterId && beforeId !== afterId;
+  const before = useQuery({ queryKey: qk.analysis(projectId ?? "", beforeId ?? ""), queryFn: () => getAnalysis(projectId!, beforeId!), enabled });
+  const after = useQuery({ queryKey: qk.analysis(projectId ?? "", afterId ?? ""), queryFn: () => getAnalysis(projectId!, afterId!), enabled });
+  const name = (id?: string) => project?.survey_list.find((s) => s.id === id)?.name ?? "";
+  if (!enabled || !before.data || !after.data) return null;
+  return { before: before.data.segments, after: after.data.segments, beforeName: name(beforeId), afterName: name(afterId) };
 }
 
 function OverviewBody() {
@@ -33,6 +54,7 @@ function OverviewBody() {
   const plan = useSpotPlan();
   const priority = usePriority(5);
   const labelFor = useCatalogLabel();
+  const comparison = useComparison();
 
   const stats = useMemo(() => {
     const an = analysis.data;
@@ -57,7 +79,7 @@ function OverviewBody() {
   const cost = plan.data ? plan.data.total : null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 md:gap-4">
       <SummarySentence
         lengthM={stats.lengthM}
         score={stats.score}
@@ -67,38 +89,58 @@ function OverviewBody() {
         currency={currency}
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-3 xl:grid-cols-4">
         <KpiTile
           label="Condition index"
           value={stats.score === null ? "–" : formatNumber(stats.score)}
           unit="/100"
           sub={`${bandFor(stats.score).label} · PCI-like, 0–100`}
+          href={withSel("/map")}
         />
         <KpiTile
           label="Open defects"
           value={stats.open.length}
           sub={`${stats.by.high} high · ${stats.by.medium} medium · ${stats.by.low} low`}
+          href={withSel("/findings", findingsQuery({ kind: "defect", status: OPEN_STATUSES }))}
         />
         <KpiTile
           label="Repair estimate"
           value={cost === null ? "…" : formatNumber(cost)}
           unit={currency}
           sub={plan.data ? `incl. ${formatMoney(plan.data.mobilization, currency)} mobilisation` : " "}
+          href={withSel("/plan")}
         />
         <KpiTile
           label="Road surveyed"
           value={formatNumber(stats.lengthM)}
           unit="m"
           sub={`${an.segments.length} segments · ${stats.assets} assets on record`}
+          href={withSel("/findings", findingsQuery({ kind: "asset" }))}
         />
       </div>
 
-      <Card title="Condition along the route" note="Each block is a 25 m segment · marks above are open defects">
-        <ChainageStrip segments={an.segments} findings={an.findings} labelFor={labelFor} />
-        <div className="mt-6">
-          <ConditionShareBar segments={an.segments} />
-        </div>
-      </Card>
+      <div className="grid grid-cols-1 gap-6 md:gap-4 xl:grid-cols-5">
+        <Card title="Condition along the route" note="25 m segments · marks are open defects" className="xl:col-span-3">
+          <ChainageStrip segments={an.segments} findings={an.findings} labelFor={labelFor} />
+          <div className="mt-6 md:mt-4">
+            <ConditionShareBar segments={an.segments} />
+          </div>
+        </Card>
+        <Card title="Open defects by type" note="Counts open the list" className="xl:col-span-2">
+          <DefectMatrix findings={an.findings} labelFor={labelFor} withSel={withSel} />
+        </Card>
+      </div>
+
+      <div className={`grid grid-cols-1 gap-6 md:gap-4 ${comparison ? "xl:grid-cols-2" : ""}`}>
+        <Card title="Repair cost by action" note={`All open repairs · ${currency}`}>
+          {plan.data ? <CostByAction plan={plan.data} /> : <Skeleton className="h-40 w-full" />}
+        </Card>
+        {comparison && (
+          <Card title="Condition change per segment" note={`${comparison.beforeName} → ${comparison.afterName}`}>
+            <SegmentChange {...comparison} withSel={withSel} />
+          </Card>
+        )}
+      </div>
 
       <Card title="Fix first" note="Ranked by severity × safety × traffic">
         {priority.isLoading ? (
