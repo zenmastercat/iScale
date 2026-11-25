@@ -303,6 +303,33 @@ try {
   await page.getByRole("button", { name: "Sign in" }).click();
   step(await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 15000 }).then(() => true, () => false), "sign back in with the same device key");
 
+  // Sukhumvit sample run: the recorded pothole run imported as AI findings with detector crops
+  where = "sukhumvit";
+  await page.goto(`${BASE}/`);
+  await settle();
+  const sk = await page.evaluate(async () => (await fetch("/api/demo/sukhumvit", { method: "POST", headers: { "X-Civil-Scan": "1" } })).json());
+  const skSid = sk.baseline;
+  const skAn = await j(`/api/projects/${sk.id}/surveys/${skSid}/analysis`);
+  const weak = skAn.findings.filter((f) => f.needs_review);
+  step(skAn.findings.length === 17 && skAn.findings.every((f) => f.photo), "Sukhumvit sample: 17 detector findings with photos", `${skAn.findings.length} findings, ${weak.length} to check first`);
+  const skSel = `project=${sk.id}&survey=${skSid}`;
+  const pick = weak[0] ?? skAn.findings[0];
+  await page.goto(`${BASE}/map?${skSel}&finding=${pick.id}`);
+  await settle(1500);
+  const crop = page.locator("img[src*='/photo']").first();
+  const cropOk = await crop.waitFor({ timeout: 15000 }).then(() => crop.evaluate((i) => i.complete && i.naturalWidth > 0), () => false);
+  const det = page.locator("img[src*='/detection']").first();
+  const detOk = !pick.detection_photo || (await det.waitFor({ timeout: 15000 }).then(() => det.evaluate((i) => i.complete && i.naturalWidth > 0), () => false));
+  const conf = await page.getByText(/Confidence \d+%/).count();
+  const badge = await page.getByText("Check first").count();
+  await shot("story-sukhumvit-drawer", false);
+  step(cropOk && detOk && conf > 0 && (!weak.length || badge > 0), "Sukhumvit drawer: detector photo, confidence, Check first badge", `photo=${cropOk} detection=${detOk} confidence=${conf} badge=${badge}`);
+  await page.goto(`${BASE}/findings?${skSel}`);
+  await settle(1000);
+  const tableBadges = await page.getByText("Check first").count();
+  await shot("story-sukhumvit-findings");
+  step(tableBadges >= weak.length, "Sukhumvit findings table: weak tracks marked Check first", `${tableBadges} badges for ${weak.length} weak tracks`);
+
   const real = errors.filter((e) => !/GL Driver|WebGL|GPU stall/i.test(e));
   step(real.length === 0, "no console errors or 5xx", real.slice(0, 5).join(" | "));
   // venue without internet: block the map's tile host. The route and markers must still show, with a notice.

@@ -30,6 +30,8 @@ Then in the laptop browser open **`http://<laptop-ip>:3000`** (not localhost, so
 
 1. `/login` shows **Set up iScale for your team**. Company: *Bang Sue District Works*, your name, username `presenter`.
 2. Press **Load demo street**. Processing takes ~20–30 s: talk over it (step 1 of the story).
+   Before going on stage, also load the real run: **Surveys** → **Load Sukhumvit sample run** (instant). Then
+   switch back to the demo street with the project picker in the top bar.
 3. **Team** (left rail) → add *Somchai K.*, username `crew.somchai`, role Engineer. Scan the QR with the phone,
    sign in as `crew.somchai` on the phone. Do this **before** going on stage; the phone stays signed in.
 
@@ -48,13 +50,14 @@ tape and start deciding where the budget goes.
 | 2 | Overview | point at the headline | "89 out of 100, 10 open defects, ฿90,247 to fix. Every number is measured, not guessed." |
 | 3 | Overview | a red/orange count in *Open defects by type* | "Every count opens the evidence." → Findings table, filtered |
 | 4 | Map | click the high-severity pothole | "7.8 cm deep, 0.87 m across, 31 L of missing asphalt. Measured from the 3D scan." |
-| 4b | Drawer | **Check in 3D** → **Correct** | "The AI shows its evidence: the cross-section, 7.8 cm below the road surface. The engineer decides: Correct. Now it carries her name. AI proposes, a person is accountable." *(only if this passed the rehearsal by the 20:00 freeze)* |
+| 4b | Drawer | **Check in 3D** → **Correct** | "The AI shows its evidence: the cross-section, 7.8 cm below the road surface. The engineer decides: Correct. Now it carries her name. AI proposes, a person is accountable." |
 | 5 | Drawer | scan the QR with the phone | "The crew gets clear work on their phone, in Thai: where, what, which materials." Phone shows the job card: address, materials in baht, Navigate |
 | 6 | Fix first | — | "Ranked by severity × safety × traffic: the most dangerous defect on the busiest road comes first." |
 | 7 | Repair plan | press the 50 % budget button | "Only have ฿45,000? This is what you fund; the rest waits." |
 | 8 | Repair plan | **Create work order** | "One click, the crew has the list." |
 | 9 | Verification | **Mark completed** → **Run verification** | "The after-drive checks the work: 6 fixed, 4 still there. Good repairs are proven by data, not by a supervisor's opinion." |
 | 10 | Report | **Print** | "One page for the council, including who confirmed each AI finding." |
+| 10b | top bar | project picker → **Sukhumvit Rd, Asok → Phrom Phong** | "That street was a demo. This one is real: a camera run on Sukhumvit near Asok. 17 potholes in 500 m, each with the detector's photo and confidence." Open a pothole marked **Check first**: "Seen in only 3 frames, so the AI asks a person to look first. She checks the photo and decides." Press **Correct** (or **Wrong**). |
 | 11 | top bar | **ไทย** | "Built for Thai crews." Switch back with **EN**. |
 
 ## Questions judges may ask
@@ -64,7 +67,8 @@ tape and start deciding where the budget goes.
 | Does this replace inspectors? | No. It removes the tape-measure walk. Inspectors review the AI's evidence and plan the budget; every AI finding can be confirmed or rejected, with their name on it. |
 | What if the AI is wrong? | The engineer sees why it flagged the spot (3D cross-section and a plain-language note) and rejects it. Rejected findings leave the plan. |
 | What skills do crews need? | A phone. The job card says where, what and which materials, in Thai; Navigate opens the route. |
-| Is the data real? | The demo drive is synthetic, placed on real Bang Sue streets. The pipeline runs on real phone video (see the backend README). |
+| Is the data real? | Two projects. The demo street is synthetic, placed on real Bang Sue streets, to show the whole repair loop. The Sukhumvit run is real: 17 potholes detected from a camera drive near Asok, with GPS and photos. Its depth is assumed (5 cm), not measured; camera-only runs have no 3D model. |
+| Why 'Check first'? | The detector saw those 4 potholes in only 1–3 frames. Weak evidence goes to a person before money is spent on it. |
 | Where does the data live? | On a server the district runs. No cloud account; accounts are added by the district's admin. |
 
 ## If something goes wrong
@@ -84,3 +88,9 @@ tape and start deciding where the budget goes.
 242 m surveyed · 10 segments of 25 m · condition 89/100 (Good) · 10 open defects (4 high) ·
 repair estimate ฿90,247 incl. ฿42,000 mobilisation (8 segments × ฿5,250) · after repairs: 6 verified, 4 still present.
 All amounts are Thai baht. Unit rates are placeholders (old USD rates × 35); say so if asked.
+
+## Numbers to know (Sukhumvit sample run, real)
+
+Sukhumvit Rd, Asok → Phrom Phong · 499 m · 17 potholes, 4 marked **Check first** (seen in 1–3 frames) ·
+about 136 m² damaged, about 17 t of asphalt · detector confidence 0.82–0.93 · depth assumed 5 cm, not measured.
+The source run priced it at ฿314,537 (฿18/kg material + ฿350 labour per pothole); the app's own plan uses its unit rates, so it shows a different total.

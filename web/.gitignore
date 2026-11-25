@@ -47,3 +47,7 @@ next-env.d.ts
 /.b-rehearsal/
 /.skel-rehearsal/
 /.cache/
+/.a-rehearsal/
+/.skel-shots/
+/.skel-shots.mjs
+/.a-rehearsal/
