@@ -1,4 +1,4 @@
-import { ClipboardCheck, FileText, LayoutDashboard, ListOrdered, Map, Route, Table2, Users, Wrench, type LucideIcon } from "lucide-react";
+import { Bot, ClipboardCheck, FileText, LayoutDashboard, ListOrdered, Map, Route, Table2, Users, Wrench, MessageCircle, type LucideIcon } from "lucide-react";
 
 /** Route paths for every page. Pages live in app/(app)/<path>/page.tsx. */
 export const ROUTES = {
@@ -12,8 +12,12 @@ export const ROUTES = {
   surveys: "/surveys",
   /** one-page council report (print / save as PDF) */
   report: "/report",
+  /** Civil Helper: questions, document library, provider settings */
+  helper: "/helper",
   /** team members; admins add people (e.g. a crew phone) */
   team: "/team",
+  /** crew chat (XMPP + OMEMO) */
+  chat: "/chat",
   /** phone job card: /job?project=&survey=&finding=<fid> */
   job: "/job",
   login: "/login",
@@ -29,5 +33,7 @@ export const NAV: { href: string; label: string; short: string; th: string; shor
   { href: ROUTES.verification, label: "Verification", short: "Verify", th: "ตรวจผลการซ่อม", shortTh: "ตรวจผล", icon: ClipboardCheck },
   { href: ROUTES.surveys, label: "Surveys", short: "Surveys", th: "การสำรวจ", shortTh: "สำรวจ", icon: Route },
   { href: ROUTES.report, label: "Report", short: "Report", th: "รายงาน", shortTh: "รายงาน", icon: FileText, desktopOnly: true },
+  { href: ROUTES.helper, label: "Civil Helper", short: "Helper", th: "ผู้ช่วยวิศวกร", shortTh: "ผู้ช่วย", icon: Bot, desktopOnly: true },
   { href: ROUTES.team, label: "Team", short: "Team", th: "ทีม", shortTh: "ทีม", icon: Users, desktopOnly: true },
+  { href: ROUTES.chat, label: "Chat", short: "Chat", th: "แชท", shortTh: "แชท", icon: MessageCircle, desktopOnly: true },
 ];
