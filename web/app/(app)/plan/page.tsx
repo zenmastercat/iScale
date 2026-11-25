@@ -4,6 +4,7 @@ import { ClipboardList } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { BudgetChart } from "@/components/plan/budget-chart";
 import { BudgetBar } from "@/components/plan/budget-bar";
 import { SegmentTable, SpotTable } from "@/components/plan/plan-table";
 import { usePlan } from "@/components/plan/use-plan";
@@ -204,6 +205,8 @@ function PlanBody({ s }: { s: PlanScreen }) {
           sub={high ? (high.covered === high.total ? t("all high-severity defects funded", "ได้รับงบครบทุกจุดที่รุนแรงสูง") : t("high-severity defects still deferred", "ยังมีจุดรุนแรงสูงที่เลื่อนไว้")) : t("spot repairs only", "เฉพาะซ่อมเป็นจุด")}
         />
       </div>
+
+      {spotAll.data?.mode === "spot" && <BudgetChart all={spotAll.data} max={max} current={shown} />}
 
       <section aria-label={t("Plan items", "รายการในแผน")} className="rounded-lg border bg-card p-5 md:p-4">
         <div className="mb-5 md:mb-3 flex flex-wrap items-center justify-between gap-3">

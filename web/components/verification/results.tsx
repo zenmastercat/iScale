@@ -1,5 +1,5 @@
 "use client";
-import { Check, Circle, X } from "lucide-react";
+import { Check, Circle, Download, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useCatalogLabel } from "@/lib/queries";
@@ -124,6 +124,28 @@ function BeforeAfter({ r, max }: { r: VerificationResult; max: Record<Kind, numb
   );
 }
 
+const csvCell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+
+/** Client-side CSV of the rows on screen (there is no server export for verification). */
+function downloadCsv(v: Verification, rows: VerificationResult[], name: (type: string) => string) {
+  const head = ["finding_id", "name", "type", "severity", "result", "before", "after", "surface_delta_cm", "evidence", "lat", "lon"];
+  const lines = rows.map((r) => {
+    const b = measure(r.before_metrics);
+    const a = measure(r.after_metrics);
+    return [
+      r.finding_id, name(r.type), r.type, r.severity, r.status,
+      b ? fmt(b) : "", a ? fmt(a) : "", (r.surface_delta_m * 100).toFixed(1), r.evidence, r.lat, r.lon,
+    ].map(csvCell).join(",");
+  });
+  const blob = new Blob(["\ufeff" + [head.join(","), ...lines].join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `verification-${v.before}-${v.after}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function VerificationResults({ v }: { v: Verification }) {
   const t = useT();
   const { withSel } = useSelection();
@@ -152,6 +174,16 @@ export function VerificationResults({ v }: { v: Verification }) {
       <section aria-label={t("Each repair, before and after", "งานซ่อมแต่ละรายการ ก่อนและหลัง")} className="rounded-lg border bg-card p-4 md:p-4">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-grey-900 md:text-base">{t("Each repair, before and after", "งานซ่อมแต่ละรายการ ก่อนและหลัง")}</h2>
+          <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => downloadCsv(v, rows, label)}
+            disabled={!rows.length}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border bg-card px-4 text-sm font-medium hover:bg-grey-50 disabled:opacity-50"
+          >
+            <Download aria-hidden className="size-4" />
+            {t("Export CSV", "ส่งออก CSV")}
+          </button>
           <div role="group" aria-label={t("Filter results", "กรองผลลัพธ์")} className="flex flex-wrap gap-2">
             {filters.map((f) => (
               <button
@@ -168,6 +200,7 @@ export function VerificationResults({ v }: { v: Verification }) {
                 {f.n !== undefined && <span className="num"> ({f.n})</span>}
               </button>
             ))}
+          </div>
           </div>
         </div>
         {rows.length === 0 ? (

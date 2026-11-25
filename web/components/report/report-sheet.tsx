@@ -1,12 +1,14 @@
 "use client";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { usePlan } from "@/components/plan/use-plan";
 import { Money, Num } from "@/components/shared/num";
 import { SeverityIcon } from "@/components/shared/severity-badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { isOpenDefect } from "@/lib/chainage";
+import { findingChainage, isOpenDefect } from "@/lib/chainage";
 import { bandFor, conditionShares, routeCondition } from "@/lib/condition";
-import { formatDate, formatNumber, formatPercent } from "@/lib/format";
+import { getAnalysis, qk } from "@/lib/api";
+import { formatChainage, formatDate, formatNumber, formatPercent } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import { useAnalysis, useAuthState, useVerification, useWorkOrders } from "@/lib/queries";
 import { useSelection } from "@/lib/selection";
@@ -70,6 +72,10 @@ export function ReportSheet() {
   const planQ = usePlan("spot", null);
   const orders = useWorkOrders();
   const verification = useVerification();
+  // condition change needs both drives of the verification
+  const vd = verification.data;
+  const beforeQ = useQuery({ queryKey: qk.analysis(project?.id ?? "", vd?.before ?? ""), queryFn: () => getAnalysis(project!.id, vd!.before), enabled: !!project && !!vd });
+  const afterQ = useQuery({ queryKey: qk.analysis(project?.id ?? "", vd?.after ?? ""), queryFn: () => getAnalysis(project!.id, vd!.after), enabled: !!project && !!vd });
 
   const stats = useMemo(() => {
     const an = analysis.data;
@@ -96,6 +102,9 @@ export function ReportSheet() {
   const v = verification.data;
   const nameOf = (id: string) => project?.survey_list.find((s) => s.id === id)?.name ?? id;
   const woList = orders.data ?? [];
+  const cb = beforeQ.data ? routeCondition(beforeQ.data.segments) : null;
+  const ca = afterQ.data ? routeCondition(afterQ.data.segments) : null;
+  const change = cb !== null && ca !== null ? { before: cb, after: ca, delta: ca - cb } : null;
 
   return (
     <article
@@ -158,7 +167,12 @@ export function ReportSheet() {
       {top.length === 0 ? (
         <p className="text-grey-700 print:text-black">{t("No open defects.", "ไม่มีข้อบกพร่องที่ต้องซ่อม")}</p>
       ) : (
-        <div className="overflow-x-auto print:overflow-visible">
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label={t("Top 10 repairs table, scrolls sideways", "ตารางงานซ่อม 10 อันดับแรก เลื่อนไปด้านข้างได้")}
+          className="overflow-x-auto print:overflow-visible"
+        >
           <table className="w-full min-w-[480px]">
             <thead>
               <tr>
@@ -166,6 +180,7 @@ export function ReportSheet() {
                 <th scope="col" className={TH}>{t("Finding", "รายการ")}</th>
                 <th scope="col" className={TH}>{t("Severity", "ความรุนแรง")}</th>
                 <th scope="col" className={TH}>{t("Segment", "ช่วง")}</th>
+                <th scope="col" className={TH}>{t("Chainage", "ระยะทาง")}</th>
                 <th scope="col" className={TH}>{t("Action", "วิธีซ่อม")}</th>
                 <th scope="col" className={`${TH} text-right`}>{t("Cost", "ค่าใช้จ่าย")}</th>
               </tr>
@@ -182,6 +197,7 @@ export function ReportSheet() {
                     </span>
                   </td>
                   <td className={`${TD} num`}>{i.segment_id}</td>
+                  <td className={`${TD} num`}>{(() => { const c = findingChainage(i, analysis.data!.segments); return c === null ? "–" : formatChainage(c); })()}</td>
                   <td className={TD}>{i.action_label}</td>
                   <td className={`${TD} text-right`}><Money amount={i.cost} currency={plan.currency} /></td>
                 </tr>
@@ -228,6 +244,14 @@ export function ReportSheet() {
             <span className="num font-semibold">{v.counts.not_fixed}</span> {t("still present", "ยังพบอยู่")} ·{" "}
             <span className="num font-semibold">{v.counts.not_covered}</span> {t("not covered by the after drive", "รอบหลังสำรวจไม่ถึง")}
           </p>
+          {change && (
+            <p className="mt-1">
+              {t("Condition index", "ดัชนีสภาพถนน")}: <span className="num font-semibold">{formatNumber(change.before, 1)}</span> →{" "}
+              <span className="num font-semibold">{formatNumber(change.after, 1)}</span>{" "}
+              <span className="num">({change.delta >= 0 ? "+" : "−"}{formatNumber(Math.abs(change.delta), 1)})</span>{" "}
+              {t("between the two drives", "ระหว่างการสำรวจสองรอบ")}
+            </p>
+          )}
         </div>
       ) : (
         <p className="text-grey-700 print:text-black">{t("No verification yet.", "ยังไม่มีการตรวจยืนยัน")}</p>

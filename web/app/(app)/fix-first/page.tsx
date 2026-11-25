@@ -1,5 +1,6 @@
 "use client";
 import { useMemo } from "react";
+import { SummaryStrip } from "@/components/fix-first/summary-strip";
 import { RankingTable } from "@/components/fix-first/ranking-table";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
@@ -28,6 +29,7 @@ function FixFirstBody() {
       <p className="mb-5 text-sm text-muted-foreground">
         {t("Ranked by", "จัดอันดับโดย")}: <span className="font-medium text-grey-900">{priority.data.formula}</span>
       </p>
+      <SummaryStrip items={items} currency="USD" />
       <RankingTable items={items} findingsById={byId} currency="USD" />
     </section>
   );
