@@ -53,6 +53,10 @@ def main() -> None:
     fg_real.add_argument("--sthereo", default="", help="STheReO sequence folder (sensor_data/, image/, calibration/)")
     fg_real.add_argument("--out", required=True, help="output folder for reports, trajectories and maps")
     fg_real.add_argument("--figures", default="", help="folder for M2DGR figures (STheReO figures stay in --out)")
+    bp = sub.add_parser("bench-potholes", help="benchmark pothole depth/area/volume accuracy on real-GT and synthetic suites")
+    bp.add_argument("--suites", nargs="+", default=["synth-forge-dev"], help="suites to run")
+    bp.add_argument("--datasets-dir", default="", help="path to pothole datasets directory")
+    bp.add_argument("--out", default="", help="optional JSON output file")
     a = ap.parse_args()
     if a.cmd == "serve":
         import uvicorn
@@ -130,6 +134,18 @@ def main() -> None:
             ds = Path(a.datasets_dir) if a.datasets_dir else None
             report = run_synthetic_sanity_check(datasets_dir=ds)
             print(json.dumps(report["sequences"], indent=2))
+    elif a.cmd == "bench-potholes":
+        from pathlib import Path
+
+        from .bench_potholes import run_benchmark
+
+        ds = Path(a.datasets_dir) if a.datasets_dir else None
+        res = run_benchmark(a.suites, datasets_dir=ds)
+        text = json.dumps(res, indent=2)
+        if a.out:
+            Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+            Path(a.out).write_text(text)
+        print(text)
 
 
 def calibrate(a) -> None:
