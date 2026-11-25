@@ -24,7 +24,7 @@ const ALLOWED = new Set(
 );
 
 const TYPES = {
-  ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".json": "application/json",
+  ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json",
   ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".ico": "image/x-icon", ".woff2": "font/woff2",
   ".txt": "text/plain", ".map": "application/json", ".webmanifest": "application/manifest+json",
 };
