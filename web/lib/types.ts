@@ -153,6 +153,8 @@ export interface Segment {
 export interface FindingMetrics {
   area_m2?: number;
   depth_max_m?: number;
+  /** camera-only finding: depth_max_m is an assumption (5 cm), not a measurement */
+  depth_assumed?: boolean;
   depth_median_m?: number;
   volume_m3?: number;
   diameter_m?: number;
@@ -212,6 +214,8 @@ export interface Finding {
   note?: string;
   /** imported camera run: a detector crop is served at GET /api/projects/{pid}/surveys/{sid}/findings/{id}/photo */
   photo?: boolean;
+  /** imported camera run: the detector's own view (its box + "#id conf y" label) at GET .../findings/{id}/detection */
+  detection_photo?: boolean;
   /** weak detector track (few hits): check it first */
   needs_review?: boolean;
   /** detector confidence 0..1 */

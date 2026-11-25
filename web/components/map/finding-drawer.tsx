@@ -15,6 +15,7 @@ import { useAnalysis, useCatalogLabel } from "@/lib/queries";
 import { useSelection } from "@/lib/selection";
 import { useT } from "@/lib/i18n";
 import type { Finding } from "@/lib/types";
+import { AiEvidence } from "./ai-evidence";
 import { History } from "./history";
 import { QrBlock } from "./qr-block";
 import { TrustBadge } from "./trust";
@@ -102,6 +103,7 @@ function DrawerBody({ f, segments }: { f: Finding; segments: import("@/lib/types
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <SeverityBadge severity={f.severity} />
           <TrustBadge source={f.source} />
+          {f.needs_review && <span className="inline-flex items-center rounded-md border border-sev-medium bg-sev-medium-bg px-2 py-0.5 text-xs font-medium text-sev-medium-fg">▲ {t("Check first", "ตรวจก่อน")}</span>}
           {f.status !== "open" && <StatusPill status={f.status} />}
         </div>
       </div>
@@ -111,6 +113,9 @@ function DrawerBody({ f, segments }: { f: Finding; segments: import("@/lib/types
       ) : photo ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={photo.url} alt={t(`Drive frame of ${label(f.type)}`, `ภาพจากการสำรวจของ ${label(f.type)}`)} className="w-full rounded-lg border" />
+      ) : f.photo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={`/api/projects/${encodeURIComponent(projectId ?? "")}/surveys/${encodeURIComponent(surveyId ?? "")}/findings/${encodeURIComponent(f.id)}/photo`} alt={t(`Detector crop of ${label(f.type)}`, `ภาพตัดจากตัวตรวจจับของ ${label(f.type)}`)} className="max-h-64 w-full rounded-lg border object-contain bg-grey-50" />
       ) : (
         <div className="grid h-32 place-items-center rounded-lg border border-dashed bg-grey-50 text-sm text-muted-foreground">
           <span className="flex items-center gap-2"><ImageOff className="size-4" aria-hidden />{t("No drive frame for this survey", "ไม่มีภาพจากการสำรวจ")}</span>
@@ -152,6 +157,7 @@ function DrawerBody({ f, segments }: { f: Finding; segments: import("@/lib/types
           {addWO.isPending ? t("Adding…", "กำลังเพิ่ม…") : f.status === "planned" ? t("In a work order", "อยู่ในใบสั่งงานแล้ว") : t("Add to work order", "เพิ่มในใบสั่งงาน")}
         </Button>
       </div>
+      <AiEvidence findingId={f.id} status={f.status} detector={f.detector} confidence={f.confidence} detectionPhoto={f.detection_photo} />
       <History entries={f.history} />
       <QrBlock findingId={f.id} />
       {!f.severity && <p className="text-xs text-muted-foreground">{t("Assets are inventory and can't be added to a work order.", "สินทรัพย์เป็นรายการสำรวจ เพิ่มในใบสั่งงานไม่ได้")}</p>}

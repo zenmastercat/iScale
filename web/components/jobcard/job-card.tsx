@@ -223,7 +223,7 @@ function Materials({ c, t }: { c: JobCard; t: (typeof T)[Lang] }) {
                 <div className="text-sm font-medium">{t === T.th ? l.label_th || l.label : l.label}</div>
                 <div className="num text-xs text-muted-foreground">{formatNumber(l.qty, 2)} {l.unit} × {formatNumber(l.unit_price, 2)}</div>
               </div>
-              <Money amount={l.amount} style="symbol" symbol={k.symbol} className="text-sm" />
+              <Money amount={l.amount} style="symbol" symbol={k.symbol} className="shrink-0 text-sm" />
             </li>
           ))}
         </ul>

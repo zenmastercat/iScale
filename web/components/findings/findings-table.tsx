@@ -1,5 +1,5 @@
 "use client";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Hand, Ruler, ShieldCheck } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, CircleHelp, Hand, Ruler, ShieldCheck, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef } from "react";
 import { ConditionChip, Money, Num, SeverityBadge, StatusPill } from "@/components/shared";
@@ -116,6 +116,16 @@ export function FindingsTable({
         <td className="px-2 py-1 text-right">{r.rank !== null ? <span className="num">{r.rank}</span> : "–"}</td>
         <td className="px-2 py-1">
           <Link href={link(r.f.id)} className="num whitespace-nowrap text-link underline underline-offset-2 hover:text-brand" aria-label={t(`Open ${r.label} ${r.f.id} on the map`, `เปิด ${r.label} ${r.f.id} บนแผนที่`)}>{r.f.id}</Link>
+          {r.f.needs_review && <span className="ml-1.5 rounded border border-sev-medium bg-sev-medium-bg px-1 text-[11px] font-medium text-sev-medium-fg">▲ {t("Check first", "ตรวจก่อน")}</span>}
+          {r.f.review && (
+            <span
+              className="ml-1.5 inline-flex align-middle text-grey-700"
+              title={t(`3D check: ${r.f.review.verdict}`, `ตรวจ 3D: ${{ correct: "ถูกต้อง", wrong: "ผิด", unsure: "ไม่แน่ใจ" }[r.f.review.verdict]}`)}
+            >
+              {r.f.review.verdict === "correct" ? <Check className="size-3.5" aria-hidden /> : r.f.review.verdict === "wrong" ? <X className="size-3.5" aria-hidden /> : <CircleHelp className="size-3.5" aria-hidden />}
+              <span className="sr-only">{t(`Reviewed: ${r.f.review.verdict}`, `ตรวจแล้ว: ${{ correct: "ถูกต้อง", wrong: "ผิด", unsure: "ไม่แน่ใจ" }[r.f.review.verdict]}`)}</span>
+            </span>
+          )}
         </td>
         <td className="max-w-36 truncate px-2 py-1" title={r.label}>{r.label}</td>
         <td className="px-2 py-1">{r.f.severity ? <SeverityBadge severity={r.f.severity} size="sm" className="py-0" /> : <span className="text-muted-foreground">{t("Asset", "สินทรัพย์")}</span>}</td>

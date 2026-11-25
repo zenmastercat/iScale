@@ -2,7 +2,8 @@
 import { Check, Circle, Download, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { useCatalogLabel } from "@/lib/queries";
+import { reviewOf } from "@/components/report/review";
+import { useAnalysis, useCatalogLabel } from "@/lib/queries";
 import { useT } from "@/lib/i18n";
 import { useSelection } from "@/lib/selection";
 import type { FindingMetrics, Verification, VerificationResult, VerifyStatus } from "@/lib/types";
@@ -159,6 +160,10 @@ export function VerificationResults({ v }: { v: Verification }) {
   const t = useT();
   const { withSel } = useSelection();
   const label = useCatalogLabel();
+  const analysis = useAnalysis();
+  const confirmed = new Set(
+    (analysis.data?.findings ?? []).filter((f) => reviewOf(f)?.verdict === "correct").map((f) => f.id),
+  );
   const [filter, setFilter] = useState<Filter>("all");
   const rows = filter === "all" ? v.results : v.results.filter((r) => r.status === filter);
   // one scale per unit, so cm rows are compared with cm rows and m² rows with m² rows
@@ -230,6 +235,12 @@ export function VerificationResults({ v }: { v: Verification }) {
                       {label(r.type)}
                     </Link>
                     <p className="num text-sm text-muted-foreground">{r.finding_id}</p>
+                    {confirmed.has(r.finding_id) && (
+                      <p className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-sev-low-fg">
+                        <Check aria-hidden className="size-3.5" />
+                        {t("Confirmed by engineer", "วิศวกรยืนยันแล้ว")}
+                      </p>
+                    )}
                   </div>
                   <span className="md:hidden"><Pill status={r.status} /></span>
                 </div>
