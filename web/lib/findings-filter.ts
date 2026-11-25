@@ -6,7 +6,7 @@
 import type { Finding, FindingStatus, Severity } from "@/lib/types";
 
 export const SORT_KEYS = [
-  "rank", "id", "type", "severity", "status", "segment", "chainage", "depth", "area", "volume", "cost", "source", "workorder",
+  "rank", "id", "type", "severity", "status", "segment", "chainage", "depth", "area", "volume", "cost", "source", "workorder", "check",
 ] as const;
 export type SortKey = (typeof SORT_KEYS)[number];
 
@@ -16,6 +16,8 @@ export interface FindingsFilter {
   status?: FindingStatus[];
   type?: string[];
   segment?: string[];
+  /** "none": AI findings no engineer has judged yet */
+  review?: "none";
   q?: string;
   sort?: { key: SortKey; desc: boolean };
 }
@@ -40,6 +42,7 @@ export function parseFindingsFilter(sp: URLSearchParams): FindingsFilter {
   if (type?.length) f.type = type;
   const seg = list(sp.get("segment"))?.filter((s) => /^[A-Za-z0-9_-]{1,32}$/.test(s));
   if (seg?.length) f.segment = seg;
+  if (sp.get("review") === "none") f.review = "none";
   const q = sp.get("q")?.slice(0, 100).trim();
   if (q) f.q = q;
   const sort = sp.get("sort");
@@ -59,6 +62,7 @@ export function findingsQuery(f: FindingsFilter): Record<string, string> {
   if (f.status?.length) out.status = f.status.join(",");
   if (f.type?.length) out.type = f.type.join(",");
   if (f.segment?.length) out.segment = f.segment.join(",");
+  if (f.review) out.review = f.review;
   if (f.q) out.q = f.q;
   if (f.sort) out.sort = (f.sort.desc ? "-" : "") + f.sort.key;
   return out;
@@ -71,6 +75,12 @@ export function matchesFilter(x: Finding, f: FindingsFilter): boolean {
   if (f.severity && (!x.severity || !f.severity.includes(x.severity))) return false;
   if (f.status && !f.status.includes(x.status)) return false;
   if (f.type && !f.type.includes(x.type)) return false;
+  if (f.review === "none" && !isUnreviewed(x)) return false;
   if (f.segment && (!x.segment_id || !f.segment.includes(x.segment_id))) return false;
   return true;
+}
+
+/** An AI-found defect (not tagged by hand) that no engineer has judged yet. */
+export function isUnreviewed(x: Finding): boolean {
+  return x.severity !== null && x.source !== "manual" && !x.review?.verdict;
 }

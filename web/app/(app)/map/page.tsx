@@ -81,7 +81,7 @@ function MapBody({ layers }: { layers: Layers }) {
             {t("No defects were found in this survey. The road is shown by condition only.", "ไม่พบข้อบกพร่องในการสำรวจนี้ แสดงเฉพาะสภาพถนน")}
           </p>
         )}
-        <div className="h-[calc(100dvh-20rem)] min-h-[360px] overflow-hidden rounded-md bg-grey-50">
+        <div className="h-[calc(100dvh-14rem)] min-h-[520px] overflow-hidden rounded-md bg-grey-50">
           {empty ? (
             <p className="grid h-full place-items-center text-muted-foreground">{t("This survey has no segments or findings to show.", "การสำรวจนี้ไม่มีช่วงถนนหรือรายการให้แสดง")}</p>
           ) : (
@@ -102,9 +102,10 @@ function MapBody({ layers }: { layers: Layers }) {
         <MapLegend showCondition={layers.condition} showDefects={layers.defects} colourBy={colourBy} segments={an.segments} />
       </div>
       {listOpen && !empty && (
-        <aside aria-label={t("Defect list", "รายการข้อบกพร่อง")} className="mt-3 hidden h-[calc(100dvh-14rem)] min-h-[420px] w-80 shrink-0 overflow-hidden rounded-lg border bg-card lg:mt-0 lg:block">
+        <aside aria-label={t("Defect list", "รายการข้อบกพร่อง")} className="mt-3 hidden h-[calc(100dvh-14rem)] min-h-[520px] w-[300px] shrink-0 overflow-hidden rounded-lg border bg-card lg:mt-0 lg:block">
           <DefectList
             findings={an.findings}
+            segments={an.segments}
             rank={rank}
             labelFor={labelFor}
             selectedId={findingId}

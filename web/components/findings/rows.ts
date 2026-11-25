@@ -52,6 +52,7 @@ function sortValue(r: Row, key: SortKey): number | string | null {
     case "cost": return r.cost;
     case "source": return r.source;
     case "workorder": return r.workorder;
+    case "check": return r.f.needs_review ? 0 : 1; // weak detector tracks first
   }
 }
 

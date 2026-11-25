@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useSelection } from "@/lib/selection";
 import { Logo } from "./logo";
 import { useLang } from "@/lib/i18n";
+import { useReviewCounts } from "@/lib/review-counts";
 import { NAV } from "./nav";
 
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
@@ -14,6 +15,8 @@ export function SideRail() {
   const pathname = usePathname();
   const { withSel } = useSelection();
   const { lang } = useLang();
+  const { unreviewed, stillPresent } = useReviewCounts();
+  const badge: Record<string, number | null> = { "/findings": unreviewed, "/verification": stillPresent };
   return (
     <nav aria-label="Main" className="sticky top-0 hidden print:hidden h-dvh w-60 shrink-0 flex-col bg-sidebar px-3 py-6 text-sidebar-foreground md:flex">
       <Link href={withSel("/")} className="mb-8 px-3">
@@ -35,6 +38,14 @@ export function SideRail() {
               >
                 <Icon aria-hidden className="size-5" strokeWidth={1.75} />
                 {lang === "th" ? th : label}
+                {(badge[href] ?? 0) > 0 && (
+                  <span
+                    className="num ml-auto rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold text-white"
+                    aria-label={href === "/findings" ? (lang === "th" ? `${badge[href]} รายการรอตรวจ` : `${badge[href]} to review`) : (lang === "th" ? `${badge[href]} จุดยังพบอยู่` : `${badge[href]} still present`)}
+                  >
+                    {badge[href]}
+                  </span>
+                )}
               </Link>
             </li>
           );

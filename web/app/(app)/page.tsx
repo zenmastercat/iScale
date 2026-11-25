@@ -12,6 +12,7 @@ import { SegmentDiagram } from "@/components/linear/segment-diagram";
 import { getAnalysis, qk } from "@/lib/api";
 import { findingsQuery, OPEN_STATUSES } from "@/lib/findings-filter";
 import { useT } from "@/lib/i18n";
+import { NextStep } from "@/components/overview/next-step";
 import { SummarySentence } from "@/components/overview/summary-sentence";
 import { HowWeMeasure } from "@/components/shared/how-we-measure";
 import { KpiTile } from "@/components/shared/kpi-tile";
@@ -96,6 +97,8 @@ function OverviewBody() {
 
   return (
     <div className="flex flex-col gap-6 md:gap-4">
+      <NextStep />
+
       <SummarySentence
         lengthM={stats.lengthM}
         score={stats.score}
