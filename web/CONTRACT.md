@@ -3,7 +3,7 @@
 The lead owns the foundation. Sub-agents A and B build feature pages on top of it.
 **Rule: edit only files inside your own folders (below).** Need a package, a type, an API function, a
 shared component or a change to anything you don't own? Write it in `STATUS.md` under *Requests*
-and message the lead (pane `w7:p1`). The lead makes the change and tells you. Don't work around it
+and message the lead (pane `w7:p1`; A is `w7:p4`, B is `w7:p5`). The lead makes the change and tells you. Don't work around it
 with a local copy.
 
 Read first: this file, `lib/types.ts`, `lib/api.ts`, `lib/queries.ts`, `lib/selection.tsx`,
