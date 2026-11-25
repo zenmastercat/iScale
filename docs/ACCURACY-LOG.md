@@ -90,3 +90,13 @@ Held-out Test splits are NOT tuned on and are re-measured only after all iterati
 * **Dev Benchmark Before (Iter 4) → After (`real-video-dev`, `n=2`):**
   * `real-video-dev`: `rethinking_model2` improved (`area +513% → +360%`, `vol +347% → +242%`), **but** `stereo_dataset1` recall dropped **`1 → 0`** (global plane fit on LingBot's slightly curved close-range cloud shifted scale factor `0.72 → 0.85` and dropped road mask coverage).
 * **Decision:** **REVERTED** — 3 consecutive iterations (5, 6, 7) produced no net real-GT gain; stopping iterative loop per stop rule and running final held-out Test evaluation on commit `a4d3b55`.
+
+## Short-Trajectory Bugfix (`13f69d4`) & Final Held-Out Test Verification
+
+* **Bug discovered on held-out `real-video-test` (`stereo_dataset3`):** Once `align.py` properly leveled the 5-frame clip, its true horizontal motion was `< 0.5 m` (`PATH_STEP`), causing `resample_path` to return 1 point and crash `np.gradient` inside `station_offset`. Fixed in `civil/analysis/segments.py` (always return `[0, d[-1]]` when `len(s) < 2`) with TDD regression test.
+* **Final Held-Out Test Summary (never tuned on):**
+  * `real-stereo-test` (`n=5`): recall **`0.000 → 1.000`** (0 FP), depth MAE **`0.022 cm`** (max `0.03 cm`), area err **`15.77 %`**, vol err **`2.58 %`**, time `8.25 s` (1.43× baseline).
+  * `real-laser-test` (`n=4`): recall **`0.000 → 1.000`** (0 FP), depth MAE **`0.145 cm`** (max `0.19 cm`), area err **`18.97 %`**, vol err **`11.10 %`**, time `0.94 s` (1.68× baseline).
+  * `real-video-test` (`n=2`, LingBot-Map): recall **`0.000 → 0.500`** (0 FP), depth MAE `1.50 cm`, time `24.03 s` (0.89× baseline), peak VRAM `10052 MB`.
+  * `synth-forge-test` (`n=12`, SYNTHETIC): recall **`0.917 → 1.000`** (0 FP), depth MAE **`0.346 cm`** (max `0.56 cm`), area err **`23.74 → 16.88 %`**, vol err **`18.15 → 6.08 %`**, time `9.40 s` (1.10× baseline).
+  * `synth-video-test` (`n=3`, SYNTHETIC): recall `0.000 → 0.000` (1 FP), time `16.91 s` (1.03× baseline), peak VRAM `8470 MB`.

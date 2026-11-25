@@ -81,8 +81,39 @@ uv run --extra forge civil bench-potholes --suites synth-video-dev synth-video-d
 1. **Pitched-camera ground-plane rejection in `civil/align.py:118`:** `abs(n @ cam_up) < cos(30°)` rejects the true road plane whenever the camera tilts >30° downward (3/4 real video clips) or when roadside walls dominate RANSAC (`synth-video-dev`), falling back to tilted `cam_up` and tilting the road so `coverage = 0.0`.
 2. **Hardcoded global height cutoff `xyz[:, 2] < 1.0` in `civil/analysis/__init__.py:141`:** drops road points whenever a sloped or tilted road rises above `z = 1.0 m` instead of filtering relative to local trajectory height.
 3. **Coarse 10 cm raster (`raster_m = 0.10`) & lack of local fine measurement in `civil/analysis/detect.py`:** dilutes small real potholes (`0%` recall on `real-stereo-dev`), inflates small-pothole area/volume by ~700% (`real-laser-dev`), and truncates the 0–1 cm sloped rim of full-size potholes (`-30%` area bias, `-25%` volume bias on `synth-forge-dev`).
-4. **FORGE 10 cm keyframe voxelisation (`ForgeConfig.voxel_size_m = 0.10` in `civil/forge/pipeline.py:101`):** discards fine road geometry before `SpatialTileMemory` even though `export_world_cloud` exports at 4 cm, creating sparse holes at finer analysis rasters.
-5. **LingBot-Map far-depth road layering (`adapters/lingbot_map.py:149`, `max_depth = None`):** back-projects far grazing-angle road pixels that stack in vertical layers (±12 cm), drowning real 5–9 cm depressions in surface noise.
+4. **FORGE 10 cm keyframe voxelisation (`ForgeConfig.voxel_size_m = 0.10` in `civil/forge/pipeline.py:101`) & earliest-hit tile export (`civil/forge/memory.py:267`):** discards fine road geometry before `SpatialTileMemory` and retains far grazing-angle keyframes instead of the closest-range pass per 4 cm voxel.
+5. **LingBot-Map monocular depth smoothing & far-depth layering:** LingBot-Map's DPT head smooths sub-10 cm potholes over a ~20–30 cm bowl (and smooths synthetic rendered potholes to flat road at 1.35 m height).
+
+## Final Results — Baseline (`6194d16`) vs Final (`3d-accuracy` after Iterations 1–4 + short-path fix)
+
+### Real-GT Data (NOT synthetic)
+
+| Suite | Split | `n` | Recall (Base → Final) | FP (Base → Final) | Depth MAE cm (Base → Final) | Depth Max cm | Area Err % (Base → Final) | Vol Err % (Base → Final) | Time s (Base → Final) | Peak VRAM (MB) |
+|---|---|---:|---|---|---|---:|---|---|---|---:|
+| `real-stereo-dev-default` | Dev (prod defaults) | 22 | 0.000 → 0.000 | 0 → 0 | — → — | — | — → — | — → — | 25.17 → 27.06 (1.08×) | — |
+| `real-stereo-dev` | Dev (close-range) | 22 | **0.000 → 1.000** | 2 → 2 | — → **0.03** | 0.09 | — → 30.81 | — → **7.56** | 24.93 → 37.51 (1.50×) | — |
+| `real-stereo-test` | **Held-Out Test** | 5 | **0.000 → 1.000** | 0 → 0 | — → **0.02** | 0.03 | — → 15.77 | — → **2.58** | 5.75 → 8.25 (1.43×) | — |
+| `real-laser-dev` | Dev (close-range) | 9 | 1.000 → **1.000** | 0 → 0 | 0.85 → **0.12** | 0.15 | 697.3 → **7.62** | 683.0 → **8.50** | 1.65 → 2.62 (1.59×) | — |
+| `real-laser-test` | **Held-Out Test** | 4 | **0.000 → 1.000** | 0 → 0 | — → **0.15** | 0.19 | — → 18.97 | — → **11.10** | 0.56 → 0.94 (1.68×) | — |
+| `real-video-dev` | Dev (LingBot-Map) | 2 | **0.500 → 1.000** | 1 → **0** | 1.77 → **1.05** | 1.10 | 334.8 → 1220.1 | 833.3 → 1615.4 | 27.85 → 28.61 (1.03×) | 9792 |
+| `real-video-test` | **Held-Out Test** (LingBot) | 2 | **0.000 → 0.500** | 0 → 0 | — → 1.50 | 1.50 | — → 5933.1 | — → 6017.7 | 26.86 → 24.03 (0.89×) | 10052 |
+
+### Synthetic Full-Scale Data (SYNTHETIC — separate from real data)
+
+| Suite | Split | `n` | Recall (Base → Final) | FP (Base → Final) | Depth MAE cm (Base → Final) | Depth Max cm | Area Err % (Base → Final) | Vol Err % (Base → Final) | Time s (Base → Final) | Peak VRAM (MB) |
+|---|---|---:|---|---|---|---:|---|---|---|---:|
+| `synth-forge-dev` | Dev (Full FORGE SLAM) | 12 | 1.000 → **1.000** | 0 → 0 | 0.36 → **0.42** | 1.03 | 32.58 → **10.79** | 27.15 → **7.57** | 8.47 → 9.57 (1.13×) | — |
+| `synth-forge-test` | **Held-Out Test** (FORGE) | 12 | **0.917 → 1.000** | 0 → 0 | 0.33 → **0.35** | 0.56 | 23.74 → **16.88** | 18.15 → **6.08** | 8.54 → 9.40 (1.10×) | — |
+| `synth-video-dev` | Dev (LingBot GPS) | 3 | 0.000 → 0.000 | 5 → **1** | — → — | — | — → — | — → — | 15.98 → 14.40 (0.90×) | 10572 |
+| `synth-video-dev-camh` | Dev (LingBot cam h) | 3 | 0.000 → 0.000 | 0 → 2 | — → — | — | — → — | — → — | 14.74 → 15.91 (1.08×) | 8770 |
+| `synth-video-test` | **Held-Out Test** (LingBot GPS) | 3 | 0.000 → 0.000 | 1 → 1 | — → — | — | — → — | — → — | 16.43 → 16.91 (1.03×) | 8470 |
+
+## Open Limits & What Data / Hardware Would Help
+
+1. **LingBot-Map monocular depth resolution limit (Phone Video path):** Even with exact road alignment, LingBot-Map's feed-forward DPT head (518 px input width, 14 px ViT patches) smooths narrow ~8 cm potholes into ~20–30 cm wide depressions (`+360%` to `+1500%` area error on real close-range photos, even when depth is within `~1.0–1.5 cm`) and smooths synthetic ray-cast potholes at 1.35 m dashcam height to flat road (`0%` recall). Closing the Phone Video path to `≤ 10%` area / `≤ 15%` volume will require either **multi-view stereo / SfM depth refinement (e.g. metric MVS or phone LiDAR depth maps from iPhone Pro / ARCore Depth API)** or a **metric stereo/RGB-D camera** rather than monocular LingBot-Map alone.
+2. **Real-GT dataset aperture bias:** Both public MIT metric-3D pothole datasets (`stereo_pothole_datasets` and `rethinking_pothole`) contain small 7–15 cm potholes that fit a 200 mm desktop laser scanner turntable. Under iScale's production street default (`pothole_min_area_m2 = 0.04 m²`, 22.6 cm diameter), these are intentionally filtered out (`real-stereo-dev-default = 0%` recall). Validating full-size **30–120 cm** real potholes needs user field captures using the Field Recording Protocol below (or an iPhone Pro LiDAR / terrestrial laser scan of full-size road potholes).
+3. **Single-frame oblique stereo occlusion (`real-stereo-*` area):** On single-view oblique stereo frames, the near rim occludes part of the cavity wall, creating NaN shadows that under-report visible area by ~16–30% against 2D human pixel masks even while depth (`0.02–0.03 cm`) and volume (`2.6–7.6%`) are highly accurate. Multi-view passes (as in FORGE SLAM) eliminate this occlusion.
+4. **Sloped-road `camera_height_m` scaling without GPS:** On clips without GPS or `scene_refs`, steep road grades can bias global Z-histogram camera height; users should supply `gps.csv` or tap a reference object (`scene_refs`) on hilly roads.
 
 ---
 
