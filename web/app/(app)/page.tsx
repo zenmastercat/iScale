@@ -66,9 +66,20 @@ function OverviewBody() {
     const open = an.findings.filter(isOpenDefect);
     const by = { high: 0, medium: 0, low: 0 };
     for (const f of open) by[f.severity!]++;
+    // AI proposes, people decide: defects the pipeline found (not tagged by hand) and the engineer's verdicts on them
+    type Reviewed = { review?: { verdict?: string } };
+    const ai = an.findings.filter((f) => f.severity && f.source !== "manual");
+    const verdicts = { correct: 0, wrong: 0, unsure: 0 };
+    for (const f of ai) {
+      const v = (f as Reviewed).review?.verdict;
+      if (v === "correct" || v === "wrong" || v === "unsure") verdicts[v]++;
+    }
     return {
       open,
       by,
+      ai: ai.length,
+      verdicts,
+      reviewed: verdicts.correct + verdicts.wrong + verdicts.unsure,
       assets: an.findings.filter((f) => !f.severity).length,
       score: routeCondition(an.segments),
       lengthM: survey?.stats?.length_m ?? an.segments.reduce((a, s) => a + s.length_m, 0),
@@ -93,7 +104,7 @@ function OverviewBody() {
         currency={currency}
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-3 xl:grid-cols-5">
         <KpiTile
           label={t("Condition index", "ดัชนีสภาพถนน")}
           value={stats.score === null ? "–" : formatNumber(stats.score)}
@@ -119,6 +130,19 @@ function OverviewBody() {
           unit="m"
           sub={t(`${an.segments.length} segments · ${stats.assets} assets on record`, `${an.segments.length} ช่วง · ทรัพย์สิน ${stats.assets} รายการ`)}
           href={withSel("/findings", findingsQuery({ kind: "asset" }))}
+        />
+        <KpiTile
+          label={t("Checked by engineers", "วิศวกรตรวจแล้ว")}
+          value={`${stats.reviewed}/${stats.ai}`}
+          sub={
+            stats.reviewed
+              ? t(
+                  `AI findings · ${stats.verdicts.correct} confirmed · ${stats.verdicts.wrong} rejected${stats.verdicts.unsure ? ` · ${stats.verdicts.unsure} unsure` : ""}`,
+                  `ผลจาก AI · ยืนยัน ${stats.verdicts.correct} · ปฏิเสธ ${stats.verdicts.wrong}${stats.verdicts.unsure ? ` · ไม่แน่ใจ ${stats.verdicts.unsure}` : ""}`,
+                )
+              : t("AI findings · open one on the map to check it in 3D", "ผลจาก AI · เปิดบนแผนที่เพื่อตรวจแบบ 3 มิติ")
+          }
+          href={withSel("/findings", findingsQuery({ kind: "defect" }))}
         />
       </div>
 
