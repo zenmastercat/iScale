@@ -10,8 +10,8 @@ import { MapLegend } from "@/components/map/legend";
 import { MapView, type Layers } from "@/components/map/map-view";
 import { COLOUR_KEYS, METRICS, parseColour } from "@/components/map/metrics";
 import { PageHeader, SurveyGate } from "@/components/shared";
+import { MapSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useAnalysis, useCatalogLabel, useMeta, usePriority } from "@/lib/queries";
 import { useT } from "@/lib/i18n";
 import { useSelection } from "@/lib/selection";
@@ -49,7 +49,7 @@ function MapBody({ layers }: { layers: Layers }) {
   const assetCodes = useMemo(() => new Set((meta.data?.catalog ?? []).filter((c) => c.kind === "asset").map((c) => c.code)), [meta.data]);
 
   if (analysis.isError) return <RetryError title={t("Could not load the analysis", "โหลดผลวิเคราะห์ไม่สำเร็จ")} message={analysis.error.message} onRetry={() => analysis.refetch()} busy={analysis.isFetching} />;
-  if (!analysis.data) return <Skeleton className="h-[60dvh] w-full" />;
+  if (!analysis.data) return <MapSkeleton />;
   const an = analysis.data;
   const empty = !an.segments.length && !an.findings.length;
   const noDefects = !empty && !an.findings.some((f) => f.severity);

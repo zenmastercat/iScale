@@ -4,7 +4,7 @@ import { Suspense, useEffect } from "react";
 import { BottomBar, SideRail } from "@/components/shell/side-rail";
 import { TopBar } from "@/components/shell/top-bar";
 import { ServerDown } from "@/components/shared/server-down";
-import { Skeleton } from "@/components/ui/skeleton";
+import { AppShellSkeleton } from "@/components/skeletons";
 import { useAuthState } from "@/lib/queries";
 import { SelectionProvider } from "@/lib/selection";
 
@@ -36,18 +36,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [signedOut, router]);
 
   if (isError && !data) return <ServerDown error={error} onRetry={() => refetch()} busy={isFetching} />;
-  if (!data?.user)
-    return (
-      <div className="p-8" aria-busy="true">
-        <Skeleton className="h-10 w-64" />
-      </div>
-    );
+  if (!data?.user) return <AppShellSkeleton />;
   return (
     <>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-card focus:p-2">
         Skip to content
       </a>
-      <Suspense fallback={<Skeleton className="m-8 h-10 w-64" />}>
+      <Suspense fallback={<AppShellSkeleton />}>
         <Shell>{children}</Shell>
       </Suspense>
     </>

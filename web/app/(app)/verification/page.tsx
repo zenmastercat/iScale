@@ -8,7 +8,7 @@ import { woLabel } from "@/components/verification/words";
 import { QueryError } from "@/components/surveys/query-error";
 import { VerifyPanel } from "@/components/verification/verify-panel";
 import { WorkOrderList } from "@/components/verification/work-orders";
-import { Skeleton } from "@/components/ui/skeleton";
+import { VerificationResultsSkeleton, VerificationSkeleton, WorkOrdersSkeleton } from "@/components/skeletons";
 import { DemoButton } from "@/components/shared/demo-button";
 import { useVerification, useWorkOrders } from "@/lib/queries";
 import { useT } from "@/lib/i18n";
@@ -60,7 +60,7 @@ export default function VerificationPage() {
       {loadError ? (
         <QueryError what={t("Could not load the project", "โหลดโครงการไม่ได้")} error={loadError} onRetry={retryLoad} />
       ) : projectsLoading || (projectId && !project) ? (
-        <Skeleton className="h-64 w-full" />
+        <VerificationSkeleton />
       ) : !projects?.length || !projectId ? (
         <EmptyState title={t("No projects yet", "ยังไม่มีโครงการ")} description={t("Load the demo street to try the whole repair loop.", "โหลดถนนตัวอย่างเพื่อลองขั้นตอนซ่อมทั้งหมด")} action={<DemoButton />} />
       ) : (
@@ -68,17 +68,27 @@ export default function VerificationPage() {
           {verification.isError ? (
             <QueryError what={t("Could not load results", "โหลดผลตรวจยืนยันไม่ได้")} error={verification.error} onRetry={() => verification.refetch()} />
           ) : verification.isLoading ? (
-            <Skeleton className="h-40 w-full" />
+            <VerificationResultsSkeleton />
           ) : v ? (
             <VerificationResults v={v} />
           ) : (
-            <EmptyState title={t("Not verified yet", "ยังไม่ได้ตรวจยืนยัน")} description={t("Complete a work order, then compare the before and after surveys.", "ทำใบสั่งงานให้เสร็จ แล้วเปรียบเทียบการสำรวจก่อนและหลังซ่อม")} />
+            (project?.survey_list.filter((x) => x.status === "done").length ?? 0) < 2 ? (
+              <EmptyState
+                title={t("Needs a second drive", "ต้องมีการสำรวจรอบที่สอง")}
+                description={t(
+                  "Verification compares this survey with a drive made after the repairs. This project has one survey so far (a camera run), so there is nothing to compare yet. Complete the repairs, drive the road again, and add that survey.",
+                  "การตรวจยืนยันเปรียบเทียบการสำรวจนี้กับการสำรวจหลังซ่อม โครงการนี้มีการสำรวจเพียงรอบเดียว (วิดีโอจากกล้อง) จึงยังไม่มีอะไรให้เปรียบเทียบ ซ่อมให้เสร็จ ขับสำรวจถนนอีกครั้ง แล้วเพิ่มการสำรวจนั้น",
+                )}
+              />
+            ) : (
+              <EmptyState title={t("Not verified yet", "ยังไม่ได้ตรวจยืนยัน")} description={t("Complete a work order, then compare the before and after surveys.", "ทำใบสั่งงานให้เสร็จ แล้วเปรียบเทียบการสำรวจก่อนและหลังซ่อม")} />
+            )
           )}
           <Card title={t("Work orders", "ใบสั่งงาน")}>
             {orders.isError ? (
               <QueryError what={t("Could not load work orders", "โหลดใบสั่งงานไม่ได้")} error={orders.error} onRetry={() => orders.refetch()} />
             ) : orders.isLoading ? (
-              <Skeleton className="h-24 w-full" />
+              <WorkOrdersSkeleton />
             ) : (
               <WorkOrderList orders={orders.data ?? []} selected={selected} onSelect={setSelected} />
             )}

@@ -9,8 +9,8 @@ import { FilterBar, type Option } from "@/components/findings/filter-bar";
 import { FindingsTable, isSelectable } from "@/components/findings/findings-table";
 import { buildRows, filterAndSort, groupRows, toCsv } from "@/components/findings/rows";
 import { EmptyState, Money, PageHeader, SurveyGate } from "@/components/shared";
+import { FindingsSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, createWorkOrder, qk } from "@/lib/api";
 import { findingsQuery, parseFindingsFilter, type FindingsFilter } from "@/lib/findings-filter";
 import { useWords } from "@/components/map/words";
@@ -116,7 +116,7 @@ function FindingsBody() {
   if (analysis.isError) return <RetryError title={t("Could not load the findings", "โหลดรายการไม่สำเร็จ")} message={analysis.error.message} onRetry={() => analysis.refetch()} busy={analysis.isFetching} />;
   if (analysis.data && analysis.data.findings.length === 0)
     return <EmptyState icon={Table2} title={t("No findings in this survey", "ไม่มีรายการที่พบในการสำรวจนี้")} description={t("The survey found no defects or assets. Nothing to list.", "การสำรวจไม่พบข้อบกพร่องหรือสินทรัพย์ จึงไม่มีรายการ")} />;
-  if (!analysis.data) return <Skeleton className="h-96 w-full" />;
+  if (!analysis.data) return <FindingsSkeleton />;
 
   const types: Option[] = [...new Set(all.map((r) => r.f.type))].map((ty) => ({ value: ty, label: labelFor(ty) })).sort((a, b) => a.label.localeCompare(b.label));
   const segmentOpts: Option[] = analysis.data.segments.map((s) => ({ value: s.id, label: s.id }));
@@ -192,7 +192,7 @@ function FindingsBody() {
         {t("Keys: / search · j k move · Enter open · x select", "แป้นลัด: / ค้นหา · j k เลื่อน · Enter เปิด · x เลือก")}
       </p>
       {chosen.length > 0 && (
-        <div role="region" aria-label={t("Selected findings", "รายการที่เลือก")} className="sticky bottom-0 z-20 hidden items-center gap-4 rounded-lg border bg-card p-3 md:flex">
+        <div role="region" aria-label={t("Selected findings", "รายการที่เลือก")} className="sticky bottom-0 z-20 hidden flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border bg-card p-3 md:flex">
           <span className="text-sm">
             <span className="num font-semibold">{chosen.length}</span> {t("selected", "รายการที่เลือก")}
           </span>

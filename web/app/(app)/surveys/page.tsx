@@ -7,13 +7,13 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { QueryError } from "@/components/surveys/query-error";
 import { AddSurveyDialog } from "@/components/surveys/add-survey-dialog";
-import { DemoButton } from "@/components/shared/demo-button";
+import { DemoButton, LoadSample } from "@/components/shared/demo-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Num } from "@/components/shared/num";
 import { ProcessingState } from "@/components/shared/processing-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { SurveysSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { retrySurvey, setBaseline } from "@/lib/api";
 import { formatDate, formatNumber } from "@/lib/format";
 import { useT } from "@/lib/i18n";
@@ -65,11 +65,11 @@ export default function SurveysPage() {
 
   return (
     <>
-      <PageHeader title={t("Surveys", "การสำรวจ")} crumb={project?.name} actions={projectId ? <AddSurveyDialog /> : null} />
+      <PageHeader title={t("Surveys", "การสำรวจ")} crumb={project?.name} actions={<><LoadSample />{projectId ? <AddSurveyDialog /> : null}</>} />
       {loadError ? (
         <QueryError what={t("Could not load the project", "โหลดโครงการไม่ได้")} error={loadError} onRetry={retryLoad} />
       ) : projectsLoading || (projectId && !project) ? (
-        <Skeleton className="h-64 w-full" />
+        <SurveysSkeleton />
       ) : !projects?.length || !projectId ? (
         <EmptyState title={t("No projects yet", "ยังไม่มีโครงการ")} description={t("Load the demo street, or create a project in the old UI first.", "โหลดถนนตัวอย่าง หรือสร้างโครงการใน UI เดิมก่อน")} action={<DemoButton />} />
       ) : !project!.survey_list.length ? (

@@ -6,7 +6,7 @@ import { RankingTable } from "@/components/fix-first/ranking-table";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { SurveyGate } from "@/components/shared/survey-gate";
-import { Skeleton } from "@/components/ui/skeleton";
+import { FixFirstSkeleton } from "@/components/skeletons";
 import { Download } from "lucide-react";
 import { exportUrl } from "@/lib/api";
 import { useAnalysis, usePriority } from "@/lib/queries";
@@ -22,7 +22,7 @@ function FixFirstBody() {
 
   if (priority.isError)
     return <QueryError what={t("Could not load the ranking", "โหลดอันดับไม่ได้")} error={priority.error} onRetry={() => priority.refetch()} />;
-  if (!priority.data) return <Skeleton className="h-96 w-full" />;
+  if (!priority.data) return <FixFirstSkeleton />;
   const items = priority.data.items;
   if (!items.length) return <EmptyState title={t("Nothing to fix", "ไม่มีอะไรต้องซ่อม")} description={t("No open defects in this survey, and no shared pins nearby.", "ไม่มีข้อบกพร่องค้างในการสำรวจนี้ และไม่มีหมุดที่แชร์ใกล้เคียง")} />;
 

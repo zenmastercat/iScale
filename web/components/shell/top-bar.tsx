@@ -28,6 +28,10 @@ export function TopBar() {
     value: s.id,
     label: `${s.name}${s.id === project?.baseline ? " · baseline" : ""}${STATUS_SUFFIX[s.status] ?? ""}`,
   }));
+  // until the names arrive the select would print the raw id: show "Loading…" instead
+  const loading = t("Loading…", "กำลังโหลด…");
+  const projectValue = projectItems.some((p) => p.value === projectId) ? projectId : null;
+  const surveyValue = surveyItems.some((s) => s.value === surveyId) ? surveyId : null;
 
   return (
     <header className={`sticky top-0 z-30 border-b bg-card/95 backdrop-blur print:hidden ${fullScreenOnPhone ? "hidden md:block" : ""}`}>
@@ -39,9 +43,9 @@ export function TopBar() {
         <label className="sr-only" htmlFor="project-picker">
           Project
         </label>
-        <Select items={projectItems} value={projectId} onValueChange={(v) => v && setProject(v as string)}>
+        <Select items={projectItems} value={projectValue} onValueChange={(v) => v && setProject(v as string)}>
           <SelectTrigger id="project-picker" aria-label="Project" className="h-11 max-w-[16rem] min-w-0 flex-1 md:h-9 md:min-w-40 md:flex-none">
-            <SelectValue placeholder="Choose a project" />
+            <SelectValue placeholder={projects ? "Choose a project" : loading} />
           </SelectTrigger>
           <SelectContent>
             {projectItems.map((p) => (
@@ -54,9 +58,9 @@ export function TopBar() {
         <label className="sr-only" htmlFor="survey-picker">
           Survey
         </label>
-        <Select items={surveyItems} value={surveyId} onValueChange={(v) => v && setSurvey(v as string)} disabled={!project}>
+        <Select items={surveyItems} value={surveyValue} onValueChange={(v) => v && setSurvey(v as string)} disabled={!project}>
           <SelectTrigger id="survey-picker" aria-label="Survey" className="h-11 max-w-[16rem] min-w-0 flex-1 md:h-9 md:min-w-40 md:flex-none">
-            <SelectValue placeholder="Choose a survey" />
+            <SelectValue placeholder={projectId && !project ? loading : "Choose a survey"} />
           </SelectTrigger>
           <SelectContent>
             {surveyItems.map((s) => (

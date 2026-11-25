@@ -17,6 +17,7 @@ import { HowWeMeasure } from "@/components/shared/how-we-measure";
 import { KpiTile } from "@/components/shared/kpi-tile";
 import { PageHeader } from "@/components/shared/page-header";
 import { SurveyGate } from "@/components/shared/survey-gate";
+import { OverviewSkeleton } from "@/components/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isOpenDefect } from "@/lib/chainage";
 import { bandFor, routeCondition } from "@/lib/condition";
@@ -88,7 +89,7 @@ function OverviewBody() {
   }, [analysis.data, survey]);
 
   if (analysis.isError) return <p role="alert" className="text-sev-high-fg">Could not load the analysis: {analysis.error.message}</p>;
-  if (!analysis.data || !stats) return <Skeleton className="h-96 w-full" />;
+  if (!analysis.data || !stats) return <OverviewSkeleton />;
   const an = analysis.data;
   const currency = plan.data?.currency ?? APP_CURRENCY;
   const cost = plan.data ? plan.data.total : null;

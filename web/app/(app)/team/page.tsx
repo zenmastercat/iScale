@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
+import { TeamTableSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -203,7 +204,7 @@ export default function TeamPage() {
             {t("People", "สมาชิก")} {team.data && <span className="num text-sm font-normal text-muted-foreground">({team.data.length})</span>}
           </h2>
           {team.isLoading ? (
-            <Skeleton className="h-32 w-full" />
+            <TeamTableSkeleton />
           ) : team.isError ? (
             <p role="alert" className="text-sev-high-fg">{team.error.message}</p>
           ) : (

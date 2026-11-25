@@ -13,8 +13,8 @@ import { KpiTile } from "@/components/shared/kpi-tile";
 import { PageHeader } from "@/components/shared/page-header";
 import { QueryError } from "@/components/surveys/query-error";
 import { SurveyGate } from "@/components/shared/survey-gate";
+import { PlanSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { createWorkOrder, qk } from "@/lib/api";
 import { APP_CURRENCY, formatMoney } from "@/lib/format";
@@ -106,7 +106,7 @@ function PlanBody({ s }: { s: PlanScreen }) {
         onRetry={() => { spotAll.refetch(); segAll.refetch(); }}
       />
     );
-  if (!plan || !all) return <Skeleton className="h-96 w-full" />;
+  if (!plan || !all) return <PlanSkeleton />;
   if (all.items.length + all.deferred.length === 0)
     return (
       <EmptyState

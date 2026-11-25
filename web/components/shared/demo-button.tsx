@@ -17,7 +17,7 @@ export function DemoButton({ variant = "default" }: { variant?: "default" | "out
   );
 }
 
-function DemoStreetButton({ variant = "default" }: { variant?: "default" | "outline" }) {
+export function DemoStreetButton({ variant = "default", compact = false }: { variant?: "default" | "outline"; compact?: boolean }) {
   const qc = useQueryClient();
   const { setProject } = useSelection();
   const t = useT();
@@ -31,7 +31,7 @@ function DemoStreetButton({ variant = "default" }: { variant?: "default" | "outl
     onError: (e) => toast.error(e.message),
   });
   return (
-    <Button size="lg" variant={variant} className="h-11 px-4" onClick={() => m.mutate()} disabled={m.isPending}>
+    <Button size="lg" variant={variant} className={compact ? "h-11 px-3 md:h-9" : "h-11 px-4"} onClick={() => m.mutate()} disabled={m.isPending}>
       {m.isPending ? <Loader2 className="animate-spin" aria-hidden /> : <PlayCircle aria-hidden />}
       {t("Load demo street", "โหลดถนนตัวอย่าง")}
     </Button>
@@ -39,7 +39,7 @@ function DemoStreetButton({ variant = "default" }: { variant?: "default" | "outl
 }
 
 /** Loads the recorded Sukhumvit Rd pothole run (17 detector findings with photos) as a ready project. */
-export function SukhumvitButton({ variant = "outline" }: { variant?: "default" | "outline" }) {
+export function SukhumvitButton({ variant = "outline", compact = false }: { variant?: "default" | "outline"; compact?: boolean }) {
   const qc = useQueryClient();
   const { setProject } = useSelection();
   const t = useT();
@@ -53,9 +53,19 @@ export function SukhumvitButton({ variant = "outline" }: { variant?: "default" |
     onError: (e) => toast.error(e.message),
   });
   return (
-    <Button size="lg" variant={variant} className="h-11 px-4" onClick={() => m.mutate()} disabled={m.isPending}>
+    <Button size="lg" variant={variant} className={compact ? "h-11 px-3 md:h-9" : "h-11 px-4"} onClick={() => m.mutate()} disabled={m.isPending}>
       {m.isPending ? <Loader2 className="animate-spin" aria-hidden /> : <PlayCircle aria-hidden />}
       {t("Load Sukhumvit sample run", "โหลดข้อมูลจริงถนนสุขุมวิท")}
     </Button>
+  );
+}
+
+/** Both sample projects, compact, for a page header: reachable even when projects already exist. */
+export function LoadSample() {
+  return (
+    <>
+      <DemoStreetButton variant="outline" compact />
+      <SukhumvitButton variant="outline" compact />
+    </>
   );
 }
