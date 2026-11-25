@@ -8,7 +8,7 @@
  *
  * Security headers on every page: a Content-Security-Policy whose script-src lists the SHA-256 of each inline
  * <script> in that HTML file (Next's static export inlines its bootstrap), so no 'unsafe-inline' for scripts;
- * nosniff, no framing, same-origin referrer, COOP/CORP. The only third-party origin is the OSM tile server.
+ * nosniff, no framing, same-origin referrer, COOP/CORP. The only third-party origin is the OpenFreeMap tile server.
  * The proxy overwrites X-Forwarded-For with the real peer address: uvicorn trusts it from loopback (us), so a
  * client could otherwise pick its own address and dodge the backend's per-address sign-in limit.
  */
@@ -36,7 +36,7 @@ const TYPES = {
   ".txt": "text/plain", ".map": "application/json", ".webmanifest": "application/manifest+json",
 };
 
-const TILES = "https://tile.openstreetmap.org";
+const TILES = "https://tiles.openfreemap.org"; // vector tiles, TileJSON and fonts for the map (components/map/base-style.ts)
 const BASE_HEADERS = {
   "x-content-type-options": "nosniff",
   "x-frame-options": "DENY",

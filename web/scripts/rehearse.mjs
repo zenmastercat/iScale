@@ -305,6 +305,16 @@ try {
 
   const real = errors.filter((e) => !/GL Driver|WebGL|GPU stall/i.test(e));
   step(real.length === 0, "no console errors or 5xx", real.slice(0, 5).join(" | "));
+  // venue without internet: block the map's tile host. The route and markers must still show, with a notice.
+  // (after the console check: the blocked requests log errors on purpose)
+  const offline = await ctx.newPage(); // same signed-in browser
+  await offline.route(/tiles\.openfreemap\.org/, (r) => r.abort());
+  await offline.goto(`${BASE}/map?${sel}`);
+  const notice = await offline.getByText(/Map tiles could not load|โหลดแผนที่ไม่ได้/).waitFor({ timeout: 20000 }).then(() => true, () => false);
+  const offMarkers = await offline.locator("button[aria-label*='severity'], button[aria-label*='ความรุนแรง']").count();
+  await offline.waitForTimeout(2500); // let the style swap and fit finish before the picture
+  await offline.screenshot({ path: path.join(OUT, "story-map-offline.png") });
+  step(notice && offMarkers > 0, "map without tile server: notice shown, defects still on the map", `notice=${notice} markers=${offMarkers}`);
   await browser.close();
 } catch (e) {
   step(false, "rehearsal aborted", e.message);

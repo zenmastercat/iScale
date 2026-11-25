@@ -1,5 +1,4 @@
 "use client";
-import type { StyleSpecification } from "maplibre-gl";
 import { Check } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import MapGL, { Layer, Marker, NavigationControl, Popup, Source, type MapLayerMouseEvent, type MapRef } from "@/lib/maplibre";
@@ -7,28 +6,12 @@ import { ConditionChip, Num, SeverityIcon } from "@/components/shared";
 import { bandFor } from "@/lib/condition";
 import { useWords } from "./words";
 import { METRICS, metricScale, type ColourBy } from "./metrics";
+import { BASE_SOURCE, BASE_STYLE, PLAIN_STYLE } from "@/components/map/base-style";
 import { formatNumber } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import type { Analysis, Finding } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-/* OSM raster tiles over a plain background layer: if tiles fail the plain background stays. */
-const STYLE: StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: "raster",
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-      tileSize: 256,
-      maxzoom: 19,
-      attribution: "© OpenStreetMap contributors",
-    },
-  },
-  layers: [
-    { id: "bg", type: "background", paint: { "background-color": "#eef0ec" } },
-    { id: "osm", type: "raster", source: "osm", paint: { "raster-opacity": 0.85 } },
-  ],
-};
 
 export interface Layers {
   condition: boolean;
@@ -143,9 +126,9 @@ export function MapView({
     <MapGL
       ref={ref}
       onError={(e) => {
-        if ((e as { sourceId?: string }).sourceId === "osm") setTilesFailed(true);
+        if ((e as { sourceId?: string }).sourceId === BASE_SOURCE) setTilesFailed(true);
       }}
-      mapStyle={STYLE}
+      mapStyle={tilesFailed ? PLAIN_STYLE : BASE_STYLE}
       initialViewState={{ longitude: analysis.findings[0]?.lon ?? 100.5, latitude: analysis.findings[0]?.lat ?? 13.8, zoom: 17 }}
       onLoad={() => {
         fit(0);
