@@ -37,7 +37,7 @@ export function TopBar() {
     <header className={`sticky top-0 z-30 border-b bg-card/95 backdrop-blur print:hidden ${fullScreenOnPhone ? "hidden md:block" : ""}`}>
       <div className="flex min-h-14 flex-wrap items-center gap-2 px-4 py-2 md:px-8">
         <span className="order-1 rounded bg-sidebar px-2 py-1 md:hidden">
-          <Logo className="text-base" />
+          <Logo className="h-5" />
         </span>
         <div className="order-3 flex w-full flex-wrap items-center gap-2 md:order-2 md:w-auto">
         <label className="sr-only" htmlFor="project-picker">
