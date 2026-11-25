@@ -28,7 +28,7 @@ export function FixFirstTable({
 }) {
   const { withSel } = useSelection();
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full min-w-[720px] text-left">
         <thead>
           <tr className="border-b text-xs font-semibold tracking-wider text-grey-600 uppercase">

@@ -62,7 +62,7 @@ export function ChainageStrip({
   const mid = start + total / 2;
 
   return (
-    <div className="overflow-x-auto pb-1">
+    <div className="relative overflow-x-auto pb-1">
       <div className="min-w-[640px]" onMouseLeave={() => setHover(null)}>
         {/* defect marks */}
         <div className="relative h-6" aria-hidden>
