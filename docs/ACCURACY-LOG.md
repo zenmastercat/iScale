@@ -65,3 +65,28 @@ Held-out Test splits are NOT tuned on and are re-measured only after all iterati
 * **Dev Benchmark Before (Iter 3) → After (Iter 4):**
   * `synth-forge-dev` (`n=12`, SYNTHETIC): recall `1.000`, FP `0`, depth MAE `0.37 → 0.42 cm` (bias `+0.09 cm`), area err **`14.81 → 10.79 %`** (bias **`-1.04 %`**; baseline was `32.58 %`), vol err **`20.47 → 7.57 %`** (baseline was `27.15 %`), time `8.36 → 9.42 s` (1.11× baseline).
 * **Decision:** **KEPT** — slashes FORGE volume error nearly 3× (`20.5% → 7.6%`, half of the 15% target) and area error from `32.6%` baseline to `10.8%` at 1.11× baseline runtime. Next: diagnose LingBot-Map multi-frame depth/confidence filtering on `real-video-dev` (Iteration 5).
+
+## Iteration 5 — LingBot-Map Confidence & Far-Depth Percentile Filtering (NOT KEPT)
+
+* **Hypothesis:** Tightening `conf_drop_pct` (`30 → 50%`) and/or `far_pct` (`95 → 60–75%`) in `adapters/lingbot_map.py` might strip blurry grazing-angle LingBot depth pixels and tighten `real-video-dev` area/depth errors.
+* **Change tested (read-only sweep on cached LingBot predictions):** `conf_drop_pct ∈ {30, 50}`, `far_pct ∈ {95, 75, 60}`.
+* **Dev Benchmark Before → After (`real-video-dev`, `n=2`):**
+  * `c50, f95`: `stereo_dataset1` area worsened `+1932% → +2271%`; `rethinking_model2` added 1 FP and worsened area `+508% → +719%`.
+  * `c30/c50, f75/f60`: `rethinking_model2` depth improved (`3.07 → 4.05 cm`), **but** `stereo_dataset1` lost road coverage (`cov = 0.0`, recall dropped `1.0 → 0.5`) and `rethinking_model2` area worsened `+508% → +1423%`.
+* **Decision:** **REVERTED / NOT KEPT** — LingBot-Map's monocular ViT/DPT depth head inherently smooths sub-10 cm potholes over a ~20–30 cm footprint; percentile cuts cannot sharpen the depth map without breaking close-range road coverage.
+
+## Iteration 6 — Per-Pose Cylinder Local Ground Height for Camera-Height Scaling (REVERTED)
+
+* **Hypothesis:** Measuring camera height in a narrow horizontal cylinder (`rad = 0.08 × extent`) beneath each trajectory pose in `civil/align.py` would fix sloped-road camera-height scale and refine `real-video-dev` scale.
+* **Change tested:** Added `_camera_height_above_ground` using per-pose local cylinders in `civil/align.py`.
+* **Dev Benchmark Before (Iter 4) → After (`real-video-dev`, `n=2`):**
+  * `real-video-dev`: recall `1.000 → 1.000`, depth MAE worsened **`1.05 → 2.51 cm`**, area err worsened **`1220% → 2160%`** (forward-looking camera has few road points directly under its XY cylinder, biasing `stereo_dataset1` scale from `0.72` to `0.80`).
+* **Decision:** **REVERTED** — degraded `real-video-dev`. Next: test fitting a global tilted ground plane below the trajectory for sloped-road camera-height scale (Iteration 7).
+
+## Iteration 7 — Global Tilted Ground Plane for Camera-Height Scaling (REVERTED)
+
+* **Hypothesis:** Fitting a single near-horizontal RANSAC plane (`min_cos = 0.85`) below the trajectory in `civil/align.py` would fix sloped-road camera-height scale without the forward-looking FOV blind spot of narrow local cylinders.
+* **Change tested:** Added `_camera_height_above_ground` using tilted RANSAC plane distance `median(traj @ n + d)`.
+* **Dev Benchmark Before (Iter 4) → After (`real-video-dev`, `n=2`):**
+  * `real-video-dev`: `rethinking_model2` improved (`area +513% → +360%`, `vol +347% → +242%`), **but** `stereo_dataset1` recall dropped **`1 → 0`** (global plane fit on LingBot's slightly curved close-range cloud shifted scale factor `0.72 → 0.85` and dropped road mask coverage).
+* **Decision:** **REVERTED** — 3 consecutive iterations (5, 6, 7) produced no net real-GT gain; stopping iterative loop per stop rule and running final held-out Test evaluation on commit `a4d3b55`.

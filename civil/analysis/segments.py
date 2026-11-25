@@ -17,6 +17,8 @@ def resample_path(traj: np.ndarray, step: float = 0.5) -> np.ndarray:
         raise ValueError("trajectory too short")
     d = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))]
     s = np.arange(0, d[-1], step)
+    if len(s) < 2:
+        s = np.array([0.0, d[-1]])
     return np.stack([np.interp(s, d, xy[:, 0]), np.interp(s, d, xy[:, 1])], 1)
 
 

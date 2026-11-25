@@ -225,3 +225,15 @@ def test_forge_tile_memory_prefers_closest_range_point_per_voxel(tmp_path):
     pts, _, _ = mem.export_world_cloud(voxel_size_m=0.04)
     assert len(pts) == 1
     assert abs(float(pts[0, 2]) - (-0.035)) < 1e-4, f"Expected close-range z=-0.035, got {pts[0]}"
+
+
+def test_resample_path_handles_short_handheld_clip_under_half_metre():
+    """A handheld clip moving 0.25 m (< PATH_STEP=0.5 m) must still produce >= 2 path points
+    so station_offset's np.gradient never crashes."""
+    from civil.analysis.segments import resample_path, station_offset
+
+    traj = np.array([[0.0, 0.0, 0.5], [0.0, 0.12, 0.5], [0.0, 0.25, 0.5]])
+    path = resample_path(traj, step=0.5)
+    assert len(path) >= 2
+    idx, st, off = station_offset(np.array([[0.1, 0.1], [-0.1, 0.2]]), path, step=0.5)
+    assert len(st) == 2 and np.isfinite(st).all() and np.isfinite(off).all()
