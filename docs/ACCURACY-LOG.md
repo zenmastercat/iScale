@@ -54,3 +54,14 @@ Held-out Test splits are NOT tuned on and are re-measured only after all iterati
   * `real-video-dev` (`n=2`, LingBot-Map): recall `1.000`, FP `0`, depth MAE **`1.48 → 1.05 cm`**, area err `1345.8 → 1220.1 %`, time `27.82 → 30.40 s` (1.09× baseline), VRAM `10754 MB`.
   * `synth-forge-dev` (`n=12`, SYNTHETIC): recall `1.000`, FP `0`, depth MAE `0.32 → 0.37 cm`, area err **`16.01 → 14.81 %`** (bias `-1.55%`), vol err `20.30 → 20.47 %`, time `8.35 → 8.36 s` (0.99× baseline).
 * **Decision:** **KEPT** — huge accuracy jump on both real laser GT (depth `0.12 cm`, area `7.6%`, vol `8.5%`) and real stereo GT (depth `0.03 cm`, vol `7.6%`, FP `5 → 2`). Next: preserve 4 cm near-road resolution in FORGE SLAM keyframes (Iteration 4).
+
+## Iteration 4 — FORGE SLAM Near-Road 4 cm Voxelisation & Closest-Range Tile Export (KEPT)
+
+* **Hypothesis:** `ForgeSlam.add_scan` downsampled every keyframe to `10 cm` voxels before tile storage (discarding fine pothole geometry even though `export_world_cloud` exports at `4 cm`), and `SpatialTileMemory.export_world_cloud` kept the chronologically earliest observation per voxel (the far grazing-angle keyframe from 14 m away with maximum cross-keyframe LIO drift, smearing potholes along the driving axis).
+* **Change:**
+  * `civil/forge/pipeline.py`: add `_downsample_keyframe_points` keeping close-range road points (`r_xy <= 5.5 m`) at `4 cm` (`ROAD_VOXEL_M`), suppressing far grazing-angle road overlap inside the vehicle's driving lane, while keeping off-road structure at `voxel_size_m`.
+  * `civil/forge/memory.py`: sort tile points by ascending sensor range `||points_local||` before `voxel_downsample` in `export_world_cloud` so each 4 cm voxel keeps the sharpest, closest-range pass rather than the oldest far pass.
+  * TDD tests added in `tests/test_accuracy_fixes.py` (FORGE near-road pothole volume test verified RED before fix + `SpatialTileMemory` closest-range preference test).
+* **Dev Benchmark Before (Iter 3) → After (Iter 4):**
+  * `synth-forge-dev` (`n=12`, SYNTHETIC): recall `1.000`, FP `0`, depth MAE `0.37 → 0.42 cm` (bias `+0.09 cm`), area err **`14.81 → 10.79 %`** (bias **`-1.04 %`**; baseline was `32.58 %`), vol err **`20.47 → 7.57 %`** (baseline was `27.15 %`), time `8.36 → 9.42 s` (1.11× baseline).
+* **Decision:** **KEPT** — slashes FORGE volume error nearly 3× (`20.5% → 7.6%`, half of the 15% target) and area error from `32.6%` baseline to `10.8%` at 1.11× baseline runtime. Next: diagnose LingBot-Map multi-frame depth/confidence filtering on `real-video-dev` (Iteration 5).

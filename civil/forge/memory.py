@@ -244,12 +244,14 @@ class SpatialTileMemory:
             t_pts: list[np.ndarray] = []
             t_col: list[np.ndarray] = []
             t_tmp: list[np.ndarray] = []
+            t_rng: list[np.ndarray] = []
             for ch in tile.chunks:
                 T = self._poses.get(ch.kf_id)
                 if T is None:
                     continue
                 pw = (ch.points_local.astype(np.float64) @ T[:3, :3].T + T[:3, 3]).astype(np.float32)
                 t_pts.append(pw)
+                t_rng.append(np.linalg.norm(ch.points_local, axis=1).astype(np.float32))
                 if ch.colors is not None:
                     has_colors = True
                     t_col.append(ch.colors)
@@ -260,10 +262,18 @@ class SpatialTileMemory:
             if not t_pts:
                 continue
             cat_p = np.vstack(t_pts)
+            cat_r = np.concatenate(t_rng)
             cat_c = np.vstack(t_col) if (has_colors and len(t_col) == len(t_pts)) else None
             cat_t = np.concatenate(t_tmp) if (has_temps and len(t_tmp) == len(t_pts)) else None
 
             if voxel_size_m is not None and voxel_size_m > 0:
+                # Prefer closest-range observations per voxel instead of oldest (far grazing) keyframe
+                order_r = np.argsort(cat_r, kind="stable")
+                cat_p = cat_p[order_r]
+                if cat_c is not None:
+                    cat_c = cat_c[order_r]
+                if cat_t is not None:
+                    cat_t = cat_t[order_r]
                 idx = voxel_downsample(cat_p, voxel_size_m)
                 cat_p = cat_p[idx]
                 if cat_c is not None:

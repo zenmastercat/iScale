@@ -32,6 +32,42 @@ from .types import CameraFrame, ForgeConfig, ForgeResult, ImuSample, Keyframe, L
 
 WINDOW = 3            # keyframes on each side used by the dynamic filter
 LOOP_VOXEL_M = 0.2    # resolution of the per-keyframe copy kept for loop closure
+ROAD_VOXEL_M = 0.04   # near-road resolution preserved for pothole measurement (matches export_world_cloud)
+ROAD_NEAR_M = 5.5     # range within which road beams have steep incidence and minimal cross-keyframe drift
+
+
+def _downsample_keyframe_points(pts_b: np.ndarray, voxel_size_m: float) -> np.ndarray:
+    """Voxel-downsample a keyframe scan, keeping close-range road points at ROAD_VOXEL_M (4 cm)
+    while avoiding far grazing-angle road overlap that smears depressions under LIO drift."""
+    if len(pts_b) == 0:
+        return np.zeros((0, 3), dtype=np.float32)
+    r_xy = np.hypot(pts_b[:, 0], pts_b[:, 1])
+    near_xy = r_xy <= 14.0
+    if int(near_xy.sum()) < 50:
+        idx = voxel_downsample(pts_b, voxel_size_m)
+        return np.ascontiguousarray(pts_b[idx], dtype=np.float32)
+    z_road = float(np.percentile(pts_b[near_xy, 2], 20))
+    is_road = (pts_b[:, 2] >= z_road - 0.50) & (pts_b[:, 2] <= z_road + 0.30)
+    near_road = is_road & (r_xy <= ROAD_NEAR_M)
+    far_road = is_road & (~near_road)
+    other = ~is_road
+    parts = []
+    if near_road.any():
+        pr = pts_b[near_road]
+        parts.append(pr[voxel_downsample(pr, min(voxel_size_m, ROAD_VOXEL_M))])
+    if far_road.any():
+        # Keep sparse far road only outside the vehicle's driving lane (|y| > 2.5 m) so side lanes
+        # keep coverage without grazing-angle beams double-painting potholes ahead/behind the sensor
+        pf = pts_b[far_road & (np.abs(pts_b[:, 1]) > 2.5)]
+        if len(pf):
+            parts.append(pf[voxel_downsample(pf, max(voxel_size_m, 0.15))])
+    if other.any():
+        po = pts_b[other]
+        parts.append(po[voxel_downsample(po, voxel_size_m)])
+    if not parts:
+        idx = voxel_downsample(pts_b, voxel_size_m)
+        return np.ascontiguousarray(pts_b[idx], dtype=np.float32)
+    return np.ascontiguousarray(np.vstack(parts), dtype=np.float32)
 
 
 class ForgeSlam:
@@ -98,8 +134,7 @@ class ForgeSlam:
 
         if self.dyn.should_create_keyframe(pose):
             self.dyn.record_keyframe_pose(pose)
-            idx = voxel_downsample(pts_b, self.cfg.voxel_size_m)
-            raw = np.ascontiguousarray(pts_b[idx], dtype=np.float32)
+            raw = _downsample_keyframe_points(pts_b, self.cfg.voxel_size_m)
             self.keyframes.append(
                 Keyframe(len(self.keyframes), float(scan.t), pose.copy(), raw, raw.copy(), np.zeros(len(raw), bool))
             )

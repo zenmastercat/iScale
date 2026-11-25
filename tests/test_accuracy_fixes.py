@@ -176,3 +176,52 @@ def test_sub_10cm_dense_laser_like_pothole_achieves_tight_area_and_depth_accurac
     assert abs(m["depth_max_m"] - D) < 0.003, f"depth={m['depth_max_m']} vs {D}"
     assert abs(m["area_m2"] - gt_area) / gt_area < 0.10, f"area={m['area_m2']} vs {gt_area:.5f}"
     assert abs(m["volume_m3"] - gt_vol) / gt_vol < 0.10, f"vol={m['volume_m3']} vs {gt_vol:.6f}"
+
+
+def test_forge_slam_preserves_near_road_pothole_volume_under_15_pct(tmp_path):
+    """FORGE SLAM default keyframes must preserve near-road pothole geometry at ~4 cm resolution
+    (matching export_world_cloud) rather than collapsing road points to 10 cm voxels."""
+    from civil.bench_potholes import (
+        AnalyticalPotholeSpec,
+        SyntheticRoadScene,
+        run_synth_forge_scene,
+    )
+
+    sc = SyntheticRoadScene(
+        name="tdd_forge_road_res",
+        split="dev",
+        length_m=18.0,
+        half_width_m=3.5,
+        crown_slope=0.02,
+        grade_slope=0.0,
+        noise_sigma_m=0.010,
+        seed=77,
+        potholes=[
+            AnalyticalPotholeSpec("p1", 6.0, -0.5, 0.25, 0.22, 0.055, 0.1, "parabolic"),
+            AnalyticalPotholeSpec("p2", 12.0, 0.4, 0.35, 0.30, 0.080, -0.2, "steep"),
+        ],
+    )
+    res = run_synth_forge_scene(sc, tmp_path)
+    assert res["n_matched"] == 2, res
+    vol_mae = float(np.mean([m["vol_err_pct"] for m in res["matches"]]))
+    area_mae = float(np.mean([m["area_err_pct"] for m in res["matches"]]))
+    assert vol_mae < 12.0, f"FORGE volume MAE too high: {vol_mae:.1f}% ({res['matches']})"
+    assert area_mae < 18.0, f"FORGE area MAE too high: {area_mae:.1f}% ({res['matches']})"
+
+
+def test_forge_tile_memory_prefers_closest_range_point_per_voxel(tmp_path):
+    """When an early far keyframe and a later close keyframe both observe the same voxel,
+    export_world_cloud must keep the closer sensor observation (higher precision, lower grazing drift)."""
+    from civil.forge.memory import SpatialTileMemory
+
+    mem = SpatialTileMemory(tmp_path / "tiles", tile_size_m=20.0, max_ram_bytes=64 * 1024 * 1024)
+    # KF 0 at x=0 observes a point at world (10.01, 0.01, -0.02) from 10 m away (drifted)
+    T0 = np.eye(4)
+    mem.insert_keyframe_points(0, T0, np.array([[10.01, 0.01, -0.02]], dtype=np.float32))
+    # KF 1 at x=9 observes the same 4 cm voxel at world (10.02, 0.02, -0.035) from only 1 m away (accurate)
+    T1 = np.eye(4)
+    T1[0, 3] = 9.0
+    mem.insert_keyframe_points(1, T1, np.array([[1.02, 0.02, -0.035]], dtype=np.float32))
+    pts, _, _ = mem.export_world_cloud(voxel_size_m=0.04)
+    assert len(pts) == 1
+    assert abs(float(pts[0, 2]) - (-0.035)) < 1e-4, f"Expected close-range z=-0.035, got {pts[0]}"
