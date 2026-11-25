@@ -98,7 +98,7 @@ export function MapView({
 
   const focused = segmentId ? analysis.segments.find((x) => x.id === segmentId) : undefined;
   return (
-    <div className="relative size-full">
+    <div className="relative size-full max-md:[&_.maplibregl-ctrl-group_button]:size-11!">
     {focused && (
       <div className="absolute top-3 left-3 z-10 flex flex-col gap-1 rounded-md border bg-card p-3 text-sm" role="status">
         <span className="num font-semibold">{focused.id}</span>
