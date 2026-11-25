@@ -111,12 +111,7 @@ export function showLogin(root, st) {
     root.innerHTML = `
       <div class="login-wrap">
         <section class="login-pitch" aria-labelledby="pitchTitle">
-          <div class="login-brand">
-            <svg viewBox="0 0 28 20" width="28" height="20" aria-hidden="true">
-              <rect x="0" y="8" width="7" height="4" fill="#3f9b6e"/><rect x="7" y="8" width="7" height="4" fill="#c9a100"/>
-              <rect x="14" y="8" width="7" height="4" fill="#d9730d"/><rect x="21" y="8" width="7" height="4" fill="#3f9b6e"/>
-              <path d="M10 4v12M24 4v12" stroke="currentColor" stroke-width="1.6"/></svg>
-            iScale</div>
+          <div class="login-brand"><img src="/static/brand/iscale-logo.svg" alt="iScale" width="188" height="33"></div>
           <h1 id="pitchTitle">Find every pothole.<br>Fix the right one first.</h1>
           <p class="login-lede">Road inspection for city engineering teams and independent engineers: survey, rank, repair and prove it, on a server your organisation runs.</p>
           <div class="pitch-strip" aria-hidden="true"><i style="--c:var(--ok)"></i><i style="--c:var(--low)"></i><i style="--c:var(--ok)"></i><i style="--c:var(--high)"></i><i style="--c:var(--medium)"></i><i style="--c:var(--ok)"></i><i style="--c:var(--ok)"></i><i style="--c:var(--low)"></i></div>

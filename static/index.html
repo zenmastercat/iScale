@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#102D50" />
   <title>iScale</title>
+  <link rel="icon" href="/static/brand/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/static/brand/favicon.ico" sizes="48x48" />
+  <link rel="icon" href="/static/brand/favicon-32.png" type="image/png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="/static/brand/apple-touch-icon.png" />
   <link rel="stylesheet" href="/static/vendor/maplibre-gl.css" />
   <link rel="stylesheet" href="/static/styles.css" />
   <script type="importmap">
@@ -17,12 +21,7 @@
   <div class="app" id="app" hidden>
     <header class="topbar">
       <a class="brand top-brand" href="/" aria-label="iScale home">
-        <svg viewBox="0 0 28 20" width="28" height="20" aria-hidden="true">
-          <rect x="0" y="8" width="7" height="4" fill="#329B76"/><rect x="7" y="8" width="7" height="4" fill="#347BC3"/>
-          <rect x="14" y="8" width="7" height="4" fill="#E99B37"/><rect x="21" y="8" width="7" height="4" fill="#329B76"/>
-          <path d="M10 4v12M24 4v12" stroke="currentColor" stroke-width="1.6"/>
-        </svg>
-        iScale
+        <img src="/static/brand/iscale-mark.svg" alt="iScale" width="40" height="18" />
       </a>
       <div class="crumbs">
         <label><span class="sr-only">Project</span><select id="projectSelect" aria-label="Project"></select></label>
@@ -46,8 +45,7 @@
 
     <nav class="rail" aria-label="Views">
       <a class="brand rail-brand" href="/" aria-label="iScale home">
-        <span class="rail-mark" aria-hidden="true"><svg viewBox="0 0 28 20" width="22" height="16"><rect x="0" y="8" width="7" height="4" fill="#5FC59F"/><rect x="7" y="8" width="7" height="4" fill="#7FB2E5"/><rect x="14" y="8" width="7" height="4" fill="#F2B45E"/><rect x="21" y="8" width="7" height="4" fill="#5FC59F"/><path d="M10 4v12M24 4v12" stroke="#fff" stroke-width="1.6"/></svg></span>
-        <span class="rail-name">iScale<small>Road infrastructure</small></span>
+        <span class="rail-name"><img src="/static/brand/iscale-logo-dark.svg" alt="iScale" width="148" height="26" /><small>Road infrastructure</small></span>
       </a>
       <p class="rail-label">Workspace</p>
       <button class="tab" data-view="create"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="tab-l">Create project</span></button>

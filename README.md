@@ -1,4 +1,9 @@
-# iScale
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="static/brand/iscale-logo-dark.svg">
+    <img src="static/brand/iscale-logo.svg" alt="iScale" width="320">
+  </picture>
+</h1>
 
 (Formerly Civil Scan. The project folder, the Python package `civil` and the `civil` command keep their old names.)
 
