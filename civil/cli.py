@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 
 
 def main() -> None:
@@ -54,7 +55,10 @@ def main() -> None:
 
                 print(f"XMPP: {groups.sync_all_rooms()} group rooms in step", flush=True)
         try:
-            uvicorn.run("civil.api:app", host=a.host, port=a.port, log_level="info")
+            # X-Forwarded-For is believed only from loopback (the web proxy, web/scripts/serve.mjs, which sets it from
+            # the real peer); per-address limits then count each client, not the proxy
+            uvicorn.run("civil.api:app", host=a.host, port=a.port, log_level="info", proxy_headers=True,
+                        forwarded_allow_ips=os.environ.get("FORWARDED_ALLOW_IPS", "127.0.0.1"))
         finally:
             if chat:
                 xmpp.stop()
