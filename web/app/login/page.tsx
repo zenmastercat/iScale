@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useId, useState } from "react";
+import { ServerDown } from "@/components/shared/server-down";
 import { Logo } from "@/components/shell/logo";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,7 +50,7 @@ function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
   const qc = useQueryClient();
-  const { data: st, isLoading, refetch } = useAuthState();
+  const { data: st, isLoading, isError, error: stError, isFetching, refetch } = useAuthState();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const { lang, setLang } = useLang();
@@ -94,6 +95,7 @@ function LoginInner() {
     }
   }
 
+  if (isError && !st) return <ServerDown error={stError} onRetry={() => refetch()} busy={isFetching} />;
   return (
     <div className="grid min-h-dvh md:grid-cols-[1.1fr_1fr]">
       <section className="flex flex-col justify-center bg-sidebar px-8 py-12 text-white md:px-16" aria-labelledby="pitch">

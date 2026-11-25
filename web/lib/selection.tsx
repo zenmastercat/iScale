@@ -16,6 +16,10 @@ const LS_KEY = "iscale.selection";
 export interface Selection {
   projects: ProjectSummary[] | undefined;
   projectsLoading: boolean;
+  /** the project list or the selected project failed to load (network, server down); null otherwise */
+  loadError: Error | null;
+  /** refetch whatever failed */
+  retryLoad: () => void;
   projectId: string | null;
   surveyId: string | null;
   /** full project (with survey_list), once loaded */
@@ -114,6 +118,11 @@ export function SelectionProvider({ children }: { children: React.ReactNode }) {
   const value: Selection = {
     projects,
     projectsLoading: projectsQ.isLoading,
+    loadError: (projectsQ.isError && !projects ? projectsQ.error : null) ?? (projectQ.isError && !project ? projectQ.error : null),
+    retryLoad: () => {
+      if (projectsQ.isError) projectsQ.refetch();
+      if (projectQ.isError) projectQ.refetch();
+    },
     projectId,
     surveyId,
     project,

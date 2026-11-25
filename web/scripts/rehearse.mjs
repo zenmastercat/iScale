@@ -8,6 +8,7 @@
  *
  * It starts its OWN throwaway backend (:8790, temp data dir) and static server (:3190), so it never touches
  * your real backend (:8765) or a running `pnpm dev`. Screenshots + report land in web/rehearsal/.
+ * Two runs at once: give the second its own REHEARSE_API_PORT, REHEARSE_WEB_PORT and REHEARSE_OUT.
  * Exit code 0 = every step passed.
  */
 import { spawn, spawnSync } from "node:child_process";
@@ -20,7 +21,7 @@ import { chromium } from "playwright";
 
 const WEB = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const REPO = path.resolve(WEB, "..");
-const OUT = path.join(WEB, "rehearsal");
+const OUT = path.resolve(WEB, process.env.REHEARSE_OUT ?? "rehearsal");
 const API_PORT = Number(process.env.REHEARSE_API_PORT ?? 8790);
 const WEB_PORT = Number(process.env.REHEARSE_WEB_PORT ?? 3190);
 const BASE = `http://127.0.0.1:${WEB_PORT}`;

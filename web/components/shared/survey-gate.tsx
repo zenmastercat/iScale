@@ -1,5 +1,6 @@
 "use client";
-import { Database } from "lucide-react";
+import { Database, TriangleAlert } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { DemoButton } from "@/components/shared/demo-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ProcessingState } from "@/components/shared/processing-state";
@@ -12,8 +13,23 @@ import { useT } from "@/lib/i18n";
  * failed states itself and only renders children when the selected survey is "done".
  */
 export function SurveyGate({ children }: { children: React.ReactNode }) {
-  const { projects, projectsLoading, projectId, project, survey } = useSelection();
+  const { projects, projectsLoading, projectId, project, survey, loadError, retryLoad } = useSelection();
   const t = useT();
+  if (loadError)
+    return (
+      <div role="alert">
+        <EmptyState
+          icon={TriangleAlert}
+          title={t("Could not load the project", "โหลดโครงการไม่สำเร็จ")}
+          description={`${loadError.message}. ${t("Check that the iScale server is running.", "ตรวจสอบว่าเซิร์ฟเวอร์ iScale ทำงานอยู่")}`}
+          action={
+            <Button className="h-11 px-4" onClick={retryLoad}>
+              {t("Retry", "ลองอีกครั้ง")}
+            </Button>
+          }
+        />
+      </div>
+    );
   if (projectsLoading || (projectId && !project)) return <Skeleton className="h-64 w-full" />;
   if (!projects?.length || !projectId)
     return (

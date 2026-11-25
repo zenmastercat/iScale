@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { Suspense, useEffect } from "react";
 import { BottomBar, SideRail } from "@/components/shell/side-rail";
 import { TopBar } from "@/components/shell/top-bar";
+import { ServerDown } from "@/components/shared/server-down";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthState } from "@/lib/queries";
 import { SelectionProvider } from "@/lib/selection";
@@ -26,13 +27,15 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { data, isLoading, isError } = useAuthState();
-  const signedOut = !isLoading && (isError || !data?.user);
+  const { data, isLoading, isError, error, refetch, isFetching } = useAuthState();
+  // auth/state is 200 with user=null when signed out; an error means the server is unreachable
+  const signedOut = !isLoading && !isError && !data?.user;
 
   useEffect(() => {
     if (signedOut) router.replace(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
   }, [signedOut, router]);
 
+  if (isError && !data) return <ServerDown error={error} onRetry={() => refetch()} busy={isFetching} />;
   if (!data?.user)
     return (
       <div className="p-8" aria-busy="true">
