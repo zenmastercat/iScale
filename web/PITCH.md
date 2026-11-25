@@ -37,7 +37,7 @@ Then in the laptop browser open **`http://<laptop-ip>:3000`** (not localhost, so
 
 | # | Where | Click | Say |
 |---|---|---|---|
-| 1 | Overview | (demo processing) | "A car with a phone drove 242 m of Bang Sue. No inspector walked it." |
+| 1 | Overview | (demo processing) | "A car with a phone drove 242 m of Bang Sue: Pracha Rat Sai 2, then up Pracha Rat Sai 1. No inspector walked it." (The demo data is synthetic, placed on these real roads; say so if asked.) |
 | 2 | Overview | point at the headline | "89 out of 100, 10 open defects, USD 2,585 to fix. Every number is measured, not guessed." |
 | 3 | Overview | a red/orange count in *Open defects by type* | "Every count opens the evidence." → Findings table, filtered |
 | 4 | Map | click the high-severity pothole | "7.8 cm deep, 0.87 m across, 31 L of missing asphalt. Measured from the 3D scan." |
