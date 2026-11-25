@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ApiError } from "@/lib/api";
+import { LangProvider } from "@/lib/i18n";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(
@@ -22,10 +23,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
   return (
     <QueryClientProvider client={client}>
-      <TooltipProvider>
-        {children}
-        <Toaster position="bottom-right" />
-      </TooltipProvider>
+      <LangProvider>
+        <TooltipProvider>
+          {children}
+          <Toaster position="bottom-right" />
+        </TooltipProvider>
+      </LangProvider>
     </QueryClientProvider>
   );
 }

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { signOut } from "@/lib/auth";
+import { useLang, useT } from "@/lib/i18n";
 import { useAuthState } from "@/lib/queries";
 import { useSelection } from "@/lib/selection";
 import { Logo } from "./logo";
@@ -17,6 +18,8 @@ export function TopBar() {
   const { projects, projectId, project, surveyId, isDemo, setProject, setSurvey } = useSelection();
   const { data: auth } = useAuthState();
   const qc = useQueryClient();
+  const { lang, setLang } = useLang();
+  const t = useT();
   // the crew job card is a full-screen phone page (it has its own header); keep the bar on md+
   const fullScreenOnPhone = usePathname()?.startsWith("/job");
 
@@ -84,10 +87,19 @@ export function TopBar() {
             </span>
           )}
           <Button
+            variant="outline"
+            className="h-11 min-w-11 px-3 md:h-9"
+            lang={lang === "th" ? "en" : "th"}
+            aria-label={lang === "th" ? "Switch to English" : "เปลี่ยนเป็นภาษาไทย"}
+            onClick={() => setLang(lang === "th" ? "en" : "th")}
+          >
+            {lang === "th" ? "EN" : "ไทย"}
+          </Button>
+          <Button
             variant="ghost"
             size="icon-lg"
             className="size-11"
-            aria-label="Sign out"
+            aria-label={t("Sign out", "ออกจากระบบ")}
             onClick={async () => {
               await signOut().catch(() => {});
               qc.clear();

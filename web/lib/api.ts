@@ -131,6 +131,16 @@ export const postRegister = (b: {
 }) => api<unknown>("/api/auth/register", { body: b });
 export const postLogout = () => api<{ ok: true }>("/api/auth/logout", { body: {} });
 
+// --- team (civil/auth.py; admin only for writes) ---------------------------------------------
+/** Members of my company (User shape). */
+export const listTeam = () => api<User[]>("/api/team");
+/** Admin: add a member. They claim the username on their own device at first sign-in. */
+export const addMember = (b: { username: string; display_name: string; role: "engineer" | "admin" }) =>
+  api<User>("/api/team", { body: b });
+/** Admin: unbind a member's device so they can sign in on a new one. */
+export const resetMemberDevice = (username: string) =>
+  api<User>(p`/api/team/${username}/reset-device`, { method: "POST" });
+
 // --- meta ----------------------------------------------------------------------------------
 export const getMeta = () => api<Meta>("/api/meta");
 
@@ -212,6 +222,7 @@ export const runVerify = (pid: string, b: { before: string; after: string; worko
 // --- TanStack Query keys (use these so invalidation works across pages) ----------------------------
 export const qk = {
   authState: ["auth", "state"] as const,
+  team: ["team"] as const,
   meta: ["meta"] as const,
   projects: ["projects"] as const,
   project: (pid: string) => ["project", pid] as const,

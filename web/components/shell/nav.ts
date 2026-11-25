@@ -1,4 +1,4 @@
-import { ClipboardCheck, LayoutDashboard, ListOrdered, Map, Route, Table2, Wrench, type LucideIcon } from "lucide-react";
+import { ClipboardCheck, FileText, LayoutDashboard, ListOrdered, Map, Route, Table2, Users, Wrench, type LucideIcon } from "lucide-react";
 
 /** Route paths for every page. Pages live in app/(app)/<path>/page.tsx. */
 export const ROUTES = {
@@ -10,6 +10,10 @@ export const ROUTES = {
   plan: "/plan",
   verification: "/verification",
   surveys: "/surveys",
+  /** one-page council report (print / save as PDF) */
+  report: "/report",
+  /** team members; admins add people (e.g. a crew phone) */
+  team: "/team",
   /** phone job card: /job?project=&survey=&finding=<fid> */
   job: "/job",
   login: "/login",
@@ -24,4 +28,6 @@ export const NAV: { href: string; label: string; short: string; icon: LucideIcon
   { href: ROUTES.plan, label: "Repair plan", short: "Plan", icon: Wrench },
   { href: ROUTES.verification, label: "Verification", short: "Verify", icon: ClipboardCheck },
   { href: ROUTES.surveys, label: "Surveys", short: "Surveys", icon: Route },
+  { href: ROUTES.report, label: "Report", short: "Report", icon: FileText, desktopOnly: true },
+  { href: ROUTES.team, label: "Team", short: "Team", icon: Users, desktopOnly: true },
 ];

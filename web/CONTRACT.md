@@ -28,8 +28,8 @@ Sign in at `/login`. Press **Load demo street** on any page with no project.
 | Who | Owns (create anything inside) | Routes |
 |---|---|---|
 | **Lead** | `package.json`, lockfile, all configs, `app/layout.tsx`, `app/globals.css`, `app/(app)/layout.tsx`, `app/(app)/page.tsx`, `app/login/`, `lib/**`, `components/ui/**`, `components/shared/**`, `components/shell/**`, `components/overview/**`, `CONTRACT.md`, `scripts/` | `/`, `/login` |
-| **A** (Map, finding drawer, job card, Findings table) | `app/(app)/map/`, `app/(app)/job/`, `app/(app)/findings/`, `components/map/`, `components/jobcard/`, `components/findings/` | `/map`, `/job`, `/findings` |
-| **B** (Repair plan, Fix first, Verification, Surveys) | `app/(app)/plan/`, `app/(app)/fix-first/`, `app/(app)/verification/`, `app/(app)/surveys/`, `components/plan/`, `components/fix-first/`, `components/verification/`, `components/surveys/` | `/plan`, `/fix-first`, `/verification`, `/surveys` |
+| **A** (Map, finding drawer, job card, Findings table, segment line diagram) | `app/(app)/map/`, `app/(app)/job/`, `app/(app)/findings/`, `components/map/`, `components/jobcard/`, `components/findings/`, `components/linear/` | `/map`, `/job`, `/findings` |
+| **B** (Repair plan, Fix first, Verification, Surveys, Report) | `app/(app)/plan/`, `app/(app)/fix-first/`, `app/(app)/verification/`, `app/(app)/surveys/`, `app/(app)/report/`, `components/plan/`, `components/fix-first/`, `components/verification/`, `components/surveys/`, `components/report/` | `/plan`, `/fix-first`, `/verification`, `/surveys`, `/report` |
 | Everyone | `STATUS.md`: your own section only | |
 
 Each route already has a stub `page.tsx` from the lead; replace it. **Only the lead commits.**
@@ -69,7 +69,7 @@ export default function MapPage() {
 ## Routes (`components/shell/nav.ts`, `ROUTES`)
 
 `/` Overview · `/findings` every finding (filters in the URL, see `lib/findings-filter.ts`; desktop rail only) · `/map` Map (`?finding=<fid>` opens the drawer, `?segment=<sid>` focuses a segment) ·
-`/fix-first` · `/plan` · `/verification` · `/surveys` · `/job?finding=<fid>` phone job card · `/login`.
+`/fix-first` · `/plan` · `/verification` · `/surveys` · `/report` council report (print) · `/team` (lead) · `/job?finding=<fid>` phone job card · `/login`.
 The Overview already links to `/map?finding=…`, `/map?segment=…` and `/fix-first`. Please support those params.
 
 ## Data: `lib/api.ts`, `lib/queries.ts`
@@ -154,6 +154,17 @@ Installed packages you may import: `@tanstack/react-query`, `react-map-gl` (use 
 `grey-50…900` · `sev-{high,medium,low}` (marks), `-fg` (text), `-bg` (fill) ·
 `bg-cond-{good,satisfactory,fair,poor,very-poor,failed,none}` · radius 6px (`rounded-lg`) ·
 `class="num"` on every figure (Plex Mono, tabular-nums).
+
+## Thai / English (`lib/i18n.tsx`)
+
+A top-bar button switches the whole app between English and Thai (saved in localStorage, sets `<html lang>`).
+Write both strings in place: `const t = useT(); t("Open defects", "ข้อบกพร่องที่ยังไม่ซ่อม")`. Translate visible
+labels, headings, buttons, empty states, help lines. Leave ids, numbers, units and server text (evidence, catalog labels) as they are.
+Keep Thai short and plain (engineers and crews, not marketing). `useLang()` gives `{ lang, setLang }` (the job card
+should follow it instead of its own toggle).
+
+## Packages added 25 Nov
+`qrcode` (+ `@types/qrcode`): `import QRCode from "qrcode"; await QRCode.toDataURL(url, { margin: 1, width: 240 })`.
 
 ## Density (decided 25 Nov)
 
