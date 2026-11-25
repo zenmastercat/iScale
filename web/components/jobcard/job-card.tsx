@@ -171,7 +171,7 @@ function Location({ c, t }: { c: JobCard; t: (typeof T)[Lang] }) {
   const L = c.location;
   const tile = (key: string) => L.tiles.find((x) => x.key === key);
   const tiles = L.tiles.filter((x) => x.value !== null);
-  const label: Record<string, string> = { depth: t.depth, depth_cm: t.depth, across: t.across, diameter: t.across, missing: t.missing, volume: t.missing, cut_area: t.cutArea, area: t.area };
+  const label: Record<string, string> = { depth_max_m: t.depth, diameter_m: t.across, volume_m3: t.missing, area_m2: t.area };
   void tile;
   return (
     <>
@@ -191,7 +191,7 @@ function Location({ c, t }: { c: JobCard; t: (typeof T)[Lang] }) {
       <div className="grid grid-cols-2 gap-3">
         {tiles.map((x) => (
           <Tile key={x.key} label={label[x.key] ?? x.label}>
-            {x.key === "depth_max_m" ? <Num value={x.value * 100} digits={1} unit="cm" /> : <Num value={x.value} digits={x.unit === "cm" || x.unit === "L" ? 1 : 2} unit={x.unit} />}
+            {x.key === "depth_max_m" ? <Num value={x.value * 100} digits={1} unit="cm" /> : x.key === "volume_m3" ? <Num value={x.value * 1000} digits={1} unit="L" /> : <Num value={x.value} digits={x.unit === "cm" || x.unit === "L" ? 1 : 2} unit={x.unit} />}
           </Tile>
         ))}
       </div>
@@ -209,7 +209,7 @@ function Materials({ c, t }: { c: JobCard; t: (typeof T)[Lang] }) {
         <div className="text-sm text-muted-foreground">{t.method}</div>
         <div className="font-semibold">{k.method_label}</div>
         <div className="num mt-1 text-sm text-muted-foreground">
-          {formatNumber(k.cut_w_m, 2)} × {formatNumber(k.cut_l_m, 2)} m · {formatNumber(k.layers)} layer{k.layers === 1 ? "" : "s"}
+          {formatNumber(k.cut_w_m, 2)} × {formatNumber(k.cut_l_m, 2)} m · {formatNumber(k.layers)} {k.layers === 1 ? t.layer : t.layers}
         </div>
       </div>
       <section className="rounded-lg border bg-card">
@@ -242,7 +242,7 @@ function Timing({ c, t }: { c: JobCard; t: (typeof T)[Lang] }) {
     <>
       <Tile label={t.window}><span className="num">{m.window}</span></Tile>
       <div className="rounded-lg border bg-card p-4 text-sm">
-        <div className="font-semibold">{t.traffic}: <span className="capitalize">{m.level}</span>{m.days && ` · ${m.days}`}</div>
+        <div className="font-semibold">{t.traffic}: <span className="capitalize">{t.levels[m.level.toLowerCase()] ?? m.level}</span>{m.days && ` · ${m.days}`}</div>
         <p className="mt-1 text-muted-foreground">{m.reason}</p>
         {m.road_name && <p className="mt-2">{m.road_name}{m.road_class && ` (${m.road_class})`}</p>}
       </div>

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { FindingDrawer } from "@/components/map/finding-drawer";
 import { MapLegend } from "@/components/map/legend";
 import { MapView, type Layers } from "@/components/map/map-view";
+import { COLOUR_KEYS, METRICS, parseColour } from "@/components/map/metrics";
 import { PageHeader, SurveyGate } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +29,14 @@ function MapBody({ layers }: { layers: Layers }) {
   const labelFor = useCatalogLabel();
   const findingId = params.get("finding");
   const segmentId = params.get("segment");
+  const colourBy = parseColour(params.get("colour"));
+  const keep: Record<string, string> = colourBy === "condition" ? {} : { colour: colourBy };
+  const setColour = (c: string) => {
+    const q = new URLSearchParams(params.toString());
+    if (c === "condition") q.delete("colour");
+    else q.set("colour", c);
+    router.replace(`/map?${q.toString()}`, { scroll: false });
+  };
   const assetCodes = useMemo(() => new Set((meta.data?.catalog ?? []).filter((c) => c.kind === "asset").map((c) => c.code)), [meta.data]);
 
   if (analysis.isError) return <p role="alert" className="text-sev-high-fg">{t("Could not load the analysis", "โหลดผลวิเคราะห์ไม่สำเร็จ")}: {analysis.error.message}</p>;
@@ -38,6 +47,21 @@ function MapBody({ layers }: { layers: Layers }) {
   return (
     <div>
       <div className="rounded-lg border bg-card p-3">
+        <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label={t("Colour by", "ระบายสีตาม")}>
+          <span className="text-sm font-medium">{t("Colour by", "ระบายสีตาม")}</span>
+          {COLOUR_KEYS.map((k) => (
+            <Button
+              key={k}
+              type="button"
+              aria-pressed={colourBy === k}
+              variant={colourBy === k ? "default" : "outline"}
+              className={colourBy === k ? "min-h-11 bg-brand text-white hover:bg-brand/90 md:min-h-8" : "min-h-11 md:min-h-8"}
+              onClick={() => setColour(k)}
+            >
+              {k === "condition" ? t("Condition", "สภาพถนน") : t(METRICS[k].en, METRICS[k].th)}
+            </Button>
+          ))}
+        </div>
         <div className="h-[calc(100dvh-20rem)] min-h-[360px] overflow-hidden rounded-md bg-grey-50">
           {empty ? (
             <p className="grid h-full place-items-center text-muted-foreground">{t("This survey has no segments or findings to show.", "การสำรวจนี้ไม่มีช่วงถนนหรือรายการให้แสดง")}</p>
@@ -47,15 +71,16 @@ function MapBody({ layers }: { layers: Layers }) {
               layers={layers}
               selectedId={findingId}
               segmentId={segmentId}
+              colourBy={colourBy}
               assetCodes={assetCodes}
               labelFor={labelFor}
-              onSelect={(id) => router.push(withSel("/map", { finding: id }), { scroll: false })}
+              onSelect={(id) => router.push(withSel("/map", { finding: id, ...keep }), { scroll: false })}
             />
           )}
         </div>
-        <MapLegend showCondition={layers.condition} showDefects={layers.defects} />
+        <MapLegend showCondition={layers.condition} showDefects={layers.defects} colourBy={colourBy} segments={an.segments} />
       </div>
-      <FindingDrawer findingId={findingId} onClose={() => router.replace(withSel("/map"), { scroll: false })} />
+      <FindingDrawer findingId={findingId} onClose={() => router.replace(withSel("/map", keep), { scroll: false })} />
     </div>
   );
 }

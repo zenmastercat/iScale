@@ -15,6 +15,7 @@ import { useAnalysis, useCatalogLabel } from "@/lib/queries";
 import { useSelection } from "@/lib/selection";
 import { useT } from "@/lib/i18n";
 import type { Finding } from "@/lib/types";
+import { History } from "./history";
 import { QrBlock } from "./qr-block";
 import { TrustBadge } from "./trust";
 import { useMediaQuery } from "./use-media";
@@ -141,6 +142,7 @@ function DrawerBody({ f, segments }: { f: Finding; segments: import("@/lib/types
           {addWO.isPending ? t("Adding…", "กำลังเพิ่ม…") : f.status === "planned" ? t("In a work order", "อยู่ในใบสั่งงานแล้ว") : t("Add to work order", "เพิ่มในใบสั่งงาน")}
         </Button>
       </div>
+      <History entries={f.history} />
       <QrBlock findingId={f.id} />
       {!f.severity && <p className="text-xs text-muted-foreground">{t("Assets are inventory and can't be added to a work order.", "สินทรัพย์เป็นรายการสำรวจ เพิ่มในใบสั่งงานไม่ได้")}</p>}
     </div>

@@ -13,7 +13,8 @@ export const T = {
     navigate: "Navigate", markFixed: "Mark as fixed", fixed: "Fixed", saving: "Saving…",
     fixedToast: "Marked as fixed", failToast: "Could not update the finding", noCost: "No cost estimate for this finding type.",
     missingFinding: "Choose a finding", missingHint: "Open a finding from the map and press Open job card.",
-    loadError: "Could not load the job card",
+    loadError: "Could not load the job card", layer: "layer", layers: "layers",
+    levels: { low: "low", light: "light", medium: "medium", moderate: "moderate", high: "high", heavy: "heavy" } as Record<string, string>,
     confirmTitle: "Mark this repair as fixed?", confirmBody: "The finding is recorded as fixed. You can verify it on the next survey.", cancel: "Cancel",
   },
   th: {
@@ -28,7 +29,8 @@ export const T = {
     navigate: "นำทาง", markFixed: "ซ่อมเสร็จแล้ว", fixed: "ซ่อมแล้ว", saving: "กำลังบันทึก…",
     fixedToast: "บันทึกว่าซ่อมแล้ว", failToast: "ไม่สามารถอัปเดตได้", noCost: "ไม่มีประมาณการสำหรับประเภทนี้",
     missingFinding: "เลือกรายการ", missingHint: "เปิดรายการจากแผนที่ แล้วกด Open job card",
-    loadError: "โหลดใบงานไม่สำเร็จ",
+    loadError: "โหลดใบงานไม่สำเร็จ", layer: "ชั้น", layers: "ชั้น",
+    levels: { low: "น้อย", light: "เบาบาง", medium: "ปานกลาง", moderate: "ปานกลาง", high: "มาก", heavy: "หนาแน่น" } as Record<string, string>,
     confirmTitle: "ยืนยันว่าซ่อมเสร็จแล้ว?", confirmBody: "ระบบจะบันทึกว่าซ่อมแล้ว และตรวจสอบได้ในการสำรวจรอบถัดไป", cancel: "ยกเลิก",
   },
 } as const;

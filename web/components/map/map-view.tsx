@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import MapGL, { Layer, Marker, NavigationControl, Popup, Source, type MapLayerMouseEvent, type MapRef } from "@/lib/maplibre";
 import { ConditionChip, Num, SeverityIcon } from "@/components/shared";
 import { bandFor } from "@/lib/condition";
+import { METRICS, metricScale, type ColourBy } from "./metrics";
+import { formatNumber } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import type { Analysis, Finding } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -38,6 +40,7 @@ export function MapView({
   layers,
   selectedId,
   segmentId,
+  colourBy,
   assetCodes,
   labelFor,
   onSelect,
@@ -46,6 +49,7 @@ export function MapView({
   layers: Layers;
   selectedId: string | null;
   segmentId: string | null;
+  colourBy: ColourBy;
   assetCodes: Set<string>;
   labelFor: (code: string) => string;
   onSelect: (id: string) => void;
@@ -61,19 +65,20 @@ export function MapView({
   };
   const shown = seg ? analysis.segments.find((x) => x.id === seg.id) : undefined;
 
-  const lines = useMemo(
-    () => ({
+  const lines = useMemo(() => {
+    const m = colourBy === "condition" ? null : METRICS[colourBy];
+    const scale = m ? metricScale(analysis.segments, m) : null;
+    return {
       type: "FeatureCollection" as const,
       features: analysis.segments
         .filter((s) => s.coords?.length >= 2)
         .map((s) => ({
           type: "Feature" as const,
-          properties: { id: s.id, color: bandFor(s.condition).color, focus: s.id === segmentId ? 1 : 0 },
+          properties: { id: s.id, color: m && scale ? scale.colorFor(m.pick(s)) : bandFor(s.condition).color, focus: s.id === segmentId ? 1 : 0 },
           geometry: { type: "LineString" as const, coordinates: s.coords },
         })),
-    }),
-    [analysis.segments, segmentId],
-  );
+    };
+  }, [analysis.segments, segmentId, colourBy]);
 
   const bounds = useMemo(() => {
     const focus = segmentId ? analysis.segments.find((s) => s.id === segmentId) : null;
@@ -162,6 +167,11 @@ export function MapView({
           <div className="flex flex-col gap-1 p-1 text-sm">
             <div className="num font-semibold">{shown.id}</div>
             <ConditionChip score={shown.condition} showLabel />
+            {colourBy !== "condition" && (
+              <div className="num">
+                {t(METRICS[colourBy].en, METRICS[colourBy].th)}: {formatNumber(METRICS[colourBy].pick(shown), METRICS[colourBy].digits)} {METRICS[colourBy].unit}
+              </div>
+            )}
             <div className="text-muted-foreground">
               <Num value={shown.length_m} digits={0} unit="m" /> · {shown.defect_count} {t(shown.defect_count === 1 ? "defect" : "defects", "ข้อบกพร่อง")}
             </div>

@@ -4,6 +4,7 @@
  * Lanes: Condition (band blocks + score) · Defects (severity marks) · Road width · Coverage · Surface roughness.
  * Every segment column is a link to /map?segment=<id>; hover or focus highlights it across all lanes.
  */
+import { Check } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { SEVERITY, SeverityIcon } from "@/components/shared";
@@ -154,7 +155,8 @@ export function SegmentDiagram({
             t("Defects", "ข้อบกพร่อง"),
             Math.max(40, rows * MARK + 12),
             marks.map(({ f, at, row }) => {
-              const name = `${f.id}, ${labelFor(f.type)}, ${t(`${f.severity} severity`, `ความรุนแรง${{ high: "สูง", medium: "กลาง", low: "ต่ำ" }[f.severity!]}`)}`;
+              const resolved = f.status === "fixed" || f.status === "verified" || f.status === "dismissed";
+              const name = `${f.id}, ${labelFor(f.type)}, ${t(`${f.severity} severity`, `ความรุนแรง${{ high: "สูง", medium: "กลาง", low: "ต่ำ" }[f.severity!]}`)}${resolved ? `, ${t("resolved", "แก้ไขแล้ว")} (${f.status})` : ""}`;
               return (
                 <Link
                   key={f.id}
@@ -164,7 +166,13 @@ export function SegmentDiagram({
                   className="absolute z-30 grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-brand"
                   style={{ left: pct(at), top: 8 + row * MARK + MARK / 2 }}
                 >
-                  <SeverityIcon severity={f.severity!} size={12} className={SEVERITY[f.severity!].fill} />
+                  {resolved ? (
+                    <span className="grid size-4 place-items-center rounded-full border border-grey-300 bg-grey-100 opacity-70">
+                      <Check className="size-3 text-grey-500" aria-hidden />
+                    </span>
+                  ) : (
+                    <SeverityIcon severity={f.severity!} size={12} className={SEVERITY[f.severity!].fill} />
+                  )}
                 </Link>
               );
             }),
@@ -196,6 +204,20 @@ export function SegmentDiagram({
         </div>
       </div>
 
+      <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground" aria-label={t("Defect marks", "สัญลักษณ์ข้อบกพร่อง")}>
+        {(["high", "medium", "low"] as const).map((sv) => (
+          <li key={sv} className="inline-flex items-center gap-1.5">
+            <SeverityIcon severity={sv} size={11} />
+            {t(sv[0].toUpperCase() + sv.slice(1), { high: "สูง", medium: "กลาง", low: "ต่ำ" }[sv])}
+          </li>
+        ))}
+        <li className="inline-flex items-center gap-1.5">
+          <span className="grid size-3.5 place-items-center rounded-full border border-grey-300 bg-grey-100">
+            <Check className="size-2.5 text-grey-500" aria-hidden />
+          </span>
+          {t("Resolved", "แก้ไขแล้ว")}
+        </li>
+      </ul>
       <figcaption className="min-h-5 text-sm text-muted-foreground" aria-live="polite">
         {seg ? (
           <span className="num">{describe(seg)}</span>
