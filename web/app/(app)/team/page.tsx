@@ -207,7 +207,7 @@ export default function TeamPage() {
           ) : team.isError ? (
             <p role="alert" className="text-sev-high-fg">{team.error.message}</p>
           ) : (
-            <div className="relative overflow-x-auto">
+            <div className="relative overflow-x-auto" tabIndex={0} role="region" aria-label={t("People, scrolls sideways", "รายชื่อสมาชิก เลื่อนด้านข้างได้")}>
               <table className="w-full min-w-[560px] text-left text-sm md:text-[13px]">
                 <thead>
                   <tr className="border-b text-xs font-semibold tracking-wider text-grey-600 uppercase">

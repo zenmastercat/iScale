@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ProcessingState } from "@/components/shared/processing-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSelection } from "@/lib/selection";
+import { useT } from "@/lib/i18n";
 
 /**
  * Wrap a page body that needs a processed survey. Renders loading / no project / processing /
@@ -12,18 +13,19 @@ import { useSelection } from "@/lib/selection";
  */
 export function SurveyGate({ children }: { children: React.ReactNode }) {
   const { projects, projectsLoading, projectId, project, survey } = useSelection();
+  const t = useT();
   if (projectsLoading || (projectId && !project)) return <Skeleton className="h-64 w-full" />;
   if (!projects?.length || !projectId)
     return (
       <EmptyState
         icon={Database}
-        title="No projects yet"
-        description="Load the demo street to see iScale with sample data: two drives of the same road, before and after repairs."
+        title={t("No projects yet", "ยังไม่มีโครงการ")}
+        description={t("Load the demo street to see iScale with sample data: two drives of the same road, before and after repairs.", "โหลดถนนตัวอย่างเพื่อดู iScale ด้วยข้อมูลตัวอย่าง: การขับสำรวจถนนเดียวกันสองครั้ง ก่อนและหลังซ่อม")}
         action={<DemoButton />}
       />
     );
   if (!survey)
-    return <EmptyState icon={Database} title="This project has no surveys yet" description="Add a drive to start." />;
+    return <EmptyState icon={Database} title={t("This project has no surveys yet", "โครงการนี้ยังไม่มีการสำรวจ")} description={t("Add a drive to start.", "เพิ่มการขับสำรวจเพื่อเริ่มต้น")} />;
   if (survey.status !== "done") return <ProcessingState survey={survey} />;
   return <>{children}</>;
 }

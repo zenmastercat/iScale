@@ -15,6 +15,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { AxeBuilder } from "@axe-core/playwright";
 import { chromium } from "playwright";
 
 const WEB = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -169,6 +170,12 @@ try {
       const ok = (!expect || expect.test(text)) && !/something went wrong|application error/i.test(text);
       const ov = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       step(ok && ov <= 1, `${r} renders @${w}`, ov > 1 ? `sideways scroll ${ov}px` : ok ? "" : "expected content missing");
+      const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).exclude(".maplibregl-canvas").analyze();
+      step(
+        axe.violations.length === 0,
+        `${r} accessibility @${w}`,
+        axe.violations.map((v) => `${v.id} ×${v.nodes.length} (${v.nodes[0]?.target.join(" ")})`).join("; "),
+      );
       await shot(`page-${w}-${r.replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "") || "overview"}`, !r.startsWith("/map"));
     }
   }

@@ -1,9 +1,12 @@
+"use client";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Survey } from "@/lib/types";
+import { useT } from "@/lib/i18n";
 
 /** Shown while a survey is queued/running, or when it failed. Pass the survey record. */
 export function ProcessingState({ survey, action, className }: { survey?: Survey; action?: React.ReactNode; className?: string }) {
+  const t = useT();
   const failed = survey?.status === "error";
   return (
     <div
@@ -17,16 +20,16 @@ export function ProcessingState({ survey, action, className }: { survey?: Survey
         <Loader2 aria-hidden className="mb-3 size-8 animate-spin text-accent-blue" />
       )}
       <h2 className="text-lg font-semibold text-brand">
-        {failed ? "This survey failed to process" : survey ? `Processing “${survey.name}”` : "Loading…"}
+        {failed ? t("This survey failed to process", "ประมวลผลการสำรวจนี้ไม่สำเร็จ") : survey ? t(`Processing “${survey.name}”`, `กำลังประมวลผล “${survey.name}”`) : t("Loading…", "กำลังโหลด…")}
       </h2>
       <p className="mt-1 max-w-md text-sm text-muted-foreground">
         {failed
-          ? survey?.error || "Unknown error."
+          ? survey?.error || t("Unknown error.", "ข้อผิดพลาดที่ไม่ทราบสาเหตุ")
           : survey?.status === "queued"
-            ? "Waiting in the queue."
+            ? t("Waiting in the queue.", "รอคิว")
             : survey?.stage
-              ? `Now: ${survey.stage}.`
-              : "Decoding the drive and measuring the road. The demo takes about 20 seconds."}
+              ? t(`Now: ${survey.stage}.`, `ขณะนี้: ${survey.stage}`)
+              : t("Decoding the drive and measuring the road. The demo takes about 20 seconds.", "กำลังถอดข้อมูลการขับและวัดผิวถนน ตัวอย่างใช้เวลาประมาณ 20 วินาที")}
       </p>
       {action && <div className="mt-5">{action}</div>}
     </div>

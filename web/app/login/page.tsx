@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { setup, signIn } from "@/lib/auth";
 import { qk } from "@/lib/api";
+import { useLang, useT } from "@/lib/i18n";
 import { useAuthState } from "@/lib/queries";
 
-const PITCH = [
-  ["Video in, measured potholes out", "Depth and size are measured in 3D, not guessed."],
-  ["A condition score for every 25 m", "Repair plans with costs, within your budget."],
-  ["Proof the fix happened", "Drive again; each repair comes back verified, still present or not covered."],
+const PITCH: [string, string, string, string][] = [
+  ["Video in, measured potholes out", "Depth and size are measured in 3D, not guessed.", "ใส่วิดีโอ ได้หลุมบ่อที่วัดแล้ว", "วัดความลึกและขนาดแบบ 3 มิติ ไม่ใช่การเดา"],
+  ["A condition score for every 25 m", "Repair plans with costs, within your budget.", "คะแนนสภาพทุก 25 เมตร", "แผนซ่อมพร้อมค่าใช้จ่าย ภายในงบประมาณ"],
+  ["Proof the fix happened", "Drive again; each repair comes back verified, still present or not covered.", "พิสูจน์ว่าซ่อมจริง", "ขับสำรวจซ้ำ ทุกจุดซ่อมจะแสดงผล: ซ่อมแล้ว ยังอยู่ หรือไม่ครอบคลุม"],
 ];
 
 function Field({
@@ -51,6 +52,8 @@ function LoginInner() {
   const { data: st, isLoading, refetch } = useAuthState();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const { lang, setLang } = useLang();
+  const t = useT();
 
   const next = (() => {
     // only same-origin paths: resolve and compare origins ("/\evil.com" and "//evil.com" resolve elsewhere)
@@ -96,48 +99,60 @@ function LoginInner() {
       <section className="flex flex-col justify-center bg-sidebar px-8 py-12 text-white md:px-16" aria-labelledby="pitch">
         <Logo className="mb-10" />
         <h1 id="pitch" className="max-w-md text-3xl leading-tight font-semibold md:text-4xl">
-          Find every pothole.
+          {t("Find every pothole.", "เจอทุกหลุมบ่อ")}
           <br />
-          Fix the right one first.
+          {t("Fix the right one first.", "ซ่อมจุดที่สำคัญก่อน")}
         </h1>
         <p className="mt-4 max-w-md text-white/80">
-          Road inspection for city engineering teams: survey, rank, repair and prove it, on a server your organisation runs.
+          {t(
+            "Road inspection for city engineering teams: survey, rank, repair and prove it, on a server your organisation runs.",
+            "ระบบตรวจสภาพถนนสำหรับทีมช่างของเมือง: สำรวจ จัดลำดับ ซ่อม และพิสูจน์ผล บนเซิร์ฟเวอร์ของหน่วยงานเอง",
+          )}
         </p>
         <ul className="mt-8 hidden max-w-md flex-col gap-4 md:flex">
-          {PITCH.map(([t, d]) => (
-            <li key={t}>
-              <p className="font-medium">{t}</p>
-              <p className="text-sm text-white/75">{d}</p>
+          {PITCH.map(([en, d, th, dTh]) => (
+            <li key={en}>
+              <p className="font-medium">{t(en, th)}</p>
+              <p className="text-sm text-white/75">{t(d, dTh)}</p>
             </li>
           ))}
         </ul>
       </section>
 
-      <section className="flex items-center justify-center px-6 py-12">
+      <section className="relative flex items-center justify-center px-6 py-12">
+        <Button
+          variant="outline"
+          className="absolute top-4 right-4 h-11"
+          lang={lang === "th" ? "en" : "th"}
+          aria-label={lang === "th" ? "Switch to English" : "เปลี่ยนเป็นภาษาไทย"}
+          onClick={() => setLang(lang === "th" ? "en" : "th")}
+        >
+          {lang === "th" ? "EN" : "ไทย"}
+        </Button>
         <div className="w-full max-w-sm">
           {isLoading || !st ? (
             <Skeleton className="h-48 w-full" />
           ) : st.setup_needed ? (
             <>
-              <h2 className="text-2xl font-semibold text-brand">Set up iScale for your team</h2>
+              <h2 className="text-2xl font-semibold text-brand">{t("Set up iScale for your team", "ตั้งค่า iScale สำหรับทีมของคุณ")}</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                This server is new. You&apos;ll be its admin; engineers then sign in with just a username.
+                {t("This server is new. You'll be its admin; engineers then sign in with just a username.", "เซิร์ฟเวอร์นี้ยังใหม่ คุณจะเป็นผู้ดูแล จากนั้นวิศวกรเข้าสู่ระบบด้วยชื่อผู้ใช้อย่างเดียว")}
               </p>
               <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4">
-                <Field label="Company or department" name="company" required minLength={2} maxLength={80} autoComplete="organization" placeholder="e.g. Bang Sue District Works" />
-                <Field label="Your name" name="display" required maxLength={80} autoComplete="name" />
-                <Field label="Your username" name="username" required maxLength={32} autoComplete="username" autoCapitalize="none" spellCheck={false} />
+                <Field label={t("Company or department", "บริษัทหรือหน่วยงาน")} name="company" required minLength={2} maxLength={80} autoComplete="organization" placeholder="e.g. Bang Sue District Works" />
+                <Field label={t("Your name", "ชื่อของคุณ")} name="display" required maxLength={80} autoComplete="name" />
+                <Field label={t("Your username", "ชื่อผู้ใช้ของคุณ")} name="username" required maxLength={32} autoComplete="username" autoCapitalize="none" spellCheck={false} />
                 <Button type="submit" size="lg" className="h-11 text-base" disabled={busy}>
-                  {busy && <Loader2 className="animate-spin" aria-hidden />}Set up and sign in
+                  {busy && <Loader2 className="animate-spin" aria-hidden />}{t("Set up and sign in", "ตั้งค่าและเข้าสู่ระบบ")}
                 </Button>
               </form>
             </>
           ) : (
             <>
-              <h2 className="text-2xl font-semibold text-brand">Sign in</h2>
+              <h2 className="text-2xl font-semibold text-brand">{t("Sign in", "เข้าสู่ระบบ")}</h2>
               <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4">
                 <Field
-                  label="Username"
+                  label={t("Username", "ชื่อผู้ใช้")}
                   name="username"
                   required
                   maxLength={33}
@@ -146,10 +161,10 @@ function LoginInner() {
                   spellCheck={false}
                   autoFocus
                   placeholder="e.g. somchai.k"
-                  help="No password. The first time, this device becomes yours; after that nobody can use your username from another device."
+                  help={t("No password. The first time, this device becomes yours; after that nobody can use your username from another device.", "ไม่ต้องใช้รหัสผ่าน ครั้งแรกอุปกรณ์นี้จะผูกกับคุณ หลังจากนั้นไม่มีใครใช้ชื่อผู้ใช้ของคุณจากอุปกรณ์อื่นได้")}
                 />
                 <Button type="submit" size="lg" className="h-11 text-base" disabled={busy}>
-                  {busy && <Loader2 className="animate-spin" aria-hidden />}Sign in
+                  {busy && <Loader2 className="animate-spin" aria-hidden />}{t("Sign in", "เข้าสู่ระบบ")}
                 </Button>
               </form>
             </>

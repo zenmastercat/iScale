@@ -1,3 +1,5 @@
+"use client";
+import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 /** Page title block: breadcrumb line ("Demo district / Baseline drive"), h1, actions on the right. */
@@ -12,6 +14,10 @@ export function PageHeader({
   actions?: React.ReactNode;
   className?: string;
 }) {
+  // browser tab / history title: "Map · iScale"
+  useEffect(() => {
+    document.title = `${title} · iScale`;
+  }, [title]);
   return (
     <header className={cn("mb-6 flex flex-wrap items-end justify-between gap-4", className)}>
       <div className="min-w-0">
