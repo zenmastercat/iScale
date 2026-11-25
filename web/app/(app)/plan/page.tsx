@@ -7,10 +7,11 @@ import { toast } from "sonner";
 import { BudgetChart } from "@/components/plan/budget-chart";
 import { BudgetBar } from "@/components/plan/budget-bar";
 import { SegmentTable, SpotTable } from "@/components/plan/plan-table";
-import { usePlan } from "@/components/plan/use-plan";
+import { usePlan, zeroBudgetPlan } from "@/components/plan/use-plan";
 import { EmptyState } from "@/components/shared/empty-state";
 import { KpiTile } from "@/components/shared/kpi-tile";
 import { PageHeader } from "@/components/shared/page-header";
+import { QueryError } from "@/components/surveys/query-error";
 import { SurveyGate } from "@/components/shared/survey-gate";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -51,8 +52,9 @@ function usePlanScreen() {
   const currency = all?.currency ?? "USD";
 
   const active = mode === "spot" ? spot : seg;
-  const plan: SpotPlan | SegmentPlan | undefined = active.data;
-  const stale = active.isFetching;
+  const zero = debounced === 0 && !!all;
+  const plan: SpotPlan | SegmentPlan | undefined = zero ? zeroBudgetPlan(all) : active.data;
+  const stale = zero ? false : active.isFetching;
 
   const spotPlan = plan?.mode === "spot" ? plan : null;
   const fundedIds = useMemo(() => spotPlan?.items.map((i) => i.finding_id) ?? [], [spotPlan]);
@@ -94,11 +96,20 @@ function PlanBody({ s }: { s: PlanScreen }) {
   const all = mode === "spot" ? spotAll.data : segAll.data;
   if (spotAll.isError || segAll.isError)
     return (
-      <p role="alert" className="text-sev-high-fg">
-        {t("Could not load the plan", "โหลดแผนซ่อมไม่ได้")}: {(spotAll.error ?? segAll.error)?.message}
-      </p>
+      <QueryError
+        what={t("Could not load the plan", "โหลดแผนซ่อมไม่ได้")}
+        error={spotAll.error ?? segAll.error}
+        onRetry={() => { spotAll.refetch(); segAll.refetch(); }}
+      />
     );
   if (!plan || !all) return <Skeleton className="h-96 w-full" />;
+  if (all.items.length + all.deferred.length === 0)
+    return (
+      <EmptyState
+        title={t("No open defects to repair", "ไม่มีข้อบกพร่องที่ต้องซ่อม")}
+        description={t("This survey has no open defects, so there is nothing to plan or budget.", "การสำรวจนี้ไม่มีข้อบกพร่องค้าง จึงไม่มีอะไรต้องวางแผนหรือตั้งงบ")}
+      />
+    );
 
   const fundedCost = plan.total;
   const deferredCost = plan.deferred.reduce((a, i) => a + i.cost, 0);
@@ -160,6 +171,11 @@ function PlanBody({ s }: { s: PlanScreen }) {
           <span>{formatNumber(max / 2)}</span>
           <span>{formatNumber(max)}</span>
         </div>
+        {budget === 0 && (
+          <p role="status" className="mt-2 text-sm font-medium text-sev-medium-fg">
+            {t("Budget is 0: nothing is funded. Every repair is deferred.", "งบเป็น 0: ไม่มีงานซ่อมได้รับงบ ทุกงานถูกเลื่อนไว้")}
+          </p>
+        )}
         <p className="mt-2 text-sm text-muted-foreground">
           {t(
             "Drag to set how much you can spend. Repairs are funded in priority order until the money runs out; the rest wait. The mobilisation fee is paid once.",

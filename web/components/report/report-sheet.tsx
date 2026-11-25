@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { usePlan } from "@/components/plan/use-plan";
 import { Money, Num } from "@/components/shared/num";
 import { SeverityIcon } from "@/components/shared/severity-badge";
+import { QueryError } from "@/components/surveys/query-error";
 import { Skeleton } from "@/components/ui/skeleton";
 import { findingChainage, isOpenDefect } from "@/lib/chainage";
 import { bandFor, conditionShares, routeCondition } from "@/lib/condition";
@@ -93,7 +94,13 @@ export function ReportSheet() {
   }, [analysis.data, survey]);
 
   if (analysis.isError || planQ.isError)
-    return <p role="alert" className="text-sev-high-fg">{t("Could not load the report data.", "โหลดข้อมูลรายงานไม่ได้")}</p>;
+    return (
+      <QueryError
+        what={t("Could not load the report data.", "โหลดข้อมูลรายงานไม่ได้")}
+        error={analysis.error ?? planQ.error}
+        onRetry={() => { analysis.refetch(); planQ.refetch(); }}
+      />
+    );
   if (!stats || !planQ.data || planQ.data.mode !== "spot") return <Skeleton className="mx-auto h-[600px] w-full max-w-[210mm]" />;
 
   const plan: SpotPlan = planQ.data;
@@ -123,6 +130,10 @@ export function ReportSheet() {
           {auth?.user && <dd>{auth.user.company}</dd>}
         </dl>
       </header>
+
+      {stats.open === 0 && (
+        <p className="mt-3 rounded-md border border-grey-300 p-2 font-medium">{t("No open defects were found in this survey.", "ไม่พบข้อบกพร่องค้างในการสำรวจนี้")}</p>
+      )}
 
       <section aria-label={t("Headline figures", "ตัวเลขสำคัญ")} className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Figure

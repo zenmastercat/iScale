@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { VerificationResults } from "@/components/verification/results";
 import { WO_STATUS } from "@/components/verification/words";
+import { QueryError } from "@/components/surveys/query-error";
 import { VerifyPanel } from "@/components/verification/verify-panel";
 import { WorkOrderList } from "@/components/verification/work-orders";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -63,7 +64,7 @@ export default function VerificationPage() {
       ) : (
         <div className="flex flex-col gap-6 md:gap-4">
           {verification.isError ? (
-            <p role="alert" className="text-sev-high-fg">Could not load results: {verification.error.message}</p>
+            <QueryError what={t("Could not load results", "โหลดผลตรวจยืนยันไม่ได้")} error={verification.error} onRetry={() => verification.refetch()} />
           ) : verification.isLoading ? (
             <Skeleton className="h-40 w-full" />
           ) : v ? (
@@ -73,7 +74,7 @@ export default function VerificationPage() {
           )}
           <Card title={t("Work orders", "ใบสั่งงาน")}>
             {orders.isError ? (
-              <p role="alert" className="text-sev-high-fg">Could not load work orders: {orders.error.message}</p>
+              <QueryError what={t("Could not load work orders", "โหลดใบสั่งงานไม่ได้")} error={orders.error} onRetry={() => orders.refetch()} />
             ) : orders.isLoading ? (
               <Skeleton className="h-24 w-full" />
             ) : (

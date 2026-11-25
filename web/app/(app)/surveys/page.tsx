@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { retrySurvey, setBaseline } from "@/lib/api";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatNumber } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import { useMeta } from "@/lib/queries";
 import { useSelection } from "@/lib/selection";
@@ -78,6 +78,14 @@ export default function SurveysPage() {
           .map((s) => (
             <ProcessingState key={s.id} survey={s} />
           ))}
+        {project!.survey_list.filter((s) => s.status === "done").length >= 2 && (
+          <p className="rounded-lg border bg-brand-50 p-3 text-sm md:text-[13px]">
+            {t("Two processed surveys are ready.", "มีการสำรวจที่ประมวลผลแล้วสองรอบ")}{" "}
+            <Link href={withSel("/verification")} className="inline-flex min-h-11 items-center font-medium text-link underline underline-offset-4 md:min-h-0">
+              {t("Compare them in Verification", "เปรียบเทียบในหน้าตรวจยืนยัน")}
+            </Link>
+          </p>
+        )}
         <section className="rounded-lg border bg-card p-5 md:p-4" aria-label={t("Surveys", "การสำรวจ")}>
           <div className="relative overflow-x-auto">
             <table className="md:text-[13px] w-full min-w-[820px] text-left">
@@ -99,6 +107,13 @@ export default function SurveysPage() {
                       <p className="font-medium text-grey-900">{s.name}</p>
                       {s.id === project!.baseline && (
                         <span className="inline-flex items-center gap-1 text-sm md:text-[13px] text-muted-foreground"><Star aria-hidden className="size-3.5" />{t("Baseline", "ฐาน")}</span>
+                      )}
+                      {s.stats && (
+                        <p className="num mt-0.5 hidden text-[12px] text-muted-foreground lg:block">
+                          {formatNumber(s.stats.points)} {t("points", "จุด")} · {s.stats.findings} {t("findings", "ข้อบกพร่อง")} ·{" "}
+                          {formatNumber(s.stats.length_m)} m · {s.stats.segments} {t("segments", "ช่วง")} ·{" "}
+                          {t("analysis", "วิเคราะห์")} {formatNumber(s.stats.analysis_s, 1)} s
+                        </p>
                       )}
                       {s.id === surveyId && <span className="block text-sm md:text-[13px] text-muted-foreground">{t("Selected", "เลือกอยู่")}</span>}
                     </td>

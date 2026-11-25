@@ -1,6 +1,7 @@
 "use client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ const NONE = "__none__";
 
 export function VerifyPanel({ orders, workorderId }: { orders: WorkOrder[]; workorderId: string | null }) {
   const t = useT();
-  const { projectId, project } = useSelection();
+  const { projectId, project, withSel } = useSelection();
   const qc = useQueryClient();
   const surveys = project?.survey_list.filter((s) => s.status === "done") ?? [];
   // user choices; null = use the default derived from the project
@@ -69,7 +70,15 @@ export function VerifyPanel({ orders, workorderId }: { orders: WorkOrder[]; work
         </Button>
       </div>
       {surveys.length < 2 && (
-        <p className="mt-3 text-sm text-muted-foreground">{t("Verification needs two processed surveys: a before and an after.", "การตรวจยืนยันต้องมีการสำรวจที่ประมวลผลแล้วสองรอบ คือก่อนและหลังซ่อม")}</p>
+        <p className="mt-3 text-sm text-muted-foreground">
+          {t(
+            "Verification compares a before drive with an after drive. This project has only one processed survey, so drive the road again after the repairs and add that survey.",
+            "การตรวจยืนยันเทียบการสำรวจก่อนซ่อมกับหลังซ่อม โครงการนี้มีการสำรวจที่ประมวลผลแล้วเพียงรอบเดียว ให้สำรวจถนนอีกครั้งหลังซ่อมแล้วเพิ่มการสำรวจนั้น",
+          )}{" "}
+          <Link href={withSel("/surveys")} className="inline-flex min-h-11 items-center font-medium text-link underline underline-offset-4">
+            {t("Go to Surveys", "ไปที่หน้าการสำรวจ")}
+          </Link>
+        </p>
       )}
       {before && before === after && <p role="alert" className="mt-3 text-sm text-sev-high-fg">{t("Pick two different surveys.", "เลือกการสำรวจสองรอบที่ต่างกัน")}</p>}
     </div>
