@@ -120,7 +120,7 @@ try {
   where = "demo";
   await settle();
   await page.getByRole("button", { name: /load demo/i }).first().click();
-  let pid, before, after;
+  let pid, before;
   const t0 = Date.now();
   for (;;) {
     const ps = await j("/api/projects").catch(() => []);
@@ -129,7 +129,6 @@ try {
       if (p.survey_list.length >= 2 && p.survey_list.every((s) => s.status === "done")) {
         pid = p.id;
         before = p.baseline;
-        after = p.survey_list.find((s) => s.id !== before).id;
         break;
       }
       if (p.survey_list.some((s) => s.status === "error")) break;
