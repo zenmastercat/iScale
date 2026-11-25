@@ -323,12 +323,18 @@ def _refine_depression(
     circ = float(min(1.0, 4.0 * math.pi * area / (per * per))) if per > 0 else 0.0
     flat = float(np.mean(np.abs(depths - depth_med) <= 0.25 * depth_med)) if depth_med > 0 else 0.0
 
-    # Bowl shape check on fine cells
+    # Bowl shape check on interior floor cells (rho <= 0.84 R) so vertical-wall straddling cells
+    # around a flat-floored sunken cover do not masquerade as a parabolic bowl
     ci_c = fi.astype(float) - fi.mean()
     cj_c = fj.astype(float) - fj.mean()
     rho2 = (ci_c * ci_c + cj_c * cj_c) * fc * fc / max(area / math.pi, 1e-6)
     bowl = 1.0
-    if len(depths) >= 8 and depth_med > 0:
+    interior = rho2 <= 0.70
+    if int(interior.sum()) >= 8 and depth_med > 0:
+        a_ = np.stack([np.ones(int(interior.sum())), rho2[interior]], 1)
+        (c0, c2), *_ = np.linalg.lstsq(a_, depths[interior], rcond=None)
+        bowl = float(-c2 / c0) if c0 > 0 else 1.0
+    elif len(depths) >= 8 and depth_med > 0:
         a_ = np.stack([np.ones(len(depths)), rho2], 1)
         (c0, c2), *_ = np.linalg.lstsq(a_, depths, rcond=None)
         bowl = float(-c2 / c0) if c0 > 0 else 1.0
