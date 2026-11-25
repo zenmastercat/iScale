@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { PanelRight } from "lucide-react";
 import { FindingDrawer } from "@/components/map/finding-drawer";
 import { DefectList, type Bounds } from "@/components/map/defect-list";
+import { RetryError } from "@/components/map/retry-error";
 import { MapLegend } from "@/components/map/legend";
 import { MapView, type Layers } from "@/components/map/map-view";
 import { COLOUR_KEYS, METRICS, parseColour } from "@/components/map/metrics";
@@ -47,10 +48,11 @@ function MapBody({ layers }: { layers: Layers }) {
   };
   const assetCodes = useMemo(() => new Set((meta.data?.catalog ?? []).filter((c) => c.kind === "asset").map((c) => c.code)), [meta.data]);
 
-  if (analysis.isError) return <p role="alert" className="text-sev-high-fg">{t("Could not load the analysis", "โหลดผลวิเคราะห์ไม่สำเร็จ")}: {analysis.error.message}</p>;
+  if (analysis.isError) return <RetryError title={t("Could not load the analysis", "โหลดผลวิเคราะห์ไม่สำเร็จ")} message={analysis.error.message} onRetry={() => analysis.refetch()} busy={analysis.isFetching} />;
   if (!analysis.data) return <Skeleton className="h-[60dvh] w-full" />;
   const an = analysis.data;
   const empty = !an.segments.length && !an.findings.length;
+  const noDefects = !empty && !an.findings.some((f) => f.severity);
 
   return (
     <div className="lg:flex lg:items-start lg:gap-3">
@@ -74,6 +76,11 @@ function MapBody({ layers }: { layers: Layers }) {
             {listOpen ? t("Hide list", "ซ่อนรายการ") : t("Show list", "แสดงรายการ")}
           </Button>
         </div>
+        {noDefects && (
+          <p role="status" className="mb-3 rounded-md bg-grey-50 px-3 py-2 text-sm text-muted-foreground">
+            {t("No defects were found in this survey. The road is shown by condition only.", "ไม่พบข้อบกพร่องในการสำรวจนี้ แสดงเฉพาะสภาพถนน")}
+          </p>
+        )}
         <div className="h-[calc(100dvh-20rem)] min-h-[360px] overflow-hidden rounded-md bg-grey-50">
           {empty ? (
             <p className="grid h-full place-items-center text-muted-foreground">{t("This survey has no segments or findings to show.", "การสำรวจนี้ไม่มีช่วงถนนหรือรายการให้แสดง")}</p>

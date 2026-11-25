@@ -4,6 +4,7 @@ import { Layers, Table2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { RetryError } from "@/components/map/retry-error";
 import { FilterBar, type Option } from "@/components/findings/filter-bar";
 import { FindingsTable, isSelectable } from "@/components/findings/findings-table";
 import { buildRows, filterAndSort, groupRows, toCsv } from "@/components/findings/rows";
@@ -110,7 +111,9 @@ function FindingsBody() {
     }
   };
 
-  if (analysis.isError) return <p role="alert" className="text-sev-high-fg">{t("Could not load the findings", "โหลดรายการไม่สำเร็จ")}: {analysis.error.message}</p>;
+  if (analysis.isError) return <RetryError title={t("Could not load the findings", "โหลดรายการไม่สำเร็จ")} message={analysis.error.message} onRetry={() => analysis.refetch()} busy={analysis.isFetching} />;
+  if (analysis.data && analysis.data.findings.length === 0)
+    return <EmptyState icon={Table2} title={t("No findings in this survey", "ไม่มีรายการที่พบในการสำรวจนี้")} description={t("The survey found no defects or assets. Nothing to list.", "การสำรวจไม่พบข้อบกพร่องหรือสินทรัพย์ จึงไม่มีรายการ")} />;
   if (!analysis.data) return <Skeleton className="h-96 w-full" />;
 
   const types: Option[] = [...new Set(all.map((r) => r.f.type))].map((ty) => ({ value: ty, label: labelFor(ty) })).sort((a, b) => a.label.localeCompare(b.label));

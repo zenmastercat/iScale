@@ -50,6 +50,7 @@ export function FindingDrawer({ findingId, onClose }: { findingId: string | null
           <SheetHeader>
             <SheetTitle>{t("Finding not found", "ไม่พบรายการ")}</SheetTitle>
             <SheetDescription>{t(`No finding ${findingId} in this survey.`, `ไม่มีรายการ ${findingId} ในการสำรวจนี้`)}</SheetDescription>
+            <Button className="mt-3 min-h-11 bg-brand text-white hover:bg-brand/90" onClick={onClose}>{t("Back to the map", "กลับไปที่แผนที่")}</Button>
           </SheetHeader>
         ) : finding && analysis.data ? (
           <DrawerBody f={finding} segments={analysis.data.segments} />
@@ -132,7 +133,12 @@ function DrawerBody({ f, segments }: { f: Finding; segments: import("@/lib/types
           {cost ? <Money amount={cost.materials_cost} style="symbol" symbol={cost.symbol} className="text-2xl font-semibold text-brand" /> : <Skeleton className="h-7 w-24" />}
         </div>
       )}
-      {card.isError && <p className="text-sm text-muted-foreground">{t("Job card details unavailable.", "ไม่มีข้อมูลใบงาน")}</p>}
+      {card.isError && (
+        <p className="text-sm text-muted-foreground">
+          {t("Job card details unavailable.", "ไม่มีข้อมูลใบงาน")}{" "}
+          <button type="button" className="font-medium text-link underline underline-offset-4" onClick={() => card.refetch()}>{t("Retry", "ลองใหม่")}</button>
+        </p>
+      )}
 
       <div className="mt-auto flex flex-wrap gap-2 pt-1">
         <Button nativeButton={false} className="min-h-11 flex-1 bg-brand text-white hover:bg-brand/90" render={<Link href={withSel("/job", { finding: f.id })} />}>

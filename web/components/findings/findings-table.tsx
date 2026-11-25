@@ -1,5 +1,5 @@
 "use client";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Hand, Ruler, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef } from "react";
 import { ConditionChip, Money, Num, SeverityBadge, StatusPill } from "@/components/shared";
@@ -26,6 +26,17 @@ const COLS: { key: SortKey; label: string; th: string; num?: boolean }[] = [
   { key: "source", label: "Source", th: "แหล่งที่มา" },
   { key: "workorder", label: "Work order", th: "ใบสั่งงาน" },
 ];
+
+/** Compact Source cell: an icon with the full words in the tooltip and for screen readers. */
+function SourceIcon({ source, label }: { source: string; label: string }) {
+  const Icon = source === "decoder" ? ShieldCheck : source === "manual" ? Hand : Ruler;
+  return (
+    <span className="inline-flex items-center text-grey-700">
+      <Icon className="size-4" aria-hidden />
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
 
 const sum = (rows: Row[], pick: (r: Row) => number | null) => rows.reduce((a, r) => a + (pick(r) ?? 0), 0);
 
@@ -115,7 +126,9 @@ export function FindingsTable({
         <td className="px-2 py-1 text-right"><Num value={r.area} digits={2} unit="m²" /></td>
         <td className="px-2 py-1 text-right"><Num value={r.volumeL} digits={1} unit="L" /></td>
         <td className="px-2 py-1 text-right">{r.cost !== null ? <Money amount={r.cost} style="symbol" symbol={r.f.cost?.symbol} /> : "–"}</td>
-        <td className="px-2 py-1 whitespace-nowrap">{r.source}</td>
+        <td className="px-2 py-1" title={r.source}>
+          <SourceIcon source={r.f.source} label={r.source} />
+        </td>
         <td className="num px-2 py-1 whitespace-nowrap">{r.workorder ?? "–"}</td>
       </tr>
     );
@@ -125,7 +138,7 @@ export function FindingsTable({
     <>
       {/* desktop table */}
       <div className="hidden max-h-[calc(100dvh-16rem)] overflow-auto rounded-lg border bg-card md:block">
-        <table className="w-full min-w-[1168px] border-collapse text-left md:text-[13px]">
+        <table className="w-full min-w-[1040px] border-collapse text-left md:text-[13px]">
           <thead className="sticky top-0 z-10 bg-grey-50">
             <tr>
               <th scope="col" className="w-8 border-b px-2 py-1.5">

@@ -4,6 +4,7 @@ import { ArrowLeft, Check, ImageOff, Navigation } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import { NotFound, RetryError } from "@/components/map/retry-error";
 import { Money, Num, SeverityBadge, StatusPill } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -44,7 +45,7 @@ function List({ title, items }: { title: string; items: string[] }) {
 export function JobCardView({ findingId }: { findingId: string }) {
   const router = useRouter();
   const qc = useQueryClient();
-  const { projectId, surveyId } = useSelection();
+  const { projectId, surveyId, withSel } = useSelection();
   const pid = projectId ?? "";
   const sid = surveyId ?? "";
   const { lang, setLang } = useLang();
@@ -68,8 +69,11 @@ export function JobCardView({ findingId }: { findingId: string }) {
   const status = finding?.status ?? q.data?.status;
   const isFixed = status === "fixed" || status === "verified";
 
-  if (q.isError)
-    return <p role="alert" className="p-4 text-sev-high-fg">{t.loadError}: {(q.error as Error).message}</p>;
+  if (q.isError) {
+    if (q.error instanceof ApiError && q.error.status === 404)
+      return <NotFound title={t.notFound} description={`${findingId}: ${t.notFoundHint}`} href={withSel("/map")} linkLabel={t.backToMap} />;
+    return <RetryError title={t.loadError} message={(q.error as Error).message} onRetry={() => q.refetch()} busy={q.isFetching} />;
+  }
   const c = q.data;
 
   return (
