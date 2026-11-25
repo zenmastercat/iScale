@@ -22,13 +22,28 @@ from .pointcloud import Reconstruction, latlon_to_enu, voxel_downsample
 AXES = {"x": [1, 0, 0], "-x": [-1, 0, 0], "y": [0, 1, 0], "-y": [0, -1, 0], "z": [0, 0, 1], "-z": [0, 0, -1]}
 
 
-def ransac_plane(xyz: np.ndarray, thresh: float, iters: int = 300, seed: int = 0) -> tuple[np.ndarray, float, np.ndarray]:
-    """Fit n·p + d = 0 to the largest plane. Returns (unit normal, d, inlier mask)."""
+def ransac_plane(
+    xyz: np.ndarray,
+    thresh: float,
+    iters: int = 300,
+    seed: int = 0,
+    up_prior: np.ndarray | None = None,
+    min_cos: float = 0.0,
+) -> tuple[np.ndarray, float, np.ndarray]:
+    """Fit n·p + d = 0 to the largest plane. Returns (unit normal, d, inlier mask).
+
+    When `up_prior` is given, only candidate planes with |n · up_prior| >= min_cos are considered,
+    so vertical walls cannot beat the ground plane.
+    """
     if len(xyz) < 3:
         raise ValueError("need at least 3 points for a plane")
     rng = np.random.default_rng(seed)
     best_n, best_d, best_count = np.array([0.0, 0.0, 1.0]), 0.0, -1
     pts = xyz.astype(np.float64)
+    prior = None
+    if up_prior is not None:
+        prior = np.asarray(up_prior, dtype=np.float64)
+        prior = prior / max(float(np.linalg.norm(prior)), 1e-12)
     for _ in range(iters):
         s = pts[rng.choice(len(pts), 3, replace=False)]
         n = np.cross(s[1] - s[0], s[2] - s[0])
@@ -36,10 +51,14 @@ def ransac_plane(xyz: np.ndarray, thresh: float, iters: int = 300, seed: int = 0
         if norm < 1e-9:
             continue
         n /= norm
+        if prior is not None and abs(float(n @ prior)) < min_cos:
+            continue
         d = -n @ s[0]
         count = int(np.count_nonzero(np.abs(pts @ n + d) < thresh))
         if count > best_count:
             best_n, best_d, best_count = n, d, count
+    if best_count < 0:
+        return best_n, float(best_d), np.zeros(len(pts), dtype=bool)
     inl = np.abs(pts @ best_n + best_d) < thresh
     # least-squares refine on inliers
     if inl.sum() >= 3:
@@ -105,24 +124,36 @@ def align(rec: Reconstruction, origin_lat: float, origin_lon: float, params: dic
 
     # 1. up axis --------------------------------------------------------------
     up_hint = (params.get("up_axis") or meta.get("up_axis") or "auto").lower()
-    sample_idx = voxel_downsample(rec.points, 0.2, max_points=60_000)
+    raw_ext = float(np.ptp(rec.points, axis=0).max()) if rec.n else 1.0
+    sample_vox = min(0.2, max(raw_ext / 120.0, 1e-4))
+    sample_idx = voxel_downsample(rec.points, sample_vox, max_points=60_000)
     sample = rec.points[sample_idx].astype(np.float64)
     if up_hint in AXES:
         up = np.array(AXES[up_hint], dtype=np.float64)
         notes.append(f"up axis from metadata: {up_hint}")
     else:
         extent = np.ptp(sample, axis=0).max()
-        n, d, _ = ransac_plane(sample, thresh=max(0.01 * extent, 0.02))
         traj = rec.trajectory()
         cam_up = _camera_up(rec)
-        if cam_up is not None and abs(float(n @ cam_up)) < math.cos(math.radians(30)):
-            # the biggest plane is not the ground (e.g. a far or sky layer): trust the upright cameras
-            up = cam_up
-            notes.append("up axis from the cameras' orientation (the dominant plane is not level)")
+        if cam_up is not None:
+            # Restrict ground plane search to points below the cameras along cam_up (excludes sky/ceiling layers)
+            # and accept planes within 60 deg of cam_up (handles phones tilted down at the road, rejects vertical walls).
+            g_sample = sample
+            if traj is not None and len(traj):
+                below = ((sample - np.median(traj, axis=0)) @ cam_up) < 0
+                if below.sum() >= 50:
+                    g_sample = sample[below]
+            g_ext = np.ptp(g_sample, axis=0).max()
+            n, d, inl = ransac_plane(g_sample, thresh=max(0.01 * g_ext, 1e-4), up_prior=cam_up, min_cos=0.5)
+            if inl.sum() >= max(15, int(0.05 * len(g_sample))) and abs(float(n @ cam_up)) >= 0.5:
+                up = n if float(n @ cam_up) > 0 else -n
+                notes.append("up axis estimated from the dominant (ground) plane")
+            else:
+                up = cam_up
+                notes.append("up axis from the cameras' orientation (no level ground plane found)")
         else:
-            if cam_up is not None:
-                above = float(n @ cam_up)
-            elif traj is not None and len(traj):
+            n, d, _ = ransac_plane(sample, thresh=max(0.01 * extent, 0.02))
+            if traj is not None and len(traj):
                 above = np.median(traj @ n + d)
             else:
                 above = np.median(sample @ n + d)

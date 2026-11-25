@@ -135,10 +135,17 @@ def analyze(rec: Reconstruction, params: dict | None = None) -> dict:
     path = resample_path(traj, PATH_STEP)
     segs = make_segments(path, PATH_STEP, float(p["segment_length_m"]))
     xyz = rec.points
-    _, station, offset = station_offset(xyz[:, :2].astype(np.float64), path, PATH_STEP)
+    path_idx, station, offset = station_offset(xyz[:, :2].astype(np.float64), path, PATH_STEP)
+
+    # Near-ground filter relative to local trajectory elevation so uphill/downhill roads aren't clipped at z = 1 m
+    t_xy = traj[:, :2].astype(np.float64)
+    t_z = traj[:, 2].astype(np.float64)
+    d2_tp = ((path[:, None, :] - t_xy[None, :, :]) ** 2).sum(-1)
+    path_z = t_z[d2_tp.argmin(1)]
+    margin = 0.5 if float(np.median(path_z)) > 0.5 else 1.0
 
     findings: list[dict] = []
-    low = xyz[:, 2] < 1.0  # surface analysis uses near-ground points only
+    low = xyz[:, 2] < (path_z[path_idx] + margin)  # surface analysis uses near-ground points only
     for seg in segs:
         m = low & (station >= seg["s0"]) & (station < seg["s1"]) & (np.abs(offset) < 14)
         if m.sum() < 500:

@@ -14,3 +14,16 @@ Held-out Test splits are NOT tuned on and are re-measured only after all iterati
   * `synth-video-dev` (`n=3`, LingBot-Map GPS): recall `0.000` (0/3, 5 FP), time `15.98 s`, peak VRAM `10073 MB`
   * `synth-video-dev-camh` (`n=3`, LingBot-Map cam h): recall `0.000` (0/3, 0 FP), time `14.74 s`, peak VRAM `10373 MB`
 * **Full test suite:** `229 passed, 1 skipped` (227 pre-existing + 2 benchmark unit tests).
+
+## Iteration 1 — Scale-Invariant Ground-Plane Alignment & Trajectory-Relative Road Filter (KEPT)
+
+* **Hypothesis:** `civil/align.py` rejected the real road plane on cameras pitched >30° downward or in walled corridors (falling back to tilted `cam_up`) and used a fixed `0.2` voxel size before scaling (collapsing compact LingBot clouds to ~100 points). Meanwhile `civil/analysis/__init__.py` used a global `xyz[:, 2] < 1.0` cutoff that clipped sloped/uphill roads.
+* **Change:**
+  * `civil/align.py`: size pre-alignment voxel sampling to `min(0.2, extent/120)`, restrict ground-plane RANSAC to points below the cameras along `cam_up` with normal within 60° of `cam_up` (`up_prior`, `min_cos=0.5`), rejecting vertical walls while accepting downward-pitched phones.
+  * `civil/analysis/__init__.py`: filter near-ground points relative to local trajectory height (`path_z[path_idx] + margin`) instead of global `z < 1.0`.
+  * TDD tests added in `tests/test_accuracy_fixes.py` (3 new tests, verified RED before fix and GREEN after).
+* **Dev Benchmark Before → After:**
+  * `real-video-dev` (`n=2`, LingBot-Map on real asphalt photos): recall **`0.500 → 1.000`** (2/2), FP `1 → 1`, depth MAE **`1.77 → 0.67 cm`** (max `1.07 cm`), area err `334.8 → 887.7 %` (both holes now matched, still quantized to 10×10 cm cells), runtime `27.85 → 28.78 s` (1.03×), VRAM `9393 → 10773 MB`.
+  * `synth-video-dev` (`n=3`, SYNTHETIC): recall `0.000 → 0.000`, FP **`5 → 2`**, runtime `15.98 → 16.23 s`.
+  * `synth-forge-dev` (`n=12`, SYNTHETIC): recall `1.000 → 1.000`, depth MAE `0.36 → 0.36 cm`, area err `32.58 → 33.24 %`, vol err `27.15 → 28.13 %`, runtime `8.47 → 8.25 s`.
+* **Decision:** **KEPT** — major real-video recall (`0.5 → 1.0`) and depth MAE (`1.77 → 0.67 cm`) win; next target is the massive area/volume error (`+697%` / `+888%` on real small potholes, `-33%` on full-scale FORGE potholes) caused by the coarse 10 cm raster and `-1 cm` rim cutoff.
