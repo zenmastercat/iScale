@@ -1,5 +1,6 @@
 "use client";
 import { useQueryClient } from "@tanstack/react-query";
+import { usePathname } from "next/navigation";
 import { FlaskConical, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +17,8 @@ export function TopBar() {
   const { projects, projectId, project, surveyId, isDemo, setProject, setSurvey } = useSelection();
   const { data: auth } = useAuthState();
   const qc = useQueryClient();
+  // the crew job card is a full-screen phone page (it has its own header); keep the bar on md+
+  const fullScreenOnPhone = usePathname()?.startsWith("/job");
 
   const projectItems = (projects ?? []).map((p) => ({ value: p.id, label: p.name }));
   const surveyItems = (project?.survey_list ?? []).map((s) => ({
@@ -24,7 +27,7 @@ export function TopBar() {
   }));
 
   return (
-    <header className="sticky top-0 z-30 border-b bg-card/95 backdrop-blur">
+    <header className={`sticky top-0 z-30 border-b bg-card/95 backdrop-blur ${fullScreenOnPhone ? "hidden md:block" : ""}`}>
       <div className="flex min-h-14 flex-wrap items-center gap-2 px-4 py-2 md:px-8">
         <span className="order-1 rounded bg-sidebar px-2 py-1 md:hidden">
           <Logo className="text-base" />

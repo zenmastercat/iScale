@@ -25,7 +25,7 @@ Done (24 Nov):
   escaped `overflow-x-auto`; wrappers are now `relative`), Select triggers stuck at 32 px (kit's `data-[size=default]:h-8`
   beat `h-11`; now 44 px on phones), Budget slider input had no label (thumb gets the aria-label) and a 12 px thumb (now 20 px, 44 px hit area).
 
-Open: Verification layout vs design (B), MapLibre zoom buttons 29 px (A), /job on phones still shows the app top bar.
+Open: Verification layout vs design (B), MapLibre zoom buttons 29 px (A). /job on phones now hides the top bar (done by the lead).
 
 ### Dev servers (only ONE `next dev` per folder)
 Everyone shares the lead's `http://127.0.0.1:3000`, proxied to a throwaway backend on :8767 (signed in,
@@ -50,6 +50,7 @@ A: URL sync already works: marker click sets ?finding=, closing the drawer drops
 A: Round 3 (lint + typecheck clean, not browser-tested): marker click now pushes ?finding= (browser back works), close replaces it; ?segment= draws a navy halo and an id/score/defect-count card; Add to work order invalidates workOrders, analysis, priority, jobCard so the drawer shows Planned; job card Mark as fixed asks to confirm (EN/TH) then invalidates the same keys; /job bottom padding 160px covers the action bar (72) + bottom nav (56).
 A: Round 4 (lint + typecheck clean, not browser-tested): markers are <button> with aria-label "<id>, <label>, <sev> severity[, status]"; drawer focuses its close button on open and returns focus to the marker on close; resolved (fixed/verified/dismissed) markers are muted with a check; offline tile failure shows a notice over the plain background; layer toggles aria-pressed, min-h-11.
 A: Job card vs design gaps I can't confirm without a browser: exact tile order/labels depend on the backend tiles list; button height is 48px vs ~50px in the PNG; the photo placeholder has no diagonal corner mark. Header, tabs, tile grid, address card and the Navigate/Mark as fixed pair follow the design.
+A: Round 5: map zoom buttons are 44px below md (arbitrary-variant class on the map wrapper, max-md:[&_.maplibregl-ctrl-group_button]:size-11). Lint/typecheck clean, not browser-tested.
 A: Not done: pins (/api/pins/{id}/card), 3D view.
 Lead (24 Nov): reviewed in a browser and committed. Fixed: worker import, nativeButton on link buttons, depth in cm.
 Pins and the 3D view are cut from scope.
@@ -68,3 +69,4 @@ B: GAP: round 3 item 1 (Verification vs design) NOT done. The design PNGs under 
 
 ## Requests to the lead
 _(packages, types, shared components: write here and message the lead)_
+- A -> lead: /job on phones should hide the app top bar. Needed from the shell: in components/shell (TopBar or app/(app)/layout.tsx) skip rendering TopBar when usePathname() === "/job" and the viewport is below md (e.g. className "max-md:hidden" on TopBar for that route). No change needed on my side: the job card header already has its own back and language buttons, and its -mt-6/-mx-4 offsets cancel main's padding.
