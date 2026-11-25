@@ -53,15 +53,29 @@ export function FilterBar({
 }) {
   const t = useT();
   const [q, setQ] = useState(filter.q ?? "");
+  const [typing, setTyping] = useState(false);
+  const [urlQ, setUrlQ] = useState(filter.q);
+  // follow the URL when it changes underneath us (back/forward, Clear filters, deep link),
+  // but never while the user is mid-typing
+  if (filter.q !== urlQ) {
+    setUrlQ(filter.q);
+    if (!typing) setQ(filter.q ?? "");
+  }
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const latest = useRef(filter);
   useEffect(() => {
     latest.current = filter;
   }, [filter]);
+  // a pending search must not fire after the page is left
+  useEffect(() => () => clearTimeout(timer.current), []);
   const onQ = (v: string) => {
     setQ(v);
+    setTyping(true);
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => setFilter({ ...latest.current, q: v.trim() || undefined }), 250);
+    timer.current = setTimeout(() => {
+      setTyping(false);
+      setFilter({ ...latest.current, q: v.trim() || undefined });
+    }, 250);
   };
   const active = Object.keys(findingsQuery({ ...filter, sort: undefined })).length > 0;
   return (

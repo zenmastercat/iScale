@@ -8,11 +8,12 @@ import { RetryError } from "@/components/map/retry-error";
 import { FilterBar, type Option } from "@/components/findings/filter-bar";
 import { FindingsTable, isSelectable } from "@/components/findings/findings-table";
 import { buildRows, filterAndSort, groupRows, toCsv } from "@/components/findings/rows";
-import { EmptyState, Money, PageHeader, statusLabel, SurveyGate } from "@/components/shared";
+import { EmptyState, Money, PageHeader, SurveyGate } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, createWorkOrder, qk } from "@/lib/api";
 import { findingsQuery, parseFindingsFilter, type FindingsFilter } from "@/lib/findings-filter";
+import { useWords } from "@/components/map/words";
 import { useT } from "@/lib/i18n";
 import { useAnalysis, useCatalogLabel, usePriority } from "@/lib/queries";
 import { useSelection } from "@/lib/selection";
@@ -21,6 +22,7 @@ const STATUSES = ["open", "planned", "fixed", "verified", "not_fixed", "dismisse
 
 function FindingsBody() {
   const t = useT();
+  const words = useWords();
   const router = useRouter();
   const qc = useQueryClient();
   const params = useSearchParams();
@@ -99,7 +101,7 @@ function FindingsBody() {
         finding_ids: chosen.map((r) => r.f.id),
         title: `${survey?.name ?? "Survey"} · ${chosen.length}`,
       });
-      for (const key of [qk.workOrders(projectId), qk.analysis(projectId, surveyId), qk.priority(projectId, surveyId)]) qc.invalidateQueries({ queryKey: key });
+      for (const key of [qk.workOrders(projectId), qk.analysis(projectId, surveyId), qk.priority(projectId, surveyId), qk.verification(projectId), ["project", projectId, "survey", surveyId, "plan"]]) qc.invalidateQueries({ queryKey: key });
       setSelected(new Set());
       toast.success(t(`Work order ${wo.id} created with ${chosen.length} findings`, `สร้างใบสั่งงาน ${wo.id} จำนวน ${chosen.length} รายการแล้ว`), {
         action: { label: t("Open Verification", "เปิดการตรวจสอบ"), onClick: () => router.push(withSel("/verification")) },
@@ -150,7 +152,7 @@ function FindingsBody() {
         setFilter={setFilter}
         kinds={[{ value: "defect", label: t("Defects", "ข้อบกพร่อง") }, { value: "asset", label: t("Assets", "สินทรัพย์") }]}
         severities={(["high", "medium", "low"] as const).map((s) => ({ value: s, label: t(s[0].toUpperCase() + s.slice(1), { high: "สูง", medium: "กลาง", low: "ต่ำ" }[s]) }))}
-        statuses={STATUSES.map((s) => ({ value: s, label: statusLabel(s) }))}
+        statuses={STATUSES.map((s) => ({ value: s, label: words.status(s) }))}
         types={types}
         segments={segmentOpts}
         shown={rows.length}
@@ -195,7 +197,7 @@ function FindingsBody() {
             <span className="num font-semibold">{chosen.length}</span> {t("selected", "รายการที่เลือก")}
           </span>
           <span className="text-sm text-muted-foreground">
-            {t("Plan cost", "ค่าซ่อม")} <Money amount={planTotal} currency="USD" className="font-semibold text-grey-900" />
+            {t("Plan cost", "ค่าซ่อม")} <Money amount={planTotal} className="font-semibold text-grey-900" /> <span className="text-xs">({t("excl. mobilisation", "ไม่รวมค่าเคลื่อนย้าย")})</span>
           </span>
           <Button type="button" variant="ghost" className="min-h-8" onClick={() => setSelected(new Set())}>{t("Clear", "ล้าง")}</Button>
           <Button type="button" className="ml-auto min-h-8 bg-brand text-white hover:bg-brand/90" disabled={creating} onClick={create}>

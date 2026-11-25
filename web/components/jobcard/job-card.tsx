@@ -58,7 +58,7 @@ export function JobCardView({ findingId }: { findingId: string }) {
     onSuccess: () => {
       toast.success(t.fixedToast);
       setConfirm(false);
-      for (const key of [qk.analysis(pid, sid), qk.priority(pid, sid), qk.workOrders(pid), qk.jobCard(pid, sid, findingId)])
+      for (const key of [qk.analysis(pid, sid), qk.priority(pid, sid), qk.workOrders(pid), qk.verification(pid), ["project", pid, "survey", sid, "plan"], qk.jobCard(pid, sid, findingId)])
         qc.invalidateQueries({ queryKey: key });
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : t.failToast),
@@ -98,7 +98,7 @@ export function JobCardView({ findingId }: { findingId: string }) {
         </div>
         <p className="num mt-2 text-sm text-white/70">
           {findingId}
-          {c?.location.survey && ` · ${finding?.segment_id ?? ""}`}
+          {finding?.segment_id && ` · ${finding.segment_id}`}
           {chain !== null && ` · ${formatChainage(chain)}`}
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-3">
@@ -173,15 +173,13 @@ export function JobCardView({ findingId }: { findingId: string }) {
 
 function Location({ c, t }: { c: JobCard; t: (typeof T)[Lang] }) {
   const L = c.location;
-  const tile = (key: string) => L.tiles.find((x) => x.key === key);
   const tiles = L.tiles.filter((x) => x.value !== null);
   const label: Record<string, string> = { depth_max_m: t.depth, diameter_m: t.across, volume_m3: t.missing, area_m2: t.area };
-  void tile;
   return (
     <>
       {L.photo ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={L.photo.url} alt="" className="w-full rounded-lg border" />
+        <img src={L.photo.url} alt={`${c.label}`} className="w-full rounded-lg border" />
       ) : (
         <div className="grid h-40 place-items-center rounded-lg border border-dashed bg-grey-100 text-sm text-muted-foreground">
           <span className="flex items-center gap-2"><ImageOff className="size-4" aria-hidden />{t.photo}</span>

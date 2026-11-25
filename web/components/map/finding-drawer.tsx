@@ -81,6 +81,8 @@ function DrawerBody({ f, segments }: { f: Finding; segments: import("@/lib/types
       qc.invalidateQueries({ queryKey: qk.workOrders(pid) });
       qc.invalidateQueries({ queryKey: qk.analysis(pid, sid) });
       qc.invalidateQueries({ queryKey: qk.priority(pid, sid) });
+      qc.invalidateQueries({ queryKey: qk.verification(pid) });
+      qc.invalidateQueries({ queryKey: ["project", pid, "survey", sid, "plan"] });
       qc.invalidateQueries({ queryKey: qk.jobCard(pid, sid, f.id) });
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : t("Could not create the work order", "สร้างใบสั่งงานไม่สำเร็จ")),
@@ -120,6 +122,8 @@ function DrawerBody({ f, segments }: { f: Finding; segments: import("@/lib/types
         {m.diameter_m !== undefined && <Metric label={t("Across", "ความกว้าง")}><Num value={m.diameter_m} digits={2} unit="m" /></Metric>}
         {m.volume_m3 !== undefined && <Metric label={t("Missing", "ปริมาตรที่หาย")}><Num value={m.volume_m3 * 1000} digits={1} unit="L" /></Metric>}
         {m.area_m2 !== undefined && <Metric label={t("Area", "พื้นที่")}><Num value={m.area_m2} digits={2} unit="m²" /></Metric>}
+        {m.step_m !== undefined && <Metric label={t("Step", "ระดับต่าง")}><Num value={m.step_m * 100} digits={1} unit="cm" /></Metric>}
+        {m.height_max_m !== undefined && <Metric label={t("Height", "ความสูง")}><Num value={m.height_max_m * 100} digits={1} unit="cm" /></Metric>}
       </div>
 
       <p className="text-sm leading-relaxed">

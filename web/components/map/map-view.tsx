@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import MapGL, { Layer, Marker, NavigationControl, Popup, Source, type MapLayerMouseEvent, type MapRef } from "@/lib/maplibre";
 import { ConditionChip, Num, SeverityIcon } from "@/components/shared";
 import { bandFor } from "@/lib/condition";
+import { useWords } from "./words";
 import { METRICS, metricScale, type ColourBy } from "./metrics";
 import { formatNumber } from "@/lib/format";
 import { useT } from "@/lib/i18n";
@@ -33,6 +34,20 @@ export interface Layers {
   condition: boolean;
   defects: boolean;
   assets: boolean;
+}
+
+function boundsOf(analysis: Analysis, segmentId: string | null): [[number, number], [number, number]] | null {
+  const focus = segmentId ? analysis.segments.find((s) => s.id === segmentId) : null;
+  const pts: [number, number][] = focus?.coords?.length
+    ? focus.coords
+    : [...analysis.segments.flatMap((s) => s.coords ?? []), ...analysis.findings.map((f) => [f.lon, f.lat] as [number, number])];
+  if (!pts.length) return null;
+  const lons = pts.map((p) => p[0]);
+  const lats = pts.map((p) => p[1]);
+  return [
+    [Math.min(...lons), Math.min(...lats)],
+    [Math.max(...lons), Math.max(...lats)],
+  ];
 }
 
 export function MapView({
@@ -85,30 +100,26 @@ export function MapView({
     };
   }, [analysis.segments, segmentId, colourBy]);
 
-  const bounds = useMemo(() => {
-    const focus = segmentId ? analysis.segments.find((s) => s.id === segmentId) : null;
-    const pts: [number, number][] = focus?.coords?.length
-      ? focus.coords
-      : [...analysis.segments.flatMap((s) => s.coords ?? []), ...analysis.findings.map((f) => [f.lon, f.lat] as [number, number])];
-    if (!pts.length) return null;
-    const lons = pts.map((p) => p[0]);
-    const lats = pts.map((p) => p[1]);
-    return [
-      [Math.min(...lons), Math.min(...lats)],
-      [Math.max(...lons), Math.max(...lats)],
-    ] as [[number, number], [number, number]];
-  }, [analysis, segmentId]);
-
+  // Fit once per survey (and when ?segment= changes). Refetches after a mutation hand us a new
+  // `analysis` object, which must not snap the map back and drop the user's pan/zoom.
+  const latest = useRef(analysis);
+  useEffect(() => {
+    latest.current = analysis;
+  });
   const reportView = () => {
     const b = ref.current?.getBounds();
     if (b && onViewChange) onViewChange({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() });
   };
-  const fit = () => {
-    if (bounds) ref.current?.fitBounds(bounds, { padding: 60, maxZoom: 19, duration: 0 });
+  const fit = (duration: number) => {
+    const b = boundsOf(latest.current, segmentId);
+    if (b) ref.current?.fitBounds(b, { padding: 60, maxZoom: 19, duration });
   };
   useEffect(() => {
-    if (ref.current && bounds) ref.current.fitBounds(bounds, { padding: 60, maxZoom: 19, duration: 400 });
-  }, [bounds]);
+    if (ref.current) {
+      const b = boundsOf(latest.current, segmentId);
+      if (b) ref.current.fitBounds(b, { padding: 60, maxZoom: 19, duration: 400 });
+    }
+  }, [analysis.survey_id, segmentId]);
 
   const visible = analysis.findings.filter((f) => (assetCodes.has(f.type) ? layers.assets : layers.defects));
 
@@ -137,7 +148,7 @@ export function MapView({
       mapStyle={STYLE}
       initialViewState={{ longitude: analysis.findings[0]?.lon ?? 100.5, latitude: analysis.findings[0]?.lat ?? 13.8, zoom: 17 }}
       onLoad={() => {
-        fit();
+        fit(0);
         reportView();
       }}
       onMoveEnd={reportView}
@@ -215,9 +226,10 @@ function FindingMarker({
   onSelect: (id: string) => void;
 }) {
   const t = useT();
+  const words = useWords();
   const sev = f.severity;
   const resolved = f.status === "fixed" || f.status === "verified" || f.status === "dismissed";
-  const name = `${f.id}, ${label}${sev ? `, ${t(`${sev} severity`, `ความรุนแรง${{ high: "สูง", medium: "กลาง", low: "ต่ำ" }[sev]}`)}` : ""}${resolved ? `, ${f.status}` : ""}`;
+  const name = `${f.id}, ${label}${sev ? `, ${t(`${sev} severity`, `ความรุนแรง${{ high: "สูง", medium: "กลาง", low: "ต่ำ" }[sev]}`)}` : ""}${resolved ? `, ${words.status(f.status)}` : ""}`;
   return (
     <Marker longitude={f.lon} latitude={f.lat} anchor="center" style={{ zIndex: selected || hovered ? 5 : undefined }}>
       <button

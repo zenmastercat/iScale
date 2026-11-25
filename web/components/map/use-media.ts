@@ -1,14 +1,15 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
+/** Media query as external state: correct on the first client render (no wrong-side flash), false on the server. */
 export function useMediaQuery(q: string) {
-  const [m, setM] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia(q);
-    const on = () => setM(mq.matches);
-    on();
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, [q]);
-  return m;
+  return useSyncExternalStore(
+    (cb) => {
+      const mq = window.matchMedia(q);
+      mq.addEventListener("change", cb);
+      return () => mq.removeEventListener("change", cb);
+    },
+    () => window.matchMedia(q).matches,
+    () => false,
+  );
 }

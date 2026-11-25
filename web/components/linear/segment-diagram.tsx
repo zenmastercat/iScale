@@ -12,6 +12,7 @@ import { findingChainage } from "@/lib/chainage";
 import { bandFor } from "@/lib/condition";
 import { formatChainage, formatNumber } from "@/lib/format";
 import { useT } from "@/lib/i18n";
+import { useWords } from "@/components/map/words";
 import type { Selection } from "@/lib/selection";
 import type { Finding, Segment } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -20,7 +21,7 @@ const LABEL_W = 128; // px, left label column
 const MIN_TRACK_W = 640; // px, below this the box scrolls horizontally
 const PX_PER_M = 4;
 const TICK_M = 50;
-const MARK = 16; // px per stacked defect mark
+const MARK = 24; // px per stacked defect mark = hit area size, so neighbouring targets never overlap
 
 type Measure = (s: Segment) => number | null;
 
@@ -36,6 +37,7 @@ export function SegmentDiagram({
   withSel: Selection["withSel"];
 }) {
   const t = useT();
+  const words = useWords();
   const [active, setActive] = useState<string | null>(null);
 
   const total = useMemo(() => Math.max(1, ...segments.map((s) => s.s1)), [segments]);
@@ -64,11 +66,11 @@ export function SegmentDiagram({
   const describe = (s: Segment) =>
     [
       `${s.id}, ${formatChainage(s.s0)} ${t("to", "ถึง")} ${formatChainage(s.s1)}`,
-      s.condition === null ? t("no condition data", "ไม่มีข้อมูลสภาพ") : `${t("condition", "สภาพ")} ${formatNumber(s.condition)} ${bandFor(s.condition).label}`,
+      s.condition === null ? t("no condition data", "ไม่มีข้อมูลสภาพ") : `${t("condition", "สภาพ")} ${formatNumber(s.condition)} ${words.band(bandFor(s.condition).rating, bandFor(s.condition).label)}`,
       `${s.defect_count} ${t(s.defect_count === 1 ? "defect" : "defects", "ข้อบกพร่อง")}`,
-      `${t("road width", "ความกว้างถนน")} ${formatNumber(s.metrics.road_width_m, 1)} m`,
-      `${t("coverage", "ความครอบคลุม")} ${formatNumber(s.metrics.coverage * 100)}%`,
-      `${t("roughness", "ความขรุขระ")} ${formatNumber(s.metrics.surface_std_mm, 1)} mm`,
+      `${t("road width", "ความกว้างถนน")} ${formatNumber(s.metrics?.road_width_m, 1)} m`,
+      `${t("coverage", "ความครอบคลุม")} ${formatNumber(s.metrics?.coverage != null ? s.metrics.coverage * 100 : null)}%`,
+      `${t("roughness", "ความขรุขระ")} ${formatNumber(s.metrics?.surface_std_mm, 1)} mm`,
     ].join(", ");
 
   const lane = (key: string, label: string, height: number, children: React.ReactNode) => (
@@ -101,9 +103,9 @@ export function SegmentDiagram({
     );
 
   const maxOf = (pick: Measure) => Math.max(0, ...segments.map((s) => pick(s) ?? 0));
-  const width: Measure = (s) => s.metrics.road_width_m;
-  const coverage: Measure = (s) => s.metrics.coverage * 100;
-  const rough: Measure = (s) => s.metrics.surface_std_mm;
+  const width: Measure = (s) => s.metrics?.road_width_m ?? null;
+  const coverage: Measure = (s) => (s.metrics?.coverage != null ? s.metrics.coverage * 100 : null);
+  const rough: Measure = (s) => s.metrics?.surface_std_mm ?? null;
 
   if (!segments.length) return <p className="text-sm text-muted-foreground">{t("No segments to draw.", "ไม่มีช่วงถนนให้แสดง")}</p>;
 
@@ -156,14 +158,14 @@ export function SegmentDiagram({
             Math.max(40, rows * MARK + 12),
             marks.map(({ f, at, row }) => {
               const resolved = f.status === "fixed" || f.status === "verified" || f.status === "dismissed";
-              const name = `${f.id}, ${labelFor(f.type)}, ${t(`${f.severity} severity`, `ความรุนแรง${{ high: "สูง", medium: "กลาง", low: "ต่ำ" }[f.severity!]}`)}${resolved ? `, ${t("resolved", "แก้ไขแล้ว")} (${f.status})` : ""}`;
+              const name = `${f.id}, ${labelFor(f.type)}, ${t(`${f.severity} severity`, `ความรุนแรง${{ high: "สูง", medium: "กลาง", low: "ต่ำ" }[f.severity!]}`)}${resolved ? `, ${t("resolved", "แก้ไขแล้ว")} (${words.status(f.status)})` : ""}`;
               return (
                 <Link
                   key={f.id}
                   href={withSel("/map", { finding: f.id })}
                   aria-label={name}
                   title={name}
-                  className="absolute z-30 grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  className="absolute z-30 grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-brand"
                   style={{ left: pct(at), top: 8 + row * MARK + MARK / 2 }}
                 >
                   {resolved ? (

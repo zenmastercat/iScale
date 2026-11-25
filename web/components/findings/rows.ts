@@ -76,7 +76,8 @@ export function toCsv(rows: Row[]): string {
   const head = ["id", "type", "severity", "status", "segment", "chainage_m", "depth_cm", "area_m2", "volume_l", "materials_cost", "currency", "source", "work_order", "rank"];
   const esc = (v: unknown) => {
     let s = v === null || v === undefined ? "" : String(v);
-    if (/^[=+\-@]/.test(s)) s = `'${s}`; // spreadsheet formula guard
+    // spreadsheet formula guard; real numbers (e.g. -1.5) stay numbers
+    if (/^[=+\-@]/.test(s) && Number.isNaN(Number(s))) s = `'${s}`;
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const num = (n: number | null, d: number) => (n === null ? "" : n.toFixed(d));
