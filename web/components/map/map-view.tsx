@@ -44,6 +44,8 @@ export function MapView({
   assetCodes,
   labelFor,
   onSelect,
+  hoverId = null,
+  onViewChange,
 }: {
   analysis: Analysis;
   layers: Layers;
@@ -53,6 +55,9 @@ export function MapView({
   assetCodes: Set<string>;
   labelFor: (code: string) => string;
   onSelect: (id: string) => void;
+  /** marker to emphasise (hovered in the side list) */
+  hoverId?: string | null;
+  onViewChange?: (b: { west: number; south: number; east: number; north: number }) => void;
 }) {
   const t = useT();
   const ref = useRef<MapRef>(null);
@@ -94,6 +99,10 @@ export function MapView({
     ] as [[number, number], [number, number]];
   }, [analysis, segmentId]);
 
+  const reportView = () => {
+    const b = ref.current?.getBounds();
+    if (b && onViewChange) onViewChange({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() });
+  };
   const fit = () => {
     if (bounds) ref.current?.fitBounds(bounds, { padding: 60, maxZoom: 19, duration: 0 });
   };
@@ -127,7 +136,11 @@ export function MapView({
       }}
       mapStyle={STYLE}
       initialViewState={{ longitude: analysis.findings[0]?.lon ?? 100.5, latitude: analysis.findings[0]?.lat ?? 13.8, zoom: 17 }}
-      onLoad={fit}
+      onLoad={() => {
+        fit();
+        reportView();
+      }}
+      onMoveEnd={reportView}
       interactiveLayerIds={layers.condition ? ["seg-line"] : []}
       cursor={cursor}
       onMouseMove={(e) => {
@@ -179,7 +192,7 @@ export function MapView({
         </Popup>
       )}
       {visible.map((f) => (
-        <FindingMarker key={f.id} f={f} asset={assetCodes.has(f.type)} selected={f.id === selectedId} label={labelFor(f.type)} onSelect={onSelect} />
+        <FindingMarker key={f.id} f={f} asset={assetCodes.has(f.type)} selected={f.id === selectedId} hovered={f.id === hoverId} label={labelFor(f.type)} onSelect={onSelect} />
       ))}
     </MapGL>
     </div>
@@ -190,12 +203,14 @@ function FindingMarker({
   f,
   asset,
   selected,
+  hovered,
   label,
   onSelect,
 }: {
   f: Finding;
   asset: boolean;
   selected: boolean;
+  hovered: boolean;
   label: string;
   onSelect: (id: string) => void;
 }) {
@@ -204,7 +219,7 @@ function FindingMarker({
   const resolved = f.status === "fixed" || f.status === "verified" || f.status === "dismissed";
   const name = `${f.id}, ${label}${sev ? `, ${t(`${sev} severity`, `ความรุนแรง${{ high: "สูง", medium: "กลาง", low: "ต่ำ" }[sev]}`)}` : ""}${resolved ? `, ${f.status}` : ""}`;
   return (
-    <Marker longitude={f.lon} latitude={f.lat} anchor="center" style={{ zIndex: selected ? 5 : undefined }}>
+    <Marker longitude={f.lon} latitude={f.lat} anchor="center" style={{ zIndex: selected || hovered ? 5 : undefined }}>
       <button
         type="button"
         aria-label={name}
@@ -218,7 +233,7 @@ function FindingMarker({
         <span
           className={cn(
             "grid size-7 place-items-center rounded-full border bg-white",
-            selected ? "border-2 border-brand ring-2 ring-white" : "border-grey-300",
+            selected ? "border-2 border-brand ring-2 ring-white" : hovered ? "scale-125 border-2 border-brand" : "border-grey-300",
             asset && "rounded-[4px] border-brand/60",
             resolved && "border-grey-200 bg-grey-100 opacity-60",
           )}

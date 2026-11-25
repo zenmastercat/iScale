@@ -89,6 +89,7 @@ export function FilterBar({
           <span className="sr-only">{t("Search findings", "ค้นหารายการ")}</span>
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <input
+            id="findings-search"
             type="search"
             value={q}
             onChange={(e) => onQ(e.target.value)}

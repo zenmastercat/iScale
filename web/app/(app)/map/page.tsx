@@ -2,14 +2,16 @@
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { PanelRight } from "lucide-react";
 import { FindingDrawer } from "@/components/map/finding-drawer";
+import { DefectList, type Bounds } from "@/components/map/defect-list";
 import { MapLegend } from "@/components/map/legend";
 import { MapView, type Layers } from "@/components/map/map-view";
 import { COLOUR_KEYS, METRICS, parseColour } from "@/components/map/metrics";
 import { PageHeader, SurveyGate } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAnalysis, useCatalogLabel, useMeta } from "@/lib/queries";
+import { useAnalysis, useCatalogLabel, useMeta, usePriority } from "@/lib/queries";
 import { useT } from "@/lib/i18n";
 import { useSelection } from "@/lib/selection";
 
@@ -26,6 +28,12 @@ function MapBody({ layers }: { layers: Layers }) {
   const { withSel } = useSelection();
   const analysis = useAnalysis();
   const meta = useMeta();
+  const priority = usePriority();
+  const [listOpen, setListOpen] = useState(true);
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  const [bounds, setBounds] = useState<Bounds | null>(null);
+  const [onlyInView, setOnlyInView] = useState(false);
+  const rank = useMemo(() => new Map((priority.data?.items ?? []).map((i) => [i.id, i.rank])), [priority.data]);
   const labelFor = useCatalogLabel();
   const findingId = params.get("finding");
   const segmentId = params.get("segment");
@@ -45,8 +53,8 @@ function MapBody({ layers }: { layers: Layers }) {
   const empty = !an.segments.length && !an.findings.length;
 
   return (
-    <div>
-      <div className="rounded-lg border bg-card p-3">
+    <div className="lg:flex lg:items-start lg:gap-3">
+      <div className="min-w-0 rounded-lg border bg-card p-3 lg:flex-1">
         <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label={t("Colour by", "ระบายสีตาม")}>
           <span className="text-sm font-medium">{t("Colour by", "ระบายสีตาม")}</span>
           {COLOUR_KEYS.map((k) => (
@@ -61,6 +69,10 @@ function MapBody({ layers }: { layers: Layers }) {
               {k === "condition" ? t("Condition", "สภาพถนน") : t(METRICS[k].en, METRICS[k].th)}
             </Button>
           ))}
+          <Button type="button" variant="outline" aria-expanded={listOpen} className="ml-auto hidden min-h-8 lg:inline-flex" onClick={() => setListOpen((o) => !o)}>
+            <PanelRight className="size-4" aria-hidden />
+            {listOpen ? t("Hide list", "ซ่อนรายการ") : t("Show list", "แสดงรายการ")}
+          </Button>
         </div>
         <div className="h-[calc(100dvh-20rem)] min-h-[360px] overflow-hidden rounded-md bg-grey-50">
           {empty ? (
@@ -72,6 +84,8 @@ function MapBody({ layers }: { layers: Layers }) {
               selectedId={findingId}
               segmentId={segmentId}
               colourBy={colourBy}
+              hoverId={hoverId}
+              onViewChange={setBounds}
               assetCodes={assetCodes}
               labelFor={labelFor}
               onSelect={(id) => router.push(withSel("/map", { finding: id, ...keep }), { scroll: false })}
@@ -80,6 +94,21 @@ function MapBody({ layers }: { layers: Layers }) {
         </div>
         <MapLegend showCondition={layers.condition} showDefects={layers.defects} colourBy={colourBy} segments={an.segments} />
       </div>
+      {listOpen && !empty && (
+        <aside aria-label={t("Defect list", "รายการข้อบกพร่อง")} className="mt-3 hidden h-[calc(100dvh-14rem)] min-h-[420px] w-80 shrink-0 overflow-hidden rounded-lg border bg-card lg:mt-0 lg:block">
+          <DefectList
+            findings={an.findings}
+            rank={rank}
+            labelFor={labelFor}
+            selectedId={findingId}
+            bounds={bounds}
+            onlyInView={onlyInView}
+            onOnlyInView={setOnlyInView}
+            onHover={setHoverId}
+            onSelect={(id) => router.push(withSel("/map", { finding: id, ...keep }), { scroll: false })}
+          />
+        </aside>
+      )}
       <FindingDrawer findingId={findingId} onClose={() => router.replace(withSel("/map", keep), { scroll: false })} />
     </div>
   );

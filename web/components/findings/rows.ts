@@ -15,13 +15,16 @@ export interface Row {
   cost: number | null;
   source: string;
   workorder: string | null;
+  /** repair cost from /api/priority (plan currency), when the finding is ranked */
+  planCost: number | null;
 }
 
-export function buildRows(findings: Finding[], segments: Segment[], labelFor: (c: string) => string, rankById: Map<string, number>): Row[] {
+export function buildRows(findings: Finding[], segments: Segment[], labelFor: (c: string) => string, rankById: Map<string, { rank: number; cost?: number }>): Row[] {
   return findings.map((f) => ({
     f,
     label: labelFor(f.type),
-    rank: rankById.get(f.id) ?? null,
+    rank: rankById.get(f.id)?.rank ?? null,
+    planCost: rankById.get(f.id)?.cost ?? null,
     chainage: findingChainage(f, segments),
     depthCm: f.metrics.depth_max_m !== undefined ? f.metrics.depth_max_m * 100 : null,
     area: f.metrics.area_m2 ?? null,
@@ -84,4 +87,15 @@ export function toCsv(rows: Row[]): string {
     ].map(esc).join(","),
   );
   return [head.join(","), ...lines].join("\n");
+}
+
+/** Rows grouped by segment, groups in road order; rows keep their (sorted) order inside each group. */
+export function groupRows(rows: Row[], segments: Segment[]) {
+  const by = new Map<string, Row[]>();
+  for (const r of rows) {
+    const k = r.f.segment_id ?? "";
+    by.set(k, [...(by.get(k) ?? []), r]);
+  }
+  const order = (id: string) => segments.find((s) => s.id === id)?.s0 ?? Number.MAX_SAFE_INTEGER;
+  return [...by.entries()].sort((a, b) => order(a[0]) - order(b[0])).map(([id, list]) => ({ id, seg: segments.find((s) => s.id === id), list }));
 }

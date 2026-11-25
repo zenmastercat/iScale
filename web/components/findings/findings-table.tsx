@@ -1,13 +1,15 @@
 "use client";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { Money, Num, SeverityBadge, StatusPill } from "@/components/shared";
+import { useEffect, useMemo, useRef } from "react";
+import { ConditionChip, Money, Num, SeverityBadge, StatusPill } from "@/components/shared";
 import { formatChainage } from "@/lib/format";
 import type { FindingsFilter, SortKey } from "@/lib/findings-filter";
 import { useT } from "@/lib/i18n";
 import { useSelection } from "@/lib/selection";
+import type { Segment } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import type { Row } from "./rows";
+import { groupRows, type Row } from "./rows";
 
 const COLS: { key: SortKey; label: string; th: string; num?: boolean }[] = [
   { key: "rank", label: "Rank", th: "อันดับ", num: true },
@@ -27,7 +29,34 @@ const COLS: { key: SortKey; label: string; th: string; num?: boolean }[] = [
 
 const sum = (rows: Row[], pick: (r: Row) => number | null) => rows.reduce((a, r) => a + (pick(r) ?? 0), 0);
 
-export function FindingsTable({ rows, filter, setFilter }: { rows: Row[]; filter: FindingsFilter; setFilter: (f: FindingsFilter) => void }) {
+/** Only open defects can go into a work order (assets and resolved/planned rows have no checkbox). */
+export const isSelectable = (r: Row) => !!r.f.severity && r.f.status === "open";
+
+export function FindingsTable({
+  rows,
+  filter,
+  setFilter,
+  segments,
+  selected,
+  onToggle,
+  onToggleAll,
+  focusId,
+  groupBySegment,
+  collapsed,
+  onCollapse,
+}: {
+  rows: Row[];
+  filter: FindingsFilter;
+  setFilter: (f: FindingsFilter) => void;
+  segments: Segment[];
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+  onToggleAll: (checked: boolean) => void;
+  focusId: string | null;
+  groupBySegment: boolean;
+  collapsed: Set<string>;
+  onCollapse: (segmentId: string) => void;
+}) {
   const t = useT();
   const { withSel } = useSelection();
   const sort = filter.sort ?? { key: "chainage" as SortKey, desc: false };
@@ -36,6 +65,62 @@ export function FindingsTable({ rows, filter, setFilter }: { rows: Row[]; filter
     setFilter({ ...filter, sort: sort.key === key && !sort.desc ? { key, desc: true } : { key, desc: false } });
   const link = (id: string) => withSel("/map", { finding: id });
 
+  const selectable = useMemo(() => rows.filter(isSelectable), [rows]);
+  const picked = selectable.filter((r) => selected.has(r.f.id)).length;
+  const allRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (allRef.current) allRef.current.indeterminate = picked > 0 && picked < selectable.length;
+  }, [picked, selectable.length]);
+
+  // keyboard row focus: keep it in view
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useEffect(() => {
+    if (!focusId) return;
+    bodyRef.current?.querySelector<HTMLElement>(`[data-row-id="${CSS.escape(focusId)}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [focusId]);
+
+  // rows keep their sort order inside each group; groups run along the road
+  const groups = useMemo(() => (groupBySegment ? groupRows(rows, segments) : null), [groupBySegment, rows, segments]);
+
+  const rowEl = (r: Row) => {
+    const can = isSelectable(r);
+    return (
+      <tr
+        key={r.f.id}
+        data-row-id={r.f.id}
+        aria-selected={focusId === r.f.id || undefined}
+        className={cn("border-b last:border-b-0 hover:bg-grey-50", focusId === r.f.id && "bg-brand/10 outline-2 -outline-offset-2 outline-brand", selected.has(r.f.id) && "bg-accent-blue/5")}
+      >
+        <td className="px-2 py-1">
+          {can && (
+            <input
+              type="checkbox"
+              className="size-4 align-middle"
+              checked={selected.has(r.f.id)}
+              onChange={() => onToggle(r.f.id)}
+              aria-label={t(`Select ${r.f.id}`, `เลือก ${r.f.id}`)}
+            />
+          )}
+        </td>
+        <td className="px-2 py-1 text-right">{r.rank !== null ? <span className="num">{r.rank}</span> : "–"}</td>
+        <td className="px-2 py-1">
+          <Link href={link(r.f.id)} className="num whitespace-nowrap text-link underline underline-offset-2 hover:text-brand" aria-label={t(`Open ${r.label} ${r.f.id} on the map`, `เปิด ${r.label} ${r.f.id} บนแผนที่`)}>{r.f.id}</Link>
+        </td>
+        <td className="max-w-36 truncate px-2 py-1" title={r.label}>{r.label}</td>
+        <td className="px-2 py-1">{r.f.severity ? <SeverityBadge severity={r.f.severity} size="sm" className="py-0" /> : <span className="text-muted-foreground">{t("Asset", "สินทรัพย์")}</span>}</td>
+        <td className="px-2 py-1"><StatusPill status={r.f.status} className="gap-1 py-0 text-xs" /></td>
+        <td className="num px-2 py-1">{r.f.segment_id ?? "–"}</td>
+        <td className="num px-2 py-1 text-right whitespace-nowrap">{r.chainage !== null ? formatChainage(r.chainage) : "–"}</td>
+        <td className="px-2 py-1 text-right"><Num value={r.depthCm} digits={1} unit="cm" /></td>
+        <td className="px-2 py-1 text-right"><Num value={r.area} digits={2} unit="m²" /></td>
+        <td className="px-2 py-1 text-right"><Num value={r.volumeL} digits={1} unit="L" /></td>
+        <td className="px-2 py-1 text-right">{r.cost !== null ? <Money amount={r.cost} style="symbol" symbol={r.f.cost?.symbol} /> : "–"}</td>
+        <td className="px-2 py-1 whitespace-nowrap">{r.source}</td>
+        <td className="num px-2 py-1 whitespace-nowrap">{r.workorder ?? "–"}</td>
+      </tr>
+    );
+  };
+
   return (
     <>
       {/* desktop table */}
@@ -43,6 +128,17 @@ export function FindingsTable({ rows, filter, setFilter }: { rows: Row[]; filter
         <table className="w-full min-w-[1168px] border-collapse text-left md:text-[13px]">
           <thead className="sticky top-0 z-10 bg-grey-50">
             <tr>
+              <th scope="col" className="w-8 border-b px-2 py-1.5">
+                <input
+                  ref={allRef}
+                  type="checkbox"
+                  className="size-4 align-middle"
+                  disabled={selectable.length === 0}
+                  checked={selectable.length > 0 && picked === selectable.length}
+                  onChange={(e) => onToggleAll(e.target.checked)}
+                  aria-label={t("Select all open defects shown", "เลือกข้อบกพร่องที่ยังไม่ซ่อมทั้งหมดที่แสดง")}
+                />
+              </th>
               {COLS.map((c) => (
                 <th
                   key={c.key}
@@ -58,30 +154,41 @@ export function FindingsTable({ rows, filter, setFilter }: { rows: Row[]; filter
               ))}
             </tr>
           </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.f.id} className="border-b last:border-b-0 hover:bg-grey-50">
-                <td className="px-2 py-1 text-right">{r.rank !== null ? <span className="num">{r.rank}</span> : "–"}</td>
-                <td className="px-2 py-1">
-                  <Link href={link(r.f.id)} className="num whitespace-nowrap text-link underline underline-offset-2 hover:text-brand" aria-label={t(`Open ${r.label} ${r.f.id} on the map`, `เปิด ${r.label} ${r.f.id} บนแผนที่`)}>{r.f.id}</Link>
-                </td>
-                <td className="max-w-36 truncate px-2 py-1" title={r.label}>{r.label}</td>
-                <td className="px-2 py-1">{r.f.severity ? <SeverityBadge severity={r.f.severity} size="sm" className="py-0" /> : <span className="text-muted-foreground">{t("Asset", "สินทรัพย์")}</span>}</td>
-                <td className="px-2 py-1"><StatusPill status={r.f.status} className="gap-1 py-0 text-xs" /></td>
-                <td className="num px-2 py-1">{r.f.segment_id ?? "–"}</td>
-                <td className="num px-2 py-1 text-right whitespace-nowrap">{r.chainage !== null ? formatChainage(r.chainage) : "–"}</td>
-                <td className="px-2 py-1 text-right"><Num value={r.depthCm} digits={1} unit="cm" /></td>
-                <td className="px-2 py-1 text-right"><Num value={r.area} digits={2} unit="m²" /></td>
-                <td className="px-2 py-1 text-right"><Num value={r.volumeL} digits={1} unit="L" /></td>
-                <td className="px-2 py-1 text-right">{r.cost !== null ? <Money amount={r.cost} style="symbol" symbol={r.f.cost?.symbol} /> : "–"}</td>
-                <td className="px-2 py-1 whitespace-nowrap">{r.source}</td>
-                <td className="num px-2 py-1 whitespace-nowrap">{r.workorder ?? "–"}</td>
-              </tr>
-            ))}
+          <tbody ref={bodyRef}>
+            {groups
+              ? groups.map((g) => {
+                  const closed = collapsed.has(g.id);
+                  return [
+                    <tr key={`g-${g.id}`} className="border-b bg-grey-50 font-medium">
+                      <td className="px-2 py-1" colSpan={8}>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-2"
+                          aria-expanded={!closed}
+                          aria-label={t(`${closed ? "Expand" : "Collapse"} segment ${g.id || "none"}`, `${closed ? "ขยาย" : "ยุบ"}ช่วง ${g.id || "ไม่ระบุ"}`)}
+                          onClick={() => onCollapse(g.id)}
+                        >
+                          {closed ? <ChevronRight className="size-4" aria-hidden /> : <ChevronDown className="size-4" aria-hidden />}
+                          <span className="num">{g.id || "–"}</span>
+                          {g.seg && <span className="num text-muted-foreground">{formatChainage(g.seg.s0)}–{formatChainage(g.seg.s1)}</span>}
+                          {g.seg && <ConditionChip score={g.seg.condition} showLabel />}
+                          <span className="text-muted-foreground"><span className="num">{g.list.length}</span> {t("findings", "รายการ")}</span>
+                        </button>
+                      </td>
+                      <td className="px-2 py-1" />
+                      <td className="px-2 py-1 text-right"><Num value={sum(g.list, (r) => r.area)} digits={2} unit="m²" /></td>
+                      <td className="px-2 py-1 text-right"><Num value={sum(g.list, (r) => r.volumeL)} digits={1} unit="L" /></td>
+                      <td className="px-2 py-1 text-right"><Money amount={sum(g.list, (r) => r.cost)} style="symbol" symbol={symbol} /></td>
+                      <td className="px-2 py-1" colSpan={2} />
+                    </tr>,
+                    ...(closed ? [] : g.list.map(rowEl)),
+                  ];
+                })
+              : rows.map(rowEl)}
           </tbody>
           <tfoot className="sticky bottom-0 bg-grey-50 font-medium">
             <tr>
-              <td className="border-t px-2 py-1.5" colSpan={7}>{t("Total", "รวม")} · <span className="num">{rows.length}</span> {t("findings", "รายการ")}</td>
+              <td className="border-t px-2 py-1.5" colSpan={8}>{t("Total", "รวม")} · <span className="num">{rows.length}</span> {t("findings", "รายการ")}</td>
               <td className="border-t px-2 py-1.5" />
               <td className="border-t px-2 py-1.5 text-right"><Num value={sum(rows, (r) => r.area)} digits={2} unit="m²" /></td>
               <td className="border-t px-2 py-1.5 text-right"><Num value={sum(rows, (r) => r.volumeL)} digits={1} unit="L" /></td>
