@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { createWorkOrder, qk } from "@/lib/api";
-import { formatMoney, formatNumber } from "@/lib/format";
+import { APP_CURRENCY, formatMoney } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import { useSelection } from "@/lib/selection";
 import type { SegmentPlan, SpotPlan } from "@/lib/types";
@@ -47,14 +47,18 @@ function usePlanScreen() {
 
   const all = mode === "spot" ? spotAll.data : segAll.data;
   const unlimited = all?.total ?? 0;
-  const max = Math.max(100, Math.ceil((unlimited * 1.1) / 100) * 100);
+  // slider/preset granularity follows the size of the plan, so small plans still get distinct presets
+  const step = unlimited >= 50_000 ? 1000 : unlimited >= 5000 ? 500 : unlimited >= 500 ? 50 : unlimited >= 50 ? 5 : 1;
+  const max = Math.max(step * 2, Math.ceil((unlimited * 1.1) / step) * step);
   const shown = budget ?? unlimited;
-  const currency = all?.currency ?? "USD";
+  const currency = all?.currency ?? APP_CURRENCY;
 
   const active = mode === "spot" ? spot : seg;
   const zero = debounced === 0 && !!all;
   const plan: SpotPlan | SegmentPlan | undefined = zero ? zeroBudgetPlan(all) : active.data;
-  const stale = zero ? false : active.isFetching;
+  // true while the slider has moved but the debounced budget (and so the shown plan) has not caught up
+  const pending = budget !== debounced;
+  const stale = pending || (zero ? false : active.isFetching);
 
   const spotPlan = plan?.mode === "spot" ? plan : null;
   const fundedIds = useMemo(() => spotPlan?.items.map((i) => i.finding_id) ?? [], [spotPlan]);
@@ -83,7 +87,7 @@ function usePlanScreen() {
   }
 
   return {
-    t, mode, setMode, budget, setBudget, unlimited, max, shown, currency, plan, stale, spotPlan, fundedIds,
+    t, step, mode, setMode, budget, setBudget, unlimited, max, shown, currency, plan, stale, spotPlan, fundedIds,
     makeOrder, setBudgetClamped, spotAll, segAll, withSel,
   };
 }
@@ -91,7 +95,7 @@ function usePlanScreen() {
 type PlanScreen = ReturnType<typeof usePlanScreen>;
 
 function PlanBody({ s }: { s: PlanScreen }) {
-  const { t, mode, setMode, budget, setBudget, unlimited, max, shown, currency, plan, stale, spotPlan,
+  const { t, step, mode, setMode, budget, setBudget, unlimited, max, shown, currency, plan, stale, spotPlan,
     makeOrder, setBudgetClamped, spotAll, segAll, withSel } = s;
   const all = mode === "spot" ? spotAll.data : segAll.data;
   if (spotAll.isError || segAll.isError)
@@ -119,7 +123,10 @@ function PlanBody({ s }: { s: PlanScreen }) {
         total: [...spotPlan.items, ...spotPlan.deferred].filter((i) => i.severity === "high").length,
       }
     : null;
-  const presets = [0.25, 0.5, 0.75].map((p) => ({ label: `${p * 100}%`, value: Math.round((unlimited * p) / 50) * 50 }));
+  // 25/50/75 % of the total; drop presets that round to 0, to the total, or to a value already offered
+  const presets = [0.25, 0.5, 0.75]
+    .map((p) => ({ label: `${p * 100}%`, value: Math.round((unlimited * p) / step) * step }))
+    .filter((p, i, all) => p.value > 0 && p.value < unlimited && all.findIndex((q) => q.value === p.value) === i);
 
   return (
     <div className="flex flex-col gap-6 md:gap-4">
@@ -161,15 +168,15 @@ function PlanBody({ s }: { s: PlanScreen }) {
             aria-label={t("Budget", "งบประมาณ")}
             min={0}
             max={max}
-            step={50}
+            step={step}
             value={[shown]}
             onValueChange={(v) => setBudgetClamped(Array.isArray(v) ? v[0] : v)}
           />
         </div>
         <div className="num mt-1 flex justify-between text-sm text-muted-foreground" aria-hidden>
-          <span>0</span>
-          <span>{formatNumber(max / 2)}</span>
-          <span>{formatNumber(max)}</span>
+          <span>{formatMoney(0, currency)}</span>
+          <span>{formatMoney(max / 2, currency)}</span>
+          <span>{formatMoney(max, currency)}</span>
         </div>
         {budget === 0 && (
           <p role="status" className="mt-2 text-sm font-medium text-sev-medium-fg">
@@ -185,7 +192,7 @@ function PlanBody({ s }: { s: PlanScreen }) {
         <div className="mt-3 flex flex-wrap gap-2">
           {presets.map((p) => (
             <Button key={p.label} variant="outline" className="min-h-11" onClick={() => setBudgetClamped(p.value)}>
-              {p.label} · <span className="num ml-1">{formatNumber(p.value)}</span>
+              {p.label} · <span className="num ml-1">{formatMoney(p.value, currency)}</span>
             </Button>
           ))}
           <Button variant={budget === null ? "default" : "outline"} className="min-h-11" onClick={() => setBudget(null)}>
@@ -211,8 +218,7 @@ function PlanBody({ s }: { s: PlanScreen }) {
         />
         <KpiTile
           label={t("Mobilisation", "ค่าเคลื่อนย้าย")}
-          value={spotPlan ? formatNumber(spotPlan.mobilization) : "–"}
-          unit={spotPlan ? currency : undefined}
+          value={spotPlan ? formatMoney(spotPlan.mobilization, currency) : "–"}
           sub={spotPlan ? t("one-off, included in the funded cost", "จ่ายครั้งเดียว รวมในยอดที่ได้รับงบ") : t("not applied to whole segments", "ไม่คิดกับการซ่อมทั้งช่วง")}
         />
         <KpiTile
@@ -222,7 +228,7 @@ function PlanBody({ s }: { s: PlanScreen }) {
         />
       </div>
 
-      {spotAll.data?.mode === "spot" && <BudgetChart all={spotAll.data} max={max} current={shown} />}
+      {mode === "spot" && spotAll.data?.mode === "spot" && <BudgetChart all={spotAll.data} max={max} current={shown} />}
 
       <section aria-label={t("Plan items", "รายการในแผน")} className="rounded-lg border bg-card p-5 md:p-4">
         <div className="mb-5 md:mb-3 flex flex-wrap items-center justify-between gap-3">

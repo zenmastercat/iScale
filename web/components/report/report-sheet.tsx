@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { usePlan } from "@/components/plan/use-plan";
 import { Money, Num } from "@/components/shared/num";
 import { SeverityIcon } from "@/components/shared/severity-badge";
+import { woLabel } from "@/components/verification/words";
 import { QueryError } from "@/components/surveys/query-error";
 import { Skeleton } from "@/components/ui/skeleton";
 import { findingChainage, isOpenDefect } from "@/lib/chainage";
@@ -13,7 +14,7 @@ import { formatChainage, formatDate, formatNumber, formatPercent } from "@/lib/f
 import { useT } from "@/lib/i18n";
 import { useAnalysis, useAuthState, useVerification, useWorkOrders } from "@/lib/queries";
 import { useSelection } from "@/lib/selection";
-import type { Severity, SpotPlan, WorkOrderStatus } from "@/lib/types";
+import type { Severity, SpotPlan } from "@/lib/types";
 
 const BAND_TH: Record<string, string> = {
   good: "ดี",
@@ -23,22 +24,6 @@ const BAND_TH: Record<string, string> = {
   "very poor": "แย่มาก",
   failed: "ชำรุดหนัก",
   "no data": "ไม่มีข้อมูล",
-};
-const WO_TH: Record<WorkOrderStatus, string> = {
-  open: "เปิด",
-  scheduled: "นัดหมายแล้ว",
-  completed: "เสร็จแล้ว",
-  verified: "ตรวจยืนยันแล้ว",
-  partially_verified: "ยืนยันบางส่วน",
-  cancelled: "ยกเลิก",
-};
-const WO_EN: Record<WorkOrderStatus, string> = {
-  open: "Open",
-  scheduled: "Scheduled",
-  completed: "Completed",
-  verified: "Verified",
-  partially_verified: "Partly verified",
-  cancelled: "Cancelled",
 };
 const SEV: Record<Severity, [string, string]> = {
   high: ["High", "สูง"],
@@ -219,7 +204,11 @@ export function ReportSheet() {
       )}
 
       <H>{t("Work orders", "ใบสั่งงาน")}</H>
-      {woList.length === 0 ? (
+      {orders.isError ? (
+        <QueryError what={t("Could not load work orders", "โหลดใบสั่งงานไม่ได้")} error={orders.error} onRetry={() => orders.refetch()} />
+      ) : orders.isLoading ? (
+        <Skeleton className="h-10 w-full" />
+      ) : woList.length === 0 ? (
         <p className="text-grey-700 print:text-black">{t("No work orders yet.", "ยังไม่มีใบสั่งงาน")}</p>
       ) : (
         <table className="w-full">
@@ -235,7 +224,7 @@ export function ReportSheet() {
             {woList.map((w) => (
               <tr key={w.id}>
                 <td className={TD}><span className="num">{w.id}</span> {w.title}</td>
-                <td className={TD}>{t(WO_EN[w.status], WO_TH[w.status])}</td>
+                <td className={TD}>{woLabel(t, w.status)}</td>
                 <td className={`${TD} num text-right`}>{w.items.length}</td>
                 <td className={`${TD} text-right`}><Money amount={w.total} currency={w.currency} /></td>
               </tr>
@@ -245,7 +234,11 @@ export function ReportSheet() {
       )}
 
       <H>{t("Verification", "การตรวจยืนยัน")}</H>
-      {v ? (
+      {verification.isError ? (
+        <QueryError what={t("Could not load the verification", "โหลดผลตรวจยืนยันไม่ได้")} error={verification.error} onRetry={() => verification.refetch()} />
+      ) : verification.isLoading ? (
+        <Skeleton className="h-10 w-full" />
+      ) : v ? (
         <div className="print:break-inside-avoid">
           <p className="text-grey-700 print:text-black">
             {t("Before", "ก่อน")}: <strong>{nameOf(v.before)}</strong> → {t("After", "หลัง")}: <strong>{nameOf(v.after)}</strong>
@@ -272,8 +265,8 @@ export function ReportSheet() {
         <p className="font-semibold">{t("How these numbers are made", "ตัวเลขเหล่านี้คำนวณอย่างไร")}</p>
         <p>
           {t(
-            "Condition is a 0–100 index from the measured road surface. Severity comes from measured depth or area. Repair costs use the plan's unit rates in USD (placeholder rates); materials-only costs are in THB.",
-            "ดัชนีสภาพถนน 0–100 คำนวณจากผิวถนนที่วัดได้ ความรุนแรงมาจากความลึกหรือพื้นที่ที่วัดได้ ค่าซ่อมใช้อัตราต่อหน่วยของแผนเป็นดอลลาร์สหรัฐ (อัตราชั่วคราว) ส่วนค่าวัสดุอย่างเดียวเป็นบาท",
+            "Condition is a 0–100 index from the measured road surface. Severity comes from measured depth or area. All amounts are in Thai baht. Repair costs use the plan's unit rates, which are placeholders in the demo; materials-only costs are shown separately.",
+            "ดัชนีสภาพถนน 0–100 คำนวณจากผิวถนนที่วัดได้ ความรุนแรงมาจากความลึกหรือพื้นที่ที่วัดได้ ทุกจำนวนเงินเป็นบาท ค่าซ่อมใช้อัตราต่อหน่วยของแผน ซึ่งเป็นอัตราชั่วคราวในข้อมูลตัวอย่าง ส่วนค่าวัสดุอย่างเดียวแสดงแยกต่างหาก",
           )}
         </p>
         {plan.note && <p className="mt-1">{plan.note}</p>}

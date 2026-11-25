@@ -10,7 +10,7 @@ import { formatDate } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import { useSelection } from "@/lib/selection";
 import { invalidateRepairState } from "./invalidate";
-import { WO_STATUS } from "./words";
+import { woLabel } from "./words";
 import type { WorkOrder, WorkOrderStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +35,7 @@ export function WorkOrderList({
     mutationFn: ({ id, to }: { id: string; to: WorkOrderStatus }) => patchWorkOrder(projectId!, id, to),
     onSuccess: (wo) => {
       invalidateRepairState(qc, projectId!, project?.baseline);
-      toast.success(`${wo.id}: ${t(...WO_STATUS[wo.status]).toLowerCase()}`);
+      toast.success(`${wo.id}: ${woLabel(t, wo.status).toLowerCase()}`);
     },
     onError: (e: Error) => toast.error(`${t("Could not update the work order", "อัปเดตใบสั่งงานไม่ได้")}: ${e.message}`),
   });
@@ -70,7 +70,7 @@ export function WorkOrderList({
                 </p>
               </button>
               <div className="flex items-center gap-3">
-                <span className="rounded-md border px-2 py-1 text-sm font-medium">{t(...WO_STATUS[wo.status])}</span>
+                <span className="rounded-md border px-2 py-1 text-sm font-medium">{woLabel(t, wo.status)}</span>
                 {wo.verification && (
                   <span className="num text-sm text-muted-foreground">
                     {wo.verification.verified}/{wo.verification.total} {t("verified", "ยืนยันแล้ว")}

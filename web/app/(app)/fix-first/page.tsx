@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Download } from "lucide-react";
 import { exportUrl } from "@/lib/api";
 import { useAnalysis, usePriority } from "@/lib/queries";
+import { APP_CURRENCY } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import { useSelection } from "@/lib/selection";
 
@@ -30,8 +31,8 @@ function FixFirstBody() {
       <p className="mb-5 text-sm text-muted-foreground">
         {t("Ranked by", "จัดอันดับโดย")}: <span className="font-medium text-grey-900">{priority.data.formula}</span>
       </p>
-      <SummaryStrip items={items} currency="USD" />
-      <RankingTable items={items} findingsById={byId} currency="USD" />
+      <SummaryStrip items={items} currency={APP_CURRENCY} />
+      <RankingTable items={items} findingsById={byId} currency={APP_CURRENCY} />
     </section>
   );
 }

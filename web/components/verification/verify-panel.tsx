@@ -48,7 +48,7 @@ export function VerifyPanel({ orders, workorderId }: { orders: WorkOrder[]; work
     <div className="flex min-w-48 flex-1 flex-col gap-1.5">
       <label htmlFor={id} className="text-sm font-medium text-grey-700">{label}</label>
       <Select items={items} value={value} onValueChange={(v) => v && set(v as string)}>
-        <SelectTrigger id={id} className="h-11 w-full"><SelectValue placeholder="Choose…" /></SelectTrigger>
+        <SelectTrigger id={id} className="h-11 w-full"><SelectValue placeholder={t("Choose…", "เลือก…")} /></SelectTrigger>
         <SelectContent>
           {items.map((i) => (
             <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Link from "next/link";
 import { toast } from "sonner";
+import { QueryError } from "@/components/surveys/query-error";
 import { AddSurveyDialog } from "@/components/surveys/add-survey-dialog";
 import { DemoButton } from "@/components/shared/demo-button";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -45,7 +46,7 @@ function StatusCell({ s }: { s: Survey }) {
 
 export default function SurveysPage() {
   const t = useT();
-  const { projectId, project, projects, projectsLoading, surveyId, setSurvey, withSel } = useSelection();
+  const { projectId, project, projects, projectsLoading, loadError, retryLoad, surveyId, setSurvey, withSel } = useSelection();
   const { data: meta } = useMeta();
   const qc = useQueryClient();
   const refresh = () => qc.invalidateQueries({ queryKey: ["project", projectId!] });
@@ -65,7 +66,9 @@ export default function SurveysPage() {
   return (
     <>
       <PageHeader title={t("Surveys", "การสำรวจ")} crumb={project?.name} actions={projectId ? <AddSurveyDialog /> : null} />
-      {projectsLoading || (projectId && !project) ? (
+      {loadError ? (
+        <QueryError what={t("Could not load the project", "โหลดโครงการไม่ได้")} error={loadError} onRetry={retryLoad} />
+      ) : projectsLoading || (projectId && !project) ? (
         <Skeleton className="h-64 w-full" />
       ) : !projects?.length || !projectId ? (
         <EmptyState title={t("No projects yet", "ยังไม่มีโครงการ")} description={t("Load the demo street, or create a project in the old UI first.", "โหลดถนนตัวอย่าง หรือสร้างโครงการใน UI เดิมก่อน")} action={<DemoButton />} />

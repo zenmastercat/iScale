@@ -4,7 +4,7 @@ import { useState } from "react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { VerificationResults } from "@/components/verification/results";
-import { WO_STATUS } from "@/components/verification/words";
+import { woLabel } from "@/components/verification/words";
 import { QueryError } from "@/components/surveys/query-error";
 import { VerifyPanel } from "@/components/verification/verify-panel";
 import { WorkOrderList } from "@/components/verification/work-orders";
@@ -25,7 +25,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 
 export default function VerificationPage() {
   const t = useT();
-  const { projectId, project, projects, projectsLoading } = useSelection();
+  const { projectId, project, projects, projectsLoading, loadError, retryLoad } = useSelection();
   const orders = useWorkOrders();
   const verification = useVerification();
   const [picked, setSelected] = useState<string | null>(null);
@@ -40,7 +40,7 @@ export default function VerificationPage() {
         title={t("Verification", "ตรวจยืนยัน")}
         crumb={
           project
-            ? `${project.name}${v?.workorder_id ? ` / ${t("Work order", "ใบสั่งงาน")} ${v.workorder_id}${woStatus ? ` · ${t(...WO_STATUS[woStatus]).toLowerCase()}` : ""}` : ""}`
+            ? `${project.name}${v?.workorder_id ? ` / ${t("Work order", "ใบสั่งงาน")} ${v.workorder_id}${woStatus ? ` · ${woLabel(t, woStatus).toLowerCase()}` : ""}` : ""}`
             : undefined
         }
         actions={
@@ -57,7 +57,9 @@ export default function VerificationPage() {
           ) : null
         }
       />
-      {projectsLoading || (projectId && !project) ? (
+      {loadError ? (
+        <QueryError what={t("Could not load the project", "โหลดโครงการไม่ได้")} error={loadError} onRetry={retryLoad} />
+      ) : projectsLoading || (projectId && !project) ? (
         <Skeleton className="h-64 w-full" />
       ) : !projects?.length || !projectId ? (
         <EmptyState title={t("No projects yet", "ยังไม่มีโครงการ")} description={t("Load the demo street to try the whole repair loop.", "โหลดถนนตัวอย่างเพื่อลองขั้นตอนซ่อมทั้งหมด")} action={<DemoButton />} />

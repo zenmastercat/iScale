@@ -33,7 +33,10 @@ function measure(m: FindingMetrics | null | undefined): Measure | null {
 
 const fmt = (x: Measure) => (x.kind === "cm" ? `${x.value.toFixed(1)} cm` : `${x.value.toFixed(2)} m²`);
 
-const signed = (cm: number) => `${cm < 0 ? "−" : "+"}${Math.abs(cm).toFixed(1)} cm`;
+const signed = (cm: number) => {
+  const r = Math.round(cm * 10) / 10;
+  return r === 0 ? "0.0 cm" : `${r < 0 ? "−" : "+"}${Math.abs(r).toFixed(1)} cm`;
+};
 
 function Pill({ status }: { status: VerifyStatus }) {
   const t = useT();
@@ -124,7 +127,13 @@ function BeforeAfter({ r, max }: { r: VerificationResult; max: Record<Kind, numb
   );
 }
 
-const csvCell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+const PLAIN_NUMBER = /^-?\d+(\.\d+)?$/;
+/** CSV cell; text that a spreadsheet could read as a formula gets a leading ' (plain numbers, even negative ones, are left alone). */
+const csvCell = (v: string | number) => {
+  let s = String(v);
+  if (/^[=+\-@\t\r]/.test(s) && !PLAIN_NUMBER.test(s)) s = `'${s}`;
+  return `"${s.replace(/"/g, '""')}"`;
+};
 
 /** Client-side CSV of the rows on screen (there is no server export for verification). */
 function downloadCsv(v: Verification, rows: VerificationResult[], name: (type: string) => string) {

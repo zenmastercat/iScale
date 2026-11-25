@@ -1,7 +1,7 @@
 "use client";
 import { useMemo } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { formatNumber } from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import type { SpotPlan } from "@/lib/types";
 
@@ -50,11 +50,11 @@ export function BudgetChart({ all, max, current }: { all: SpotPlan; max: number;
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
             <CartesianGrid stroke="var(--color-grey-200)" vertical={false} />
-            <XAxis dataKey="budget" type="number" domain={[0, max]} tickFormatter={(v: number) => formatNumber(v)} tick={{ fontSize: 12 }} />
+            <XAxis dataKey="budget" type="number" domain={[0, max]} tickFormatter={(v: number) => formatMoney(v, all.currency)} tick={{ fontSize: 12 }} />
             <YAxis allowDecimals={false} domain={[0, nRepairs]} width={28} tick={{ fontSize: 12 }} />
             <Tooltip
               formatter={(v, name) => [v, name]}
-              labelFormatter={(l) => `${t("Budget", "งบ")} ${formatNumber(Number(l))} ${all.currency}`}
+              labelFormatter={(l) => `${t("Budget", "งบ")} ${formatMoney(Number(l), all.currency)}`}
             />
             <Legend />
             <ReferenceLine x={Math.min(current, max)} stroke="var(--color-grey-700)" strokeDasharray="4 3" />

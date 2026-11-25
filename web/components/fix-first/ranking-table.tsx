@@ -67,13 +67,28 @@ export function RankingTable({
               <dd>{costBlock(it)}</dd>
             </div>
           </dl>
-          <Link
-            href={withSel("/map", { finding: it.id })}
-            className="mt-3 flex min-h-11 w-full items-center justify-center rounded-lg border font-medium text-link hover:bg-grey-50"
-            aria-label={`${t("Open on map", "เปิดบนแผนที่")}: ${it.label} ${it.id}`}
-          >
-            {t("Open on map", "เปิดบนแผนที่")}
-          </Link>
+          {it.kind === "pin" ? (
+            // shared pins are not findings of this survey, so the map drawer cannot open them: use their own map link
+            it.maps_url ? (
+              <a
+                href={it.maps_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 flex min-h-11 w-full items-center justify-center rounded-lg border font-medium text-link hover:bg-grey-50"
+                aria-label={`${t("Open in maps (new tab)", "เปิดในแผนที่ (แท็บใหม่)")}: ${it.label}`}
+              >
+                {t("Open in maps", "เปิดในแผนที่")}
+              </a>
+            ) : null
+          ) : (
+            <Link
+              href={withSel("/map", { finding: it.id })}
+              className="mt-3 flex min-h-11 w-full items-center justify-center rounded-lg border font-medium text-link hover:bg-grey-50"
+              aria-label={`${t("Open on map", "เปิดบนแผนที่")}: ${it.label} ${it.id}`}
+            >
+              {t("Open on map", "เปิดบนแผนที่")}
+            </Link>
+          )}
         </li>
       ))}
     </ul>
@@ -110,13 +125,27 @@ export function RankingTable({
                 <td className="py-3 md:py-1.5 pr-4 text-right">{costBlock(it)}
                 </td>
                 <td className="py-3 md:py-1.5 text-right">
-                  <Link
-                    href={withSel("/map", { finding: it.id })}
-                    className="inline-flex min-h-11 items-center px-1 font-medium text-link underline underline-offset-4 hover:text-brand"
-                    aria-label={`${t("Open on map", "เปิดบนแผนที่")}: ${it.label} ${it.id}`}
-                  >
-                    {t("Open", "เปิด")}
-                  </Link>
+                  {it.kind === "pin" ? (
+                    it.maps_url ? (
+                      <a
+                        href={it.maps_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex min-h-11 items-center px-1 font-medium text-link underline underline-offset-4 hover:text-brand"
+                        aria-label={`${t("Open in maps (new tab)", "เปิดในแผนที่ (แท็บใหม่)")}: ${it.label}`}
+                      >
+                        {t("Maps", "แผนที่")}
+                      </a>
+                    ) : null
+                  ) : (
+                    <Link
+                      href={withSel("/map", { finding: it.id })}
+                      className="inline-flex min-h-11 items-center px-1 font-medium text-link underline underline-offset-4 hover:text-brand"
+                      aria-label={`${t("Open on map", "เปิดบนแผนที่")}: ${it.label} ${it.id}`}
+                    >
+                      {t("Open", "เปิด")}
+                    </Link>
+                  )}
                 </td>
               </tr>
             );

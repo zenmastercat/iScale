@@ -44,7 +44,7 @@ export function SpotTable({ items, deferred, currency }: { items: PlanItem[]; de
           <p className="text-sm md:text-[13px] text-muted-foreground">{i.action_label}</p>
           <dl className="mt-3 grid grid-cols-3 gap-3 text-sm md:text-[13px]">
             <div><dt className="text-muted-foreground">{t("Segment", "ช่วง")}</dt><dd className="num">{i.segment_id}</dd></div>
-            <div><dt className="text-muted-foreground">{t("Priority", "ลำดับความสำคัญ")}</dt><dd><Num value={i.priority} digits={1} /></dd></div>
+            <div><dt className="text-muted-foreground">{t("Priority", "ลำดับความสำคัญ")}</dt><dd><Num value={i.priority} digits={2} /></dd></div>
             <div className="text-right"><dt className="text-muted-foreground">{t("Cost", "ค่าใช้จ่าย")}</dt><dd className="font-medium"><Money amount={i.cost} currency={currency} /></dd></div>
           </dl>
           <Link
@@ -86,7 +86,7 @@ export function SpotTable({ items, deferred, currency }: { items: PlanItem[]; de
               <td className="py-3 md:py-1.5 md:py-1.5 pr-4 text-sm md:text-[13px]">{i.action_label}</td>
               <td className="py-3 md:py-1.5 md:py-1.5 pr-4"><SeverityBadge severity={i.severity} size="sm" /></td>
               <td className="num py-3 md:py-1.5 pr-4">{i.segment_id}</td>
-              <td className="py-3 md:py-1.5 md:py-1.5 pr-4 text-right"><Num value={i.priority} digits={1} /></td>
+              <td className="py-3 md:py-1.5 md:py-1.5 pr-4 text-right"><Num value={i.priority} digits={2} /></td>
               <td className="py-3 md:py-1.5 text-right font-medium"><Money amount={i.cost} currency={currency} /></td>
             </tr>
           ))}
