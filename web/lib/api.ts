@@ -147,9 +147,34 @@ export const getMeta = () => api<Meta>("/api/meta");
 // --- projects & surveys ----------------------------------------------------------------------
 export const listProjects = () => api<ProjectSummary[]>("/api/projects");
 export const getProject = (pid: string) => api<Project>(p`/api/projects/${pid}`);
-export const createProject = (name: string) => api<ProjectSummary>("/api/projects", { body: { name } });
-/** Creates "Demo district (synthetic)" with a baseline and an after-repairs survey (processing starts at once). */
-export const createDemo = () => api<ProjectSummary>("/api/demo", { method: "POST" });
+export const createProject = (name: string, origin?: { lat: number; lon: number }) =>
+  api<ProjectSummary>("/api/projects", { body: origin ? { name, origin_lat: origin.lat, origin_lon: origin.lon } : { name } });
+
+/**
+ * Where the demo street sits. The synthetic drive (civil/decoders/demo.py) is a fixed L: 140 m due east, then
+ * 100 m due north, measured from the project origin, and it can't be rotated. POST /api/demo uses a default
+ * origin where that L crosses buildings; this origin puts it on real roads: Pracha Rat Sai 2 Road eastbound,
+ * then left onto Pracha Rat Sai 1 Road (Bang Sue), found by matching the L to OpenStreetMap centrelines.
+ */
+export const DEMO_ORIGIN = { lat: 13.806486, lon: 100.520277 };
+
+/**
+ * Same as POST /api/demo (project "Demo district (synthetic)", a baseline and an after-repairs survey, processing
+ * starts at once), but at DEMO_ORIGIN so the route follows real streets on the map.
+ */
+export async function createDemo(): Promise<ProjectSummary> {
+  const proj = await createProject("Demo district (synthetic)", DEMO_ORIGIN);
+  const survey = (name: string, repaired: boolean) => {
+    const f = new FormData();
+    f.set("name", name);
+    f.set("decoder", "demo");
+    f.set("params", JSON.stringify({ repaired }));
+    return createSurvey(proj.id, f);
+  };
+  const before = await survey("Baseline drive", false);
+  await survey("After repairs", true);
+  return setBaseline(proj.id, before.id);
+}
 export const getSurvey = (pid: string, sid: string) => api<Survey>(p`/api/projects/${pid}/surveys/${sid}`);
 export const setBaseline = (pid: string, sid: string) =>
   api<ProjectSummary>(p`/api/projects/${pid}/baseline/${sid}`, { method: "POST" });
