@@ -103,8 +103,8 @@ export function HowWeMeasure({ className }: { className?: string }) {
           <H>{t("Costs", "ค่าใช้จ่าย")}</H>
           <p>
             {t(
-              "Repair plan: measured quantity (+30 % margin) × the agency's unit rate per repair action, plus one mobilisation fee per work order, in USD. Job card: the bill of materials for that one repair (asphalt bags, tack coat, base) at local prices, in baht.",
-              "แผนซ่อม: ปริมาณที่วัดได้ (+30 %) × ราคาต่อหน่วยของหน่วยงาน บวกค่าเคลื่อนย้ายครั้งเดียวต่อใบสั่งงาน เป็นดอลลาร์ ใบงาน: รายการวัสดุของจุดนั้น (ถุงแอสฟัลต์ แทคโค้ท หินคลุก) ราคาท้องถิ่น เป็นบาท",
+              "Repair plan: measured quantity (+30 % margin) × the agency's unit rate per repair action, plus one mobilisation fee per work order. Job card: the bill of materials for that one repair (asphalt bags, tack coat, base) at local prices. All amounts in Thai baht; the demo rates are placeholders.",
+              "แผนซ่อม: ปริมาณที่วัดได้ (+30 %) × ราคาต่อหน่วยของหน่วยงาน บวกค่าเคลื่อนย้ายครั้งเดียวต่อใบสั่งงาน ใบงาน: รายการวัสดุของจุดนั้น (ถุงแอสฟัลต์ แทคโค้ท หินคลุก) ราคาท้องถิ่น ทุกจำนวนเป็นบาท อัตราในตัวอย่างเป็นค่าสมมติ",
             )}
           </p>
 

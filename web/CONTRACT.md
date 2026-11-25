@@ -110,7 +110,7 @@ After a mutation, invalidate what changed, e.g.
 - `finding.evidence` is a ready sentence ("depression 7.8 cm deep, 0.87 m across, 31.1 L missing material").
 - `finding.source`: `geometry` → "Measured", `decoder` → "Measured + detector", `manual` → "Tagged by hand"
   (`evidenceSource()` in `components/overview/fix-first-table.tsx`; ask if you want it moved to shared).
-- Two currencies: plan/priority/work-order costs are **USD** (`plan.currency`), shown as `USD 2,585`.
+- One currency: everything is **THB** (config/unit_costs.json + materials), shown as `฿2,585` by `formatMoney`/`<Money>`; never hard-code a currency, use `plan.currency` or `APP_CURRENCY` from lib/format.ts.
   Materials-only costs (`finding.cost`, `priority.materials`, job card) are **THB**, shown as `฿1,645`
   (`<Money style="symbol" symbol={cost.symbol} />`).
 - `segment.coords` are `[lon, lat]`; findings have `lat`/`lon`. Chainage of a finding: `findingChainage(f, segments)`.

@@ -250,7 +250,7 @@ export interface PlanItem {
   unit: "each" | "m2" | string;
   quantity: number;
   rate: number;
-  /** in Plan.currency (USD) */
+  /** in Plan.currency (THB, config/unit_costs.json) */
   cost: number;
   priority: number;
   traffic_factor: number;
@@ -326,7 +326,7 @@ export interface PriorityItem {
   lat: number;
   lon: number;
   maps_url: string;
-  /** repair cost in the plan currency (USD); absent on pins */
+  /** repair cost in the plan currency (THB); absent on pins */
   cost?: number;
   /** action label, e.g. "Patch pothole"; absent on pins */
   action?: string;

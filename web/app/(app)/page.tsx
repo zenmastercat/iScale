@@ -20,7 +20,7 @@ import { SurveyGate } from "@/components/shared/survey-gate";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isOpenDefect } from "@/lib/chainage";
 import { bandFor, routeCondition } from "@/lib/condition";
-import { formatMoney, formatNumber } from "@/lib/format";
+import { APP_CURRENCY, formatMoney, formatNumber } from "@/lib/format";
 import { useAnalysis, useCatalogLabel, usePriority, useSpotPlan } from "@/lib/queries";
 import { useSelection } from "@/lib/selection";
 
@@ -79,7 +79,7 @@ function OverviewBody() {
   if (analysis.isError) return <p role="alert" className="text-sev-high-fg">Could not load the analysis: {analysis.error.message}</p>;
   if (!analysis.data || !stats) return <Skeleton className="h-96 w-full" />;
   const an = analysis.data;
-  const currency = plan.data?.currency ?? "USD";
+  const currency = plan.data?.currency ?? APP_CURRENCY;
   const cost = plan.data ? plan.data.total : null;
 
   return (
@@ -109,8 +109,7 @@ function OverviewBody() {
         />
         <KpiTile
           label={t("Repair estimate", "ประมาณค่าซ่อม")}
-          value={cost === null ? "…" : formatNumber(cost)}
-          unit={currency}
+          value={cost === null ? "…" : formatMoney(cost, currency)}
           sub={plan.data ? t(`incl. ${formatMoney(plan.data.mobilization, currency)} mobilisation`, `รวมค่าเคลื่อนย้าย ${formatMoney(plan.data.mobilization, currency)}`) : " "}
           href={withSel("/plan")}
         />

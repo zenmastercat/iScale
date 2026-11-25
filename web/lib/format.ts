@@ -11,17 +11,21 @@ export function formatNumber(n: number | null | undefined, digits = 0): string {
 
 const SYMBOLS: Record<string, string> = { THB: "฿", USD: "$", EUR: "€" };
 
+/** The app's currency. Plan, work-order and materials costs are all in baht (config/unit_costs.json). */
+export const APP_CURRENCY = "THB";
+
 /**
- * Money. style "code" → "USD 2,585" (plan / repair costs, as in the design);
- * style "symbol" → "฿1,645" (materials-only costs). Rounded to whole units unless digits is given.
+ * Money, rounded to whole units unless digits is given. Baht is always "฿2,585" (Thai convention);
+ * other currencies: style "code" → "USD 2,585", style "symbol" → "$2,585".
  */
 export function formatMoney(
   amount: number | null | undefined,
-  currency = "USD",
+  currency = APP_CURRENCY,
   { style = "code", digits = 0, symbol }: { style?: "code" | "symbol"; digits?: number; symbol?: string } = {},
 ): string {
   if (amount === null || amount === undefined || Number.isNaN(amount)) return "–";
   const n = formatNumber(amount, digits);
+  if (currency === "THB") return `${amount < 0 ? "−" : ""}฿${formatNumber(Math.abs(amount), digits)}`;
   if (style === "symbol") return `${symbol ?? SYMBOLS[currency] ?? currency + " "}${n}`;
   return `${currency} ${n}`;
 }

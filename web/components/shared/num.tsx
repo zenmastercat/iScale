@@ -1,4 +1,4 @@
-import { formatMoney, formatNumber } from "@/lib/format";
+import { APP_CURRENCY, formatMoney, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /** A number in Plex Mono with tabular figures: <Num value={7.8} digits={1} unit="cm" /> */
@@ -21,10 +21,10 @@ export function Num({
   );
 }
 
-/** Money in Plex Mono: <Money amount={2585} currency="USD" /> → "USD 2,585"; style="symbol" → "฿1,645" */
+/** Money in Plex Mono: <Money amount={2585} /> → "฿2,585" (baht is the app currency, see formatMoney) */
 export function Money({
   amount,
-  currency = "USD",
+  currency = APP_CURRENCY,
   style = "code",
   symbol,
   digits = 0,
