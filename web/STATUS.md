@@ -32,6 +32,15 @@ desktop only (CONTRACT.md "Density"). Printable report, segment line diagram, po
   repair cost by action (plan.by_action + mobilisation + total); condition change per segment, baseline → other drive.
 - Fixed: usePriority(5) on the Overview shared a cache key with usePriority() on Fix first (the full list could show 5 rows).
 
+25 Nov, evening (user: "keep going until the limit"): pitch safety + story features.
+- `pnpm rehearse [--build]` (scripts/rehearse.mjs): own backend :8790 + out/ on :3190; setup → demo → every page at
+  1440 + 390 (renders, no sideways scroll, axe WCAG 2 AA) → map drawer → budget → work order → phone job card →
+  verify 6/4 → report PDF → Team adds a crew member and a second "phone" browser signs in to the job card →
+  Thai switch → sign out/in. Found + fixed: serve.mjs sent .mjs as octet-stream (map worker failed in the pitch build).
+- PITCH.md runbook. Team page (add people + sign-in QR, reset device). How we measure panel (rules read from the
+  backend code). Thai/English switch (lib/i18n.tsx) for shell, shared badges, Overview, login. Favicon, 404, page titles.
+- Segment line diagram (A) placed on the Overview.
+
 Earlier open items: Verification layout vs design (B), MapLibre zoom buttons 29 px (A). /job on phones now hides the top bar (done by the lead).
 
 ### Dev servers (only ONE `next dev` per folder)
@@ -64,6 +73,10 @@ A: Queue 2 done: job card uses useLang()/setLang from lib/i18n; its own toggle b
 A: Queue 3 done: Thai via useT() on /map (toggles, legend, popup, tile notice, marker aria-labels), the drawer, TrustBadge and /findings (columns, filters, empty state, totals). Left in English because they come from shared code or the server: StatusPill words, the Source column (evidenceSource), catalog labels, evidence, condition band words in the segment diagram aria-label.
 A: Queue 4 done: components/linear/segment-diagram.tsx, SegmentDiagram({ segments, findings, labelFor, withSel }). Chainage axis with 50 m ticks and gridlines; lanes Condition (band blocks + score), Defects (severity marks, links to /map?finding=, stacked when within 4 m), Road width, Coverage, Surface roughness; sticky left labels; each segment column is a link to /map?segment= with a full aria-label; hover/focus highlights the column and fills a readout line; scrolls horizontally inside the box below ~640 px track width. Caveat: stacked defect marks are 44 px targets at 16 px spacing, so they overlap; check on a phone.
 A: Findings density pass (lint + typecheck clean, not browser-checked): ids nowrap; body cells md:py-1 (header/totals unchanged), compact StatusPill/SeverityBadge (py-0, text-xs), Type truncates at 9rem with a title tooltip, table min-w-[1168px] so it scrolls sideways only below that. Expect ~28 px rows. Table box height is calc(100dvh-16rem); if 20 rows don't fit at 1440x900, lower the 16rem.
+A: Queue 5.1 SegmentDiagram: resolved (fixed/verified/dismissed) defects are grey with a check and the aria-label says resolved (status); legend row High ▲ Medium ● Low ▼ + Resolved ✓ under the diagram. components/linear/segment-diagram.tsx.
+A: Queue 5.2 Drawer History: components/map/history.tsx, newest first, 5 then "Show all N", event/when/by/work order, Thai via useT; event words translated for created, edited, planned, "workorder <status>", "verification: <status>".
+A: Queue 5.3 Map "Colour by" Condition | Roughness | Coverage | Road width, ?colour= kept in the URL (also across marker click and drawer close). Non-condition metrics: 4 equal-width steps of accent blue between the survey's min and max, legend shows the ranges + "No value"; popup shows the metric. components/map/metrics.ts, legend.tsx, map-view.tsx, map/page.tsx.
+A: Queue 5.4 Job card Thai: tile labels were falling back to English server text because my key map didn't match the backend keys (area_m2, depth_max_m, volume_m3, diameter_m). Fixed, volume now shows in L as in the design; "layer(s)" and the traffic level (low/light/medium/moderate/high/heavy) translated. Still English by design: server text (method label, bill lines without label_th, tools, steps, urgency, warning, reason, road class) and the shared SeverityBadge/StatusPill words.
 A: Not done: pins (/api/pins/{id}/card), 3D view.
 Lead (24 Nov): reviewed in a browser and committed. Fixed: worker import, nativeButton on link buttons, depth in cm.
 Pins and the 3D view are cut from scope.

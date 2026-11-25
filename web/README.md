@@ -13,7 +13,18 @@ cd web && pnpm install && pnpm dev   # http://localhost:3000 (/api proxied to :8
 pnpm build && pnpm serve             # static export in out/, served + /api proxied on http://127.0.0.1:3000
 ```
 
-`CIVIL_API` changes the backend URL (both `pnpm dev` and `pnpm serve`). If the backend says
-"Invalid host", add your host to `CIVIL_ALLOWED_HOSTS` on the backend.
+`CIVIL_API` changes the backend URL (both `pnpm dev` and `pnpm serve`). To open the site from a phone on the
+same network: `HOST=0.0.0.0 CIVIL_ALLOWED_HOSTS=<laptop-ip> pnpm serve` (see `PITCH.md`).
 
-See `CONTRACT.md` (how the code is organised) and `STATUS.md` (progress).
+```bash
+pnpm rehearse --build   # the whole demo story in a real browser, on its own backend (:8790) and port (:3190);
+                        # checks every page at 1440 and 390 px incl. accessibility. Output in rehearsal/.
+pnpm lint && pnpm typecheck
+```
+
+Pages: Overview, Findings, Map (+ finding drawer, phone QR), Fix first, Repair plan, Verification, Surveys,
+Report (print / PDF), Team, phone job card (`/job`). English / Thai switch in the top bar.
+
+- `PITCH.md`: how to run the pitch, the click path, what to do when something fails
+- `CONTRACT.md`: how the code is organised (ownership, data hooks, i18n, density, accessibility)
+- `STATUS.md`: progress and decisions
