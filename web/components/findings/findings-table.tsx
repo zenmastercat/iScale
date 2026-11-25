@@ -40,7 +40,7 @@ export function FindingsTable({ rows, filter, setFilter }: { rows: Row[]; filter
     <>
       {/* desktop table */}
       <div className="hidden max-h-[calc(100dvh-16rem)] overflow-auto rounded-lg border bg-card md:block">
-        <table className="w-full border-collapse text-left md:text-[13px]">
+        <table className="w-full min-w-[1168px] border-collapse text-left md:text-[13px]">
           <thead className="sticky top-0 z-10 bg-grey-50">
             <tr>
               {COLS.map((c) => (
@@ -61,21 +61,21 @@ export function FindingsTable({ rows, filter, setFilter }: { rows: Row[]; filter
           <tbody>
             {rows.map((r) => (
               <tr key={r.f.id} className="border-b last:border-b-0 hover:bg-grey-50">
-                <td className="px-2 py-1.5 text-right">{r.rank !== null ? <span className="num">{r.rank}</span> : "–"}</td>
-                <td className="px-2 py-1.5">
-                  <Link href={link(r.f.id)} className="num text-link underline underline-offset-2 hover:text-brand" aria-label={t(`Open ${r.label} ${r.f.id} on the map`, `เปิด ${r.label} ${r.f.id} บนแผนที่`)}>{r.f.id}</Link>
+                <td className="px-2 py-1 text-right">{r.rank !== null ? <span className="num">{r.rank}</span> : "–"}</td>
+                <td className="px-2 py-1">
+                  <Link href={link(r.f.id)} className="num whitespace-nowrap text-link underline underline-offset-2 hover:text-brand" aria-label={t(`Open ${r.label} ${r.f.id} on the map`, `เปิด ${r.label} ${r.f.id} บนแผนที่`)}>{r.f.id}</Link>
                 </td>
-                <td className="px-2 py-1.5 whitespace-nowrap">{r.label}</td>
-                <td className="px-2 py-1.5">{r.f.severity ? <SeverityBadge severity={r.f.severity} size="sm" /> : <span className="text-muted-foreground">{t("Asset", "สินทรัพย์")}</span>}</td>
-                <td className="px-2 py-1.5"><StatusPill status={r.f.status} /></td>
-                <td className="num px-2 py-1.5">{r.f.segment_id ?? "–"}</td>
-                <td className="num px-2 py-1.5 text-right">{r.chainage !== null ? formatChainage(r.chainage) : "–"}</td>
-                <td className="px-2 py-1.5 text-right"><Num value={r.depthCm} digits={1} unit="cm" /></td>
-                <td className="px-2 py-1.5 text-right"><Num value={r.area} digits={2} unit="m²" /></td>
-                <td className="px-2 py-1.5 text-right"><Num value={r.volumeL} digits={1} unit="L" /></td>
-                <td className="px-2 py-1.5 text-right">{r.cost !== null ? <Money amount={r.cost} style="symbol" symbol={r.f.cost?.symbol} /> : "–"}</td>
-                <td className="px-2 py-1.5 whitespace-nowrap">{r.source}</td>
-                <td className="num px-2 py-1.5">{r.workorder ?? "–"}</td>
+                <td className="max-w-36 truncate px-2 py-1" title={r.label}>{r.label}</td>
+                <td className="px-2 py-1">{r.f.severity ? <SeverityBadge severity={r.f.severity} size="sm" className="py-0" /> : <span className="text-muted-foreground">{t("Asset", "สินทรัพย์")}</span>}</td>
+                <td className="px-2 py-1"><StatusPill status={r.f.status} className="gap-1 py-0 text-xs" /></td>
+                <td className="num px-2 py-1">{r.f.segment_id ?? "–"}</td>
+                <td className="num px-2 py-1 text-right whitespace-nowrap">{r.chainage !== null ? formatChainage(r.chainage) : "–"}</td>
+                <td className="px-2 py-1 text-right"><Num value={r.depthCm} digits={1} unit="cm" /></td>
+                <td className="px-2 py-1 text-right"><Num value={r.area} digits={2} unit="m²" /></td>
+                <td className="px-2 py-1 text-right"><Num value={r.volumeL} digits={1} unit="L" /></td>
+                <td className="px-2 py-1 text-right">{r.cost !== null ? <Money amount={r.cost} style="symbol" symbol={r.f.cost?.symbol} /> : "–"}</td>
+                <td className="px-2 py-1 whitespace-nowrap">{r.source}</td>
+                <td className="num px-2 py-1 whitespace-nowrap">{r.workorder ?? "–"}</td>
               </tr>
             ))}
           </tbody>

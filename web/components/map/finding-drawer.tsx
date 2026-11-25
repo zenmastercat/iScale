@@ -13,7 +13,9 @@ import { findingChainage } from "@/lib/chainage";
 import { formatChainage } from "@/lib/format";
 import { useAnalysis, useCatalogLabel } from "@/lib/queries";
 import { useSelection } from "@/lib/selection";
+import { useT } from "@/lib/i18n";
 import type { Finding } from "@/lib/types";
+import { QrBlock } from "./qr-block";
 import { TrustBadge } from "./trust";
 import { useMediaQuery } from "./use-media";
 
@@ -27,6 +29,7 @@ function Metric({ label, children }: { label: string; children: React.ReactNode 
 }
 
 export function FindingDrawer({ findingId, onClose }: { findingId: string | null; onClose: () => void }) {
+  const t = useT();
   const wide = useMediaQuery("(min-width: 768px)");
   const lastId = useRef(findingId);
   useEffect(() => {
@@ -44,8 +47,8 @@ export function FindingDrawer({ findingId, onClose }: { findingId: string | null
       >
         {findingId && analysis.data && !finding ? (
           <SheetHeader>
-            <SheetTitle>Finding not found</SheetTitle>
-            <SheetDescription>No finding {findingId} in this survey.</SheetDescription>
+            <SheetTitle>{t("Finding not found", "ไม่พบรายการ")}</SheetTitle>
+            <SheetDescription>{t(`No finding ${findingId} in this survey.`, `ไม่มีรายการ ${findingId} ในการสำรวจนี้`)}</SheetDescription>
           </SheetHeader>
         ) : finding && analysis.data ? (
           <DrawerBody f={finding} segments={analysis.data.segments} />
@@ -60,6 +63,7 @@ export function FindingDrawer({ findingId, onClose }: { findingId: string | null
 function DrawerBody({ f, segments }: { f: Finding; segments: import("@/lib/types").Segment[] }) {
   const { projectId, surveyId, withSel } = useSelection();
   const label = useCatalogLabel();
+  const t = useT();
   const qc = useQueryClient();
   const pid = projectId ?? "";
   const sid = surveyId ?? "";
@@ -71,13 +75,13 @@ function DrawerBody({ f, segments }: { f: Finding; segments: import("@/lib/types
   const addWO = useMutation({
     mutationFn: () => createWorkOrder(pid, { survey_id: sid, finding_ids: [f.id] }),
     onSuccess: (wo) => {
-      toast.success(`Added to work order ${wo.id}`);
+      toast.success(t(`Added to work order ${wo.id}`, `เพิ่มในใบสั่งงาน ${wo.id} แล้ว`));
       qc.invalidateQueries({ queryKey: qk.workOrders(pid) });
       qc.invalidateQueries({ queryKey: qk.analysis(pid, sid) });
       qc.invalidateQueries({ queryKey: qk.priority(pid, sid) });
       qc.invalidateQueries({ queryKey: qk.jobCard(pid, sid, f.id) });
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Could not create the work order"),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : t("Could not create the work order", "สร้างใบสั่งงานไม่สำเร็จ")),
   });
   const canAdd = !!f.severity && f.status === "open";
 
@@ -87,10 +91,10 @@ function DrawerBody({ f, segments }: { f: Finding; segments: import("@/lib/types
         <p className="num text-sm text-muted-foreground">
           {f.id}
           {f.segment_id && ` · ${f.segment_id}`}
-          {chain !== null && ` · chainage ${formatChainage(chain)}`}
+          {chain !== null && ` · ${t("chainage", "ระยะทาง")} ${formatChainage(chain)}`}
         </p>
         <SheetTitle className="mt-1 text-2xl font-semibold">{label(f.type)}</SheetTitle>
-        <SheetDescription className="sr-only">Finding details</SheetDescription>
+        <SheetDescription className="sr-only">{t("Finding details", "รายละเอียดรายการ")}</SheetDescription>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <SeverityBadge severity={f.severity} />
           <TrustBadge source={f.source} />
@@ -102,42 +106,43 @@ function DrawerBody({ f, segments }: { f: Finding; segments: import("@/lib/types
         <Skeleton className="h-40 w-full" />
       ) : photo ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={photo.url} alt={`Drive frame of ${label(f.type)}`} className="w-full rounded-lg border" />
+        <img src={photo.url} alt={t(`Drive frame of ${label(f.type)}`, `ภาพจากการสำรวจของ ${label(f.type)}`)} className="w-full rounded-lg border" />
       ) : (
         <div className="grid h-32 place-items-center rounded-lg border border-dashed bg-grey-50 text-sm text-muted-foreground">
-          <span className="flex items-center gap-2"><ImageOff className="size-4" aria-hidden />No drive frame for this survey</span>
+          <span className="flex items-center gap-2"><ImageOff className="size-4" aria-hidden />{t("No drive frame for this survey", "ไม่มีภาพจากการสำรวจ")}</span>
         </div>
       )}
 
       <div className="grid grid-cols-2 gap-2">
-        {m.depth_max_m !== undefined && <Metric label="Depth"><Num value={m.depth_max_m * 100} digits={1} unit="cm" /></Metric>}
-        {m.diameter_m !== undefined && <Metric label="Across"><Num value={m.diameter_m} digits={2} unit="m" /></Metric>}
-        {m.volume_m3 !== undefined && <Metric label="Missing"><Num value={m.volume_m3 * 1000} digits={1} unit="L" /></Metric>}
-        {m.area_m2 !== undefined && <Metric label="Area"><Num value={m.area_m2} digits={2} unit="m²" /></Metric>}
+        {m.depth_max_m !== undefined && <Metric label={t("Depth", "ความลึก")}><Num value={m.depth_max_m * 100} digits={1} unit="cm" /></Metric>}
+        {m.diameter_m !== undefined && <Metric label={t("Across", "ความกว้าง")}><Num value={m.diameter_m} digits={2} unit="m" /></Metric>}
+        {m.volume_m3 !== undefined && <Metric label={t("Missing", "ปริมาตรที่หาย")}><Num value={m.volume_m3 * 1000} digits={1} unit="L" /></Metric>}
+        {m.area_m2 !== undefined && <Metric label={t("Area", "พื้นที่")}><Num value={m.area_m2} digits={2} unit="m²" /></Metric>}
       </div>
 
       <p className="text-sm leading-relaxed">
-        <span className="font-semibold">Why flagged: </span>
+        <span className="font-semibold">{t("Why flagged: ", "เหตุที่พบ: ")}</span>
         {f.evidence}
       </p>
 
       {(card.isLoading || cost) && (
         <div className="flex items-baseline justify-between border-t pt-3">
-          <span className="text-sm text-muted-foreground">Materials only</span>
+          <span className="text-sm text-muted-foreground">{t("Materials only", "เฉพาะค่าวัสดุ")}</span>
           {cost ? <Money amount={cost.materials_cost} style="symbol" symbol={cost.symbol} className="text-2xl font-semibold text-brand" /> : <Skeleton className="h-7 w-24" />}
         </div>
       )}
-      {card.isError && <p className="text-sm text-muted-foreground">Job card details unavailable.</p>}
+      {card.isError && <p className="text-sm text-muted-foreground">{t("Job card details unavailable.", "ไม่มีข้อมูลใบงาน")}</p>}
 
       <div className="mt-auto flex flex-wrap gap-2 pt-1">
         <Button nativeButton={false} className="min-h-11 flex-1 bg-brand text-white hover:bg-brand/90" render={<Link href={withSel("/job", { finding: f.id })} />}>
-          Open job card
+          {t("Open job card", "เปิดใบงาน")}
         </Button>
         <Button variant="outline" className="min-h-11 flex-1" disabled={!canAdd || addWO.isPending} onClick={() => addWO.mutate()}>
-          {addWO.isPending ? "Adding…" : f.status === "planned" ? "In a work order" : "Add to work order"}
+          {addWO.isPending ? t("Adding…", "กำลังเพิ่ม…") : f.status === "planned" ? t("In a work order", "อยู่ในใบสั่งงานแล้ว") : t("Add to work order", "เพิ่มในใบสั่งงาน")}
         </Button>
       </div>
-      {!f.severity && <p className="text-xs text-muted-foreground">Assets are inventory and can&apos;t be added to a work order.</p>}
+      <QrBlock findingId={f.id} />
+      {!f.severity && <p className="text-xs text-muted-foreground">{t("Assets are inventory and can't be added to a work order.", "สินทรัพย์เป็นรายการสำรวจ เพิ่มในใบสั่งงานไม่ได้")}</p>}
     </div>
   );
 }

@@ -1,13 +1,15 @@
 "use client";
 import { Check, Hand, Ruler } from "lucide-react";
 import type { Finding } from "@/lib/types";
+import { useT } from "@/lib/i18n";
 
 /** Trust badge from finding.source (geometry / decoder / manual). */
 export function TrustBadge({ source }: { source: Finding["source"] }) {
+  const t = useT();
   const map: Record<string, { label: string; Icon: typeof Check }> = {
-    decoder: { label: "Measured + detector", Icon: Check },
-    geometry: { label: "Measured", Icon: Ruler },
-    manual: { label: "Tagged by hand", Icon: Hand },
+    decoder: { label: t("Measured + detector", "วัดจริง + ตัวตรวจจับ"), Icon: Check },
+    geometry: { label: t("Measured", "วัดจริง"), Icon: Ruler },
+    manual: { label: t("Tagged by hand", "ปักหมุดด้วยมือ"), Icon: Hand },
   };
   const m = map[source] ?? { label: source, Icon: Check };
   return (

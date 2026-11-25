@@ -3,8 +3,9 @@ import type { StyleSpecification } from "maplibre-gl";
 import { Check } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import MapGL, { Layer, Marker, NavigationControl, Popup, Source, type MapLayerMouseEvent, type MapRef } from "@/lib/maplibre";
-import { ConditionChip, Num, SEVERITY, SeverityIcon } from "@/components/shared";
+import { ConditionChip, Num, SeverityIcon } from "@/components/shared";
 import { bandFor } from "@/lib/condition";
+import { useT } from "@/lib/i18n";
 import type { Analysis, Finding } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +50,7 @@ export function MapView({
   labelFor: (code: string) => string;
   onSelect: (id: string) => void;
 }) {
+  const t = useT();
   const ref = useRef<MapRef>(null);
   const [seg, setSeg] = useState<{ id: string; lng: number; lat: number; pinned: boolean } | null>(null);
   const [cursor, setCursor] = useState("");
@@ -104,13 +106,13 @@ export function MapView({
         <span className="num font-semibold">{focused.id}</span>
         <ConditionChip score={focused.condition} showLabel />
         <span className="text-muted-foreground">
-          {focused.defect_count} defect{focused.defect_count === 1 ? "" : "s"}
+          {focused.defect_count} {t(focused.defect_count === 1 ? "defect" : "defects", "ข้อบกพร่อง")}
         </span>
       </div>
     )}
     {tilesFailed && (
       <p role="status" className="absolute bottom-8 left-3 z-10 max-w-xs rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground">
-        Map tiles could not load (offline?). Showing the route on a plain background.
+        {t("Map tiles could not load (offline?). Showing the route on a plain background.", "โหลดแผนที่ไม่ได้ (ออฟไลน์?) แสดงเส้นทางบนพื้นเรียบแทน")}
       </p>
     )}
     <MapGL
@@ -161,7 +163,7 @@ export function MapView({
             <div className="num font-semibold">{shown.id}</div>
             <ConditionChip score={shown.condition} showLabel />
             <div className="text-muted-foreground">
-              <Num value={shown.length_m} digits={0} unit="m" /> · {shown.defect_count} defect{shown.defect_count === 1 ? "" : "s"}
+              <Num value={shown.length_m} digits={0} unit="m" /> · {shown.defect_count} {t(shown.defect_count === 1 ? "defect" : "defects", "ข้อบกพร่อง")}
             </div>
           </div>
         </Popup>
@@ -187,9 +189,10 @@ function FindingMarker({
   label: string;
   onSelect: (id: string) => void;
 }) {
+  const t = useT();
   const sev = f.severity;
   const resolved = f.status === "fixed" || f.status === "verified" || f.status === "dismissed";
-  const name = `${f.id}, ${label}${sev ? `, ${SEVERITY[sev].label.toLowerCase()} severity` : ""}${resolved ? `, ${f.status}` : ""}`;
+  const name = `${f.id}, ${label}${sev ? `, ${t(`${sev} severity`, `ความรุนแรง${{ high: "สูง", medium: "กลาง", low: "ต่ำ" }[sev]}`)}` : ""}${resolved ? `, ${f.status}` : ""}`;
   return (
     <Marker longitude={f.lon} latitude={f.lat} anchor="center" style={{ zIndex: selected ? 5 : undefined }}>
       <button

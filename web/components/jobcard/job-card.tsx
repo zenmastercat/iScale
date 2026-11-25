@@ -15,6 +15,7 @@ import { formatChainage, formatNumber } from "@/lib/format";
 import { useAnalysis } from "@/lib/queries";
 import { useSelection } from "@/lib/selection";
 import type { JobCard } from "@/lib/types";
+import { useLang } from "@/lib/i18n";
 import { T, type Lang } from "./i18n";
 
 function Tile({ label, children }: { label: string; children: React.ReactNode }) {
@@ -46,7 +47,7 @@ export function JobCardView({ findingId }: { findingId: string }) {
   const { projectId, surveyId } = useSelection();
   const pid = projectId ?? "";
   const sid = surveyId ?? "";
-  const [lang, setLang] = useState<Lang>("en");
+  const { lang, setLang } = useLang();
   const [confirm, setConfirm] = useState(false);
   const t = T[lang];
   const analysis = useAnalysis();

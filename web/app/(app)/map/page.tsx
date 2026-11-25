@@ -9,15 +9,17 @@ import { PageHeader, SurveyGate } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAnalysis, useCatalogLabel, useMeta } from "@/lib/queries";
+import { useT } from "@/lib/i18n";
 import { useSelection } from "@/lib/selection";
 
-const TOGGLES: { key: keyof Layers; label: string }[] = [
-  { key: "condition", label: "Condition" },
-  { key: "defects", label: "Defects" },
-  { key: "assets", label: "Assets" },
+const TOGGLES: { key: keyof Layers; en: string; th: string }[] = [
+  { key: "condition", en: "Condition", th: "สภาพถนน" },
+  { key: "defects", en: "Defects", th: "ข้อบกพร่อง" },
+  { key: "assets", en: "Assets", th: "สินทรัพย์" },
 ];
 
 function MapBody({ layers }: { layers: Layers }) {
+  const t = useT();
   const router = useRouter();
   const params = useSearchParams();
   const { withSel } = useSelection();
@@ -28,7 +30,7 @@ function MapBody({ layers }: { layers: Layers }) {
   const segmentId = params.get("segment");
   const assetCodes = useMemo(() => new Set((meta.data?.catalog ?? []).filter((c) => c.kind === "asset").map((c) => c.code)), [meta.data]);
 
-  if (analysis.isError) return <p role="alert" className="text-sev-high-fg">Could not load the analysis: {analysis.error.message}</p>;
+  if (analysis.isError) return <p role="alert" className="text-sev-high-fg">{t("Could not load the analysis", "โหลดผลวิเคราะห์ไม่สำเร็จ")}: {analysis.error.message}</p>;
   if (!analysis.data) return <Skeleton className="h-[60dvh] w-full" />;
   const an = analysis.data;
   const empty = !an.segments.length && !an.findings.length;
@@ -38,7 +40,7 @@ function MapBody({ layers }: { layers: Layers }) {
       <div className="rounded-lg border bg-card p-3">
         <div className="h-[calc(100dvh-20rem)] min-h-[360px] overflow-hidden rounded-md bg-grey-50">
           {empty ? (
-            <p className="grid h-full place-items-center text-muted-foreground">This survey has no segments or findings to show.</p>
+            <p className="grid h-full place-items-center text-muted-foreground">{t("This survey has no segments or findings to show.", "การสำรวจนี้ไม่มีช่วงถนนหรือรายการให้แสดง")}</p>
           ) : (
             <MapView
               analysis={an}
@@ -59,27 +61,28 @@ function MapBody({ layers }: { layers: Layers }) {
 }
 
 export default function MapPage() {
+  const t = useT();
   const { project, survey } = useSelection();
   const [layers, setLayers] = useState<Layers>({ condition: true, defects: true, assets: false });
   const actions = (
-    <div className="flex gap-2" role="group" aria-label="Map layers">
-      {TOGGLES.map((t) => (
+    <div className="flex gap-2" role="group" aria-label={t("Map layers", "ชั้นแผนที่")}>
+      {TOGGLES.map((x) => (
         <Button
-          key={t.key}
+          key={x.key}
           type="button"
-          aria-pressed={layers[t.key]}
-          variant={layers[t.key] ? "default" : "outline"}
-          className={layers[t.key] ? "min-h-11 bg-brand text-white hover:bg-brand/90" : "min-h-11"}
-          onClick={() => setLayers((l) => ({ ...l, [t.key]: !l[t.key] }))}
+          aria-pressed={layers[x.key]}
+          variant={layers[x.key] ? "default" : "outline"}
+          className={layers[x.key] ? "min-h-11 bg-brand text-white hover:bg-brand/90" : "min-h-11"}
+          onClick={() => setLayers((l) => ({ ...l, [x.key]: !l[x.key] }))}
         >
-          {t.label}
+          {t(x.en, x.th)}
         </Button>
       ))}
     </div>
   );
   return (
     <>
-      <PageHeader title="Map" crumb={project && survey ? `${project.name} / ${survey.name}` : undefined} actions={actions} />
+      <PageHeader title={t("Map", "แผนที่")} crumb={project && survey ? `${project.name} / ${survey.name}` : undefined} actions={actions} />
       <SurveyGate>
         <MapBody layers={layers} />
       </SurveyGate>
