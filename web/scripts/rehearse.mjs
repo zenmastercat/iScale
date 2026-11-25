@@ -271,6 +271,7 @@ try {
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const pp = await phone.newPage();
   pp.on("pageerror", (e) => errors.push(`phone: ${e.message}`));
+  pp.on("console", (m) => m.type() === "error" && errors.push(`phone: ${m.text()}`)); // CSP violations show up here
   await pp.goto(`${BASE}/job?finding=${high.id}&${sel}`);
   await pp.waitForURL(/\/login/, { timeout: 15000 }).catch(() => {});
   await pp.getByLabel("Username").fill("crew.somchai");
