@@ -8,12 +8,13 @@
  *
  * Security headers on every page: a Content-Security-Policy whose script-src lists the SHA-256 of each inline
  * <script> in that HTML file (Next's static export inlines its bootstrap), so no 'unsafe-inline' for scripts;
- * nosniff, no framing, same-origin referrer, COOP/CORP. The only third-party origin is the OpenFreeMap tile server.
+ * nosniff, no framing, same-origin referrer, COOP/CORP. No third-party origins: base map tiles come through
+ * /basemap/* (below), proxied to OpenFreeMap with a disk copy in .cache/basemap so viewed areas still work offline.
  * The proxy overwrites X-Forwarded-For with the real peer address: uvicorn trusts it from loopback (us), so a
  * client could otherwise pick its own address and dodge the backend's per-address sign-in limit.
  */
 import { createHash } from "node:crypto";
-import { createReadStream, readFileSync, statSync } from "node:fs";
+import { createReadStream, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,6 +38,7 @@ const TYPES = {
 };
 
 const TILES = "https://tiles.openfreemap.org"; // vector tiles, TileJSON and fonts for the map (components/map/base-style.ts)
+const TILE_CACHE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".cache", "basemap");
 const BASE_HEADERS = {
   "x-content-type-options": "nosniff",
   "x-frame-options": "DENY",
@@ -61,8 +63,8 @@ function cspFor(file) {
     "default-src 'self'",
     `script-src 'self' ${[...hashes].join(" ")}`.trim(),
     "style-src 'self' 'unsafe-inline'", // React style={} attributes and the map's inline styles
-    `img-src 'self' data: blob: ${TILES}`,
-    `connect-src 'self' ${TILES}`,
+    "img-src 'self' data: blob:",
+    "connect-src 'self'",
     "worker-src 'self' blob:",
     "font-src 'self' data:",
     "object-src 'none'",
@@ -111,6 +113,63 @@ function proxy(req, res) {
   req.pipe(up);
 }
 
+/**
+ * GET /basemap/<path> → TILES/<path>. Fixed upstream host (no open proxy). Every 200 is kept on disk: tiles and fonts
+ * are served from disk once cached (their URLs are versioned); the TileJSON ("planet", which names the current tile
+ * set) is fetched fresh and the disk copy is the fallback when the upstream is unreachable.
+ */
+async function basemap(req, res, url) {
+  const rel = url.pathname.slice("/basemap/".length);
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    res.writeHead(405, BASE_HEADERS);
+    return res.end();
+  }
+  if (!/^[A-Za-z0-9_.%-]+(\/[A-Za-z0-9_.%-]+)*$/.test(rel) || rel.split("/").some((s) => s === "." || s === "..")) {
+    res.writeHead(400, BASE_HEADERS);
+    return res.end();
+  }
+  const versioned = rel.includes("/");
+  // the TileJSON "planet" and the tile folder "planet/<version>/…" share a name: keep unversioned files apart
+  const file = path.join(TILE_CACHE, versioned ? "files" : "index", rel);
+  const type = rel.endsWith(".pbf") ? "application/x-protobuf" : "application/json";
+  const send = (status, body, cc) => {
+    res.writeHead(status, { ...BASE_HEADERS, "content-type": type, "cache-control": cc });
+    res.end(req.method === "HEAD" ? undefined : body);
+  };
+  const cached = () => {
+    try {
+      return readFileSync(file);
+    } catch {
+      return null;
+    }
+  };
+  if (versioned) {
+    const hit = cached();
+    if (hit) return send(200, hit, "public, max-age=86400");
+  }
+  try {
+    const up = await fetch(`${TILES}/${rel}`, { signal: AbortSignal.timeout(8000) });
+    if (!up.ok) {
+      res.writeHead(up.status, BASE_HEADERS);
+      return res.end();
+    }
+    const body = Buffer.from(await up.arrayBuffer());
+    try {
+      mkdirSync(path.dirname(file), { recursive: true });
+      writeFileSync(`${file}.tmp`, body);
+      renameSync(`${file}.tmp`, file);
+    } catch (e) {
+      console.warn(`basemap cache: ${e instanceof Error ? e.message : e}`); // serve it anyway
+    }
+    send(200, body, versioned ? "public, max-age=86400" : "no-cache");
+  } catch {
+    const hit = cached();
+    if (hit) return send(200, hit, "no-cache");
+    res.writeHead(502, BASE_HEADERS);
+    res.end();
+  }
+}
+
 http
   .createServer((req, res) => {
     try {
@@ -129,6 +188,13 @@ function handle(req, res) {
     }
     const url = new URL(req.url ?? "/", "http://x");
     if (url.pathname.startsWith("/api/")) return proxy(req, res);
+    if (url.pathname.startsWith("/basemap/")) {
+      basemap(req, res, url).catch(() => {
+        if (!res.headersSent) res.writeHead(502, BASE_HEADERS);
+        res.end();
+      });
+      return;
+    }
     const hit = fileFor(url.pathname);
     const file = hit ?? path.join(ROOT, "404.html");
     const type = TYPES[path.extname(file)] ?? "application/octet-stream";

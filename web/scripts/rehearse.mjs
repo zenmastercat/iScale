@@ -308,7 +308,7 @@ try {
   // venue without internet: block the map's tile host. The route and markers must still show, with a notice.
   // (after the console check: the blocked requests log errors on purpose)
   const offline = await ctx.newPage(); // same signed-in browser
-  await offline.route(/tiles\.openfreemap\.org/, (r) => r.abort());
+  await offline.route(/\/basemap\//, (r) => r.abort());
   await offline.goto(`${BASE}/map?${sel}`);
   const notice = await offline.getByText(/Map tiles could not load|โหลดแผนที่ไม่ได้/).waitFor({ timeout: 20000 }).then(() => true, () => false);
   const offMarkers = await offline.locator("button[aria-label*='severity'], button[aria-label*='ความรุนแรง']").count();

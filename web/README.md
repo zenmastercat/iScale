@@ -36,7 +36,7 @@ Report (print / PDF), Team, phone job card (`/job`). English / Thai switch in th
 - **Sign-in:** device-key signatures (no passwords), 30 challenge/login calls per minute per address. The session
   cookie is HttpOnly + SameSite=Strict; behind an HTTPS proxy start the backend with `CIVIL_SECURE_COOKIE=1`.
 - **Headers:** backend and `pnpm serve` send nosniff, no framing, same-origin referrer and COOP/CORP. The pages get
-  a CSP that allows only this origin plus the OpenFreeMap tile server (road-first base map, components/map/base-style.ts), with inline scripts pinned by hash. `pnpm rehearse`
+  a CSP that allows only this origin (base map tiles come through `/basemap/*`, proxied to OpenFreeMap with a disk copy in `.cache/basemap`, see components/map/base-style.ts), with inline scripts pinned by hash. `pnpm rehearse`
   fails on any CSP violation.
 - **Network:** both servers refuse unknown Host headers (DNS rebinding); add a LAN IP with `CIVIL_ALLOWED_HOSTS`.
   Every state-changing API call needs the `X-Civil-Scan` header (CSRF).

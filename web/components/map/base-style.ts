@@ -4,11 +4,21 @@ import type { StyleSpecification } from "maplibre-gl";
  * Road-first base map: OpenStreetMap data as vector tiles from OpenFreeMap (free, no API key, no usage limit;
  * https://openfreemap.org). Roads are the strongest shape (white with a dark casing, width by road class),
  * buildings are faint context, shop and bus-stop icons are left out, so the condition line is the only colour.
- * If the tile host can't be reached, the plain background stays and map-view.tsx shows a notice.
- * The host is allowed in the CSP in scripts/serve.mjs (connect-src). Credits are required by the licences.
+ * If the tiles can't be loaded, map-view.tsx switches to PLAIN_STYLE and shows a notice. Credits are required by the licences.
+ *
+ * The browser never calls tiles.openfreemap.org itself: viaOwnServer() rewrites every request to /basemap/… on our own
+ * origin (proxied by next.config.ts in dev and scripts/serve.mjs in the build). Same-origin, so a privacy add-on,
+ * strict tracking protection or CORS can't block the map, the CSP needs no third-party host, and serve.mjs keeps a
+ * disk copy of every tile it has served, so a route viewed once still has its street map offline at the venue.
  */
 const TILES = "https://tiles.openfreemap.org";
+export const TILE_PATH = "/basemap";
 export const BASE_SOURCE = "base";
+
+/** MapLibre transformRequest: send tile, TileJSON and font requests through our own server. */
+export function viaOwnServer(url: string) {
+  return url.startsWith(`${TILES}/`) ? { url: `${window.location.origin}${TILE_PATH}${url.slice(TILES.length)}` } : { url };
+}
 
 const ROADS = ["motorway", "trunk", "primary", "secondary", "tertiary", "minor", "service"];
 const byClass = (major: number, mid: number, service: number, minor: number) => [

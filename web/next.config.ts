@@ -13,7 +13,11 @@ const nextConfig: NextConfig = {
   ...(isDev
     ? {
         async rewrites() {
-          return [{ source: "/api/:path*", destination: `${API}/api/:path*` }];
+          return [
+            { source: "/api/:path*", destination: `${API}/api/:path*` },
+            // base map tiles via our own origin (components/map/base-style.ts); scripts/serve.mjs does this in the build
+            { source: "/basemap/:path*", destination: "https://tiles.openfreemap.org/:path*" },
+          ];
         },
       }
     : { output: "export" as const }),

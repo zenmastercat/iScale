@@ -6,7 +6,7 @@ import { ConditionChip, Num, SeverityIcon } from "@/components/shared";
 import { bandFor } from "@/lib/condition";
 import { useWords } from "./words";
 import { METRICS, metricScale, type ColourBy } from "./metrics";
-import { BASE_SOURCE, BASE_STYLE, PLAIN_STYLE } from "@/components/map/base-style";
+import { BASE_SOURCE, BASE_STYLE, PLAIN_STYLE, viaOwnServer } from "@/components/map/base-style";
 import { formatNumber } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import type { Analysis, Finding } from "@/lib/types";
@@ -122,9 +122,9 @@ export function MapView({
       </div>
     )}
     {tilesFailed && (
-      <div role="status" className="absolute bottom-8 left-3 z-10 flex max-w-xs items-start gap-3 rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground">
+      <div role="status" className="pointer-events-none absolute bottom-8 left-3 z-10 flex max-w-xs items-start gap-3 rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground">
         <p>{t("Map tiles could not load (offline?). Showing the route on a plain background.", "โหลดแผนที่ไม่ได้ (ออฟไลน์?) แสดงเส้นทางบนพื้นเรียบแทน")}</p>
-        <button type="button" className="shrink-0 font-medium text-foreground underline underline-offset-2" onClick={() => setTilesFailed(false)}>
+        <button type="button" className="pointer-events-auto shrink-0 font-medium text-foreground underline underline-offset-2" onClick={() => setTilesFailed(false)}>
           {t("Retry", "ลองใหม่")}
         </button>
       </div>
@@ -141,6 +141,7 @@ export function MapView({
         if (e.sourceId === BASE_SOURCE && e.isSourceLoaded) baseOk.current = true;
       }}
       mapStyle={tilesFailed ? PLAIN_STYLE : BASE_STYLE}
+      transformRequest={viaOwnServer}
       initialViewState={{ longitude: analysis.findings[0]?.lon ?? 100.5, latitude: analysis.findings[0]?.lat ?? 13.8, zoom: 17 }}
       onLoad={() => {
         fit(0);
