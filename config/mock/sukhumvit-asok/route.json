@@ -1,7 +1,10 @@
 {
  "name": "Sukhumvit Road, from pothole #1 toward Phrom Phong",
- "source": "OpenStreetMap contributors (ODbL), way ids 156985385,1103794216,453652207,1156850720,452046129,749981040,970310343,751471422",
+ "source": "OpenStreetMap contributors (ODbL), way ids 156985385,1103794216,453652207,1156850720,452046129,749981040,970310343,751471422; all 8 ways tagged highway=primary, oneway=yes (OSM API, 25 Nov 2026)",
  "length_m": 498.71,
+ "highway": "primary",
+ "road_name": "Sukhumvit Road",
+ "oneway": true,
  "coords": [
   [
    100.560768,

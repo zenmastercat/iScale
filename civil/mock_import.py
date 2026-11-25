@@ -20,7 +20,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import store
+from . import store, traffic
 from .analysis.condition import score_segments
 from .analysis.detect import _severity_pothole
 from .analysis import PATH_STEP
@@ -34,10 +34,13 @@ PROJECT_NAME = "Sukhumvit Rd, Asok → Phrom Phong (sample run)"
 SURVEY_NAME = "Pothole run (camera)"
 
 
+def _route() -> dict:
+    return json.loads((MOCK_DIR / "route.json").read_text())
+
+
 def _load() -> tuple[dict, list[list[float]]]:
     summary = json.loads((MOCK_DIR / "potholes_route_summary.json").read_text())
-    route = json.loads((MOCK_DIR / "route.json").read_text())["coords"]  # [[lon, lat], ...]
-    return summary, route
+    return summary, _route()["coords"]  # [[lon, lat], ...]
 
 
 MAX_LATERAL_M = 3.0  # half a carriageway: a pothole never lands off the road
@@ -73,6 +76,11 @@ def _finding(p: dict, lat0: float, lon0: float, path: np.ndarray) -> dict:
                 f"placed on the road from the phone's GPS and the detector's distance ahead ({p['min_dist_y_m']:.1f} m)")
     if weak:
         evidence += "; weak track (few detections): an engineer should check it first"
+    evidence_th = (f"หลุมบ่อกว้างประมาณ {d['width_m']:.1f} x {d['length_m']:.1f} ม. ({area:.1f} ตร.ม.) ตรวจพบโดยตัวตรวจจับจากกล้อง "
+                   f"(ความมั่นใจ {p['max_conf']:.2f} พบใน {p['hits']} เฟรม) ความลึกเป็นค่าสมมติ {depth * 100:.0f} ซม. ไม่ได้วัดจริง "
+                   f"วางตำแหน่งบนถนนจากพิกัด GPS ของโทรศัพท์และระยะข้างหน้าที่ตัวตรวจจับให้ ({p['min_dist_y_m']:.1f} ม.)")
+    if weak:
+        evidence_th += " ตรวจพบจำนวนครั้งน้อย ควรให้วิศวกรตรวจสอบก่อน"
     return {
         "type": "pothole", "severity": _severity_pothole(depth, dia), "source": "detector",
         "x": x, "y": y, "z": 0.0, "bbox": [x - hw, y - hl, 0.0, x + hw, y + hl, depth],
@@ -80,7 +88,7 @@ def _finding(p: dict, lat0: float, lon0: float, path: np.ndarray) -> dict:
                     "width_m": d["width_m"], "length_m": d["length_m"], "volume_m3": p["est_volume_m3"],
                     # "Across" on the cards is the detector box width (the equivalent-circle diameter is not what a rectangle looks like)
                     "diameter_m": d["width_m"], "equivalent_diameter_m": round(dia, 2)},
-        "evidence": evidence, "confidence": p["max_conf"], "needs_review": weak, "photo": True,
+        "evidence": evidence, "evidence_th": evidence_th, "confidence": p["max_conf"], "needs_review": weak, "photo": True,
         "detector": {"track_id": p["id"], "frames": p["frames"], "hits": p["hits"], "max_conf": p["max_conf"],
                      "alerted": p["alerted"], "min_dist_y_m": p["min_dist_y_m"],
                      "avg_lat_x_m": p["avg_lat_x_m"], "phone_lat": p["latitude"], "phone_lon": p["longitude"],
@@ -104,9 +112,12 @@ def import_sukhumvit(company_id: str | None) -> dict:
     p = analysis_params()
     path = resample_path(np.stack([x, y], 1), PATH_STEP)
     segs = make_segments(path, PATH_STEP, float(p["segment_length_m"]))
+    road = _route()
     for s in segs:
         # a camera run has no 3D surface: width, coverage and roughness are unknown, not zero (the pages show "–")
         s["metrics"] = {"road_left_m": None, "road_right_m": None, "road_width_m": None, "coverage": None, "surface_std_mm": None}
+        # the road class from OSM (route.json), stored as a traffic lookup would: repair window and Fix-first traffic weight
+        s["traffic"] = traffic.for_storage({"highway": road.get("highway"), "road_name": road.get("road_name"), "aadt": None})
 
     findings = [_finding(q, lat0, lon0, path) for q in pots]
     _, station, _ = station_offset(np.array([[f["x"], f["y"]] for f in findings]), path, PATH_STEP)

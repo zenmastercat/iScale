@@ -84,3 +84,10 @@ def test_camera_run_never_presents_assumed_depth_as_measured():
     assert "ความลึก (สมมติ)" in labels and "ปริมาตร (ประมาณ)" in labels
     en = client.get(f"/api/projects/{pid}/surveys/{sid}/findings/{f['id']}/card").json()
     assert "Depth (assumed)" in [t["label"] for t in en["location"]["tiles"]]
+
+
+def test_imported_findings_carry_a_thai_evidence_sentence():
+    pid, sid = _import()
+    an = client.get(f"/api/projects/{pid}/surveys/{sid}/analysis").json()
+    assert all("ความลึกเป็นค่าสมมติ" in f["evidence_th"] for f in an["findings"])
+    assert sum("ควรให้วิศวกรตรวจสอบก่อน" in f["evidence_th"] for f in an["findings"]) == 4

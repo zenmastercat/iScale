@@ -1,5 +1,7 @@
 """Sukhumvit sample: potholes sit on the road, not at the phone's drifting GPS fix."""
 
+import json
+
 import numpy as np
 
 from civil import mock_import as m
@@ -50,3 +52,15 @@ def test_detection_image_is_served_next_to_the_clean_crop():
     assert crop.content != det.content and det.content[:2] == b"\xff\xd8"
     assert c.get(f"{base}/..%2Fx/detection").status_code == 404
     assert c.get(f"{base}/F000-9999/detection").status_code == 404
+
+
+def test_sukhumvit_is_a_main_road_with_a_night_repair_window():
+    from helpers import client_for
+
+    c = client_for("sukh-road")
+    proj = c.post("/api/demo/sukhumvit").json()
+    pid, sid = proj["id"], proj["baseline"]
+    an = c.get(f"/api/projects/{pid}/surveys/{sid}/analysis").json()
+    assert all(s["traffic"]["highway"] == "primary" for s in an["segments"])
+    card = c.get(f"/api/projects/{pid}/surveys/{sid}/findings/{an['findings'][0]['id']}/card").json()
+    assert "22:00" in json.dumps(card["timing"])
