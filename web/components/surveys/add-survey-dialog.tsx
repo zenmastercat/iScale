@@ -6,21 +6,23 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { createDemo, qk } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 import { useMeta } from "@/lib/queries";
 import { useSelection } from "@/lib/selection";
 import { cn } from "@/lib/utils";
 import { uploadSurvey } from "./upload";
 
 type Source = "video" | "lidar" | "demo";
-const SOURCES: { key: Source; label: string; decoder: string; hint: string; accept: string }[] = [
-  { key: "video", label: "Drive video", decoder: "pothole_video", hint: "A dash-cam video, plus an optional gps.csv.", accept: "video/*,.csv" },
-  { key: "lidar", label: "LiDAR point cloud", decoder: "ply_import", hint: "A PLY file and its poses, plus an optional gps.csv.", accept: ".ply,.csv,.txt,.json" },
-  { key: "demo", label: "Demo street", decoder: "", hint: "Adds the synthetic demo project (before and after repairs).", accept: "" },
+const SOURCES: { key: Source; label: [string, string]; decoder: string; hint: [string, string]; accept: string }[] = [
+  { key: "video", label: ["Drive video", "วิดีโอขับรถ"], decoder: "pothole_video", hint: ["A dash-cam video, plus an optional gps.csv.", "วิดีโอจากกล้องหน้ารถ และไฟล์ gps.csv (ไม่บังคับ)"], accept: "video/*,.csv" },
+  { key: "lidar", label: ["LiDAR point cloud", "จุดสแกน LiDAR"], decoder: "ply_import", hint: ["A PLY file and its poses, plus an optional gps.csv.", "ไฟล์ PLY กับตำแหน่งกล้อง และไฟล์ gps.csv (ไม่บังคับ)"], accept: ".ply,.csv,.txt,.json" },
+  { key: "demo", label: ["Demo street", "ถนนตัวอย่าง"], decoder: "", hint: ["Adds the synthetic demo project (before and after repairs).", "เพิ่มโครงการตัวอย่าง (ก่อนและหลังซ่อม)"], accept: "" },
 ];
 
 const inputCls = "h-11 w-full rounded-lg border bg-card px-3 text-base";
 
 export function AddSurveyDialog() {
+  const t = useT();
   const { projectId, setProject, setSurvey } = useSelection();
   const { data: meta } = useMeta();
   const qc = useQueryClient();
@@ -51,11 +53,11 @@ export function AddSurveyDialog() {
       qc.invalidateQueries({ queryKey: qk.projects });
       if (r.demo) {
         setProject(r.demo.id);
-        toast.success("Demo street added. Processing takes about 20 seconds.");
+        toast.success(t("Demo street added. Processing takes about 20 seconds.", "เพิ่มถนนตัวอย่างแล้ว ประมวลผลประมาณ 20 วินาที"));
       } else {
         qc.invalidateQueries({ queryKey: qk.project(projectId!) });
         setSurvey(r.survey!.id); // other pages then show the processing state until it is done
-        toast.success(`Uploaded ${r.survey!.name}. Processing has started.`);
+        toast.success(t(`Uploaded ${r.survey!.name}. Processing has started.`, `อัปโหลด ${r.survey!.name} แล้ว เริ่มประมวลผล`));
       }
       setOpen(false);
       setName("");
@@ -72,12 +74,12 @@ export function AddSurveyDialog() {
   return (
     <Dialog open={open} onOpenChange={(o) => !submit.isPending && setOpen(o)}>
       <DialogTrigger render={<Button className="min-h-11" />}>
-        <Plus aria-hidden /> Add survey
+        <Plus aria-hidden /> {t("Add survey", "เพิ่มการสำรวจ")}
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add survey</DialogTitle>
-          <DialogDescription>Choose where the drive data comes from.</DialogDescription>
+          <DialogTitle>{t("Add survey", "เพิ่มการสำรวจ")}</DialogTitle>
+          <DialogDescription>{t("Choose where the drive data comes from.", "เลือกแหล่งที่มาของข้อมูลการขับสำรวจ")}</DialogDescription>
         </DialogHeader>
         <form
           className="flex flex-col gap-4"
@@ -87,7 +89,7 @@ export function AddSurveyDialog() {
           }}
         >
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 text-sm font-medium text-grey-700">Source</legend>
+            <legend className="mb-1 text-sm font-medium text-grey-700">{t("Source", "แหล่งข้อมูล")}</legend>
             {SOURCES.map((s) => {
               const d = meta?.decoders.find((x) => x.name === s.decoder);
               const off = s.key !== "demo" && !!d && !d.available;
@@ -109,9 +111,9 @@ export function AddSurveyDialog() {
                     onChange={() => setSource(s.key)}
                   />
                   <span>
-                    <span className="block font-medium">{s.label}</span>
-                    <span className="block text-sm text-muted-foreground">{s.hint}</span>
-                    {off && <span className="block text-sm text-sev-high-fg">Not available: {d?.unavailable_reason}</span>}
+                    <span className="block font-medium">{t(...s.label)}</span>
+                    <span className="block text-sm text-muted-foreground">{t(...s.hint)}</span>
+                    {off && <span className="block text-sm text-sev-high-fg">{t("Not available", "ใช้ไม่ได้")}: {d?.unavailable_reason}</span>}
                   </span>
                 </label>
               );
@@ -121,12 +123,12 @@ export function AddSurveyDialog() {
           {needsFiles && (
             <>
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="survey-name" className="text-sm font-medium text-grey-700">Survey name</label>
+                <label htmlFor="survey-name" className="text-sm font-medium text-grey-700">{t("Survey name", "ชื่อการสำรวจ")}</label>
                 <input id="survey-name" className={inputCls} value={name} onChange={(e) => setName(e.target.value)} required />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="survey-files" className="text-sm font-medium text-grey-700">
-                  {source === "video" ? "Video and optional gps.csv" : "PLY, poses and optional gps.csv"}
+                  {source === "video" ? t("Video and optional gps.csv", "วิดีโอ และ gps.csv (ไม่บังคับ)") : t("PLY, poses and optional gps.csv", "PLY ตำแหน่งกล้อง และ gps.csv (ไม่บังคับ)")}
                 </label>
                 <input
                   id="survey-files"
@@ -139,7 +141,7 @@ export function AddSurveyDialog() {
               </div>
               {source === "video" && (
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="survey-height" className="text-sm font-medium text-grey-700">Camera height in metres (optional)</label>
+                  <label htmlFor="survey-height" className="text-sm font-medium text-grey-700">{t("Camera height in metres (optional)", "ความสูงกล้องเป็นเมตร (ไม่บังคับ)")}</label>
                   <input id="survey-height" type="number" step="0.01" min="0.3" max="4" inputMode="decimal" className={`${inputCls} num`} value={height} onChange={(e) => setHeight(e.target.value)} />
                 </div>
               )}
@@ -148,14 +150,14 @@ export function AddSurveyDialog() {
 
           {progress !== null && (
             <div>
-              <div role="progressbar" aria-label="Upload progress" aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100} className="h-2 w-full overflow-hidden rounded-full bg-grey-100">
+              <div role="progressbar" aria-label={t("Upload progress", "ความคืบหน้าการอัปโหลด")} aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100} className="h-2 w-full overflow-hidden rounded-full bg-grey-100">
                 <div className="h-full bg-brand transition-[width]" style={{ width: `${progress * 100}%` }} />
               </div>
-              <p className="num mt-1 text-sm text-muted-foreground">Uploading {Math.round(progress * 100)}%</p>
+              <p className="num mt-1 text-sm text-muted-foreground">{t("Uploading", "กำลังอัปโหลด")} {Math.round(progress * 100)}%</p>
             </div>
           )}
           <Button type="submit" className="min-h-11" disabled={!valid || submit.isPending}>
-            {submit.isPending ? "Working…" : source === "demo" ? "Add demo street" : "Upload and process"}
+            {submit.isPending ? t("Working…", "กำลังทำงาน…") : source === "demo" ? t("Add demo street", "เพิ่มถนนตัวอย่าง") : t("Upload and process", "อัปโหลดและประมวลผล")}
           </Button>
         </form>
       </DialogContent>
