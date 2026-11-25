@@ -33,6 +33,13 @@ Then in the laptop browser open **`http://<laptop-ip>:3000`** (not localhost, so
 3. **Team** (left rail) → add *Somchai K.*, username `crew.somchai`, role Engineer. Scan the QR with the phone,
    sign in as `crew.somchai` on the phone. Do this **before** going on stage; the phone stays signed in.
 
+## The message: AI for the future workforce
+
+**"The AI walks and measures the road. People decide, fix and prove it."** Every step below shows one of these:
+the AI does the slow, risky measuring; the engineer judges the evidence and stays accountable; the crew gets clear
+work on a phone in Thai; the re-drive proves the repair. Nobody is replaced: inspectors stop pacing roadsides with a
+tape and start deciding where the budget goes.
+
 ## The story (7 minutes)
 
 | # | Where | Click | Say |
@@ -41,13 +48,24 @@ Then in the laptop browser open **`http://<laptop-ip>:3000`** (not localhost, so
 | 2 | Overview | point at the headline | "89 out of 100, 10 open defects, ฿90,247 to fix. Every number is measured, not guessed." |
 | 3 | Overview | a red/orange count in *Open defects by type* | "Every count opens the evidence." → Findings table, filtered |
 | 4 | Map | click the high-severity pothole | "7.8 cm deep, 0.87 m across, 31 L of missing asphalt. Measured from the 3D scan." |
-| 5 | Drawer | scan the QR with the phone | "The crew gets it on their phone." Phone shows the job card: address, materials in baht, Navigate |
+| 4b | Drawer | **Check in 3D** → **Correct** | "The AI shows its evidence: the cross-section, 7.8 cm below the road surface. The engineer decides: Correct. Now it carries her name. AI proposes, a person is accountable." *(only if this passed the rehearsal by the 20:00 freeze)* |
+| 5 | Drawer | scan the QR with the phone | "The crew gets clear work on their phone, in Thai: where, what, which materials." Phone shows the job card: address, materials in baht, Navigate |
 | 6 | Fix first | — | "Ranked by severity × safety × traffic: the most dangerous defect on the busiest road comes first." |
 | 7 | Repair plan | press the 50 % budget button | "Only have ฿45,000? This is what you fund; the rest waits." |
 | 8 | Repair plan | **Create work order** | "One click, the crew has the list." |
-| 9 | Verification | **Mark completed** → **Run verification** | "The after-drive checks the work: 6 fixed, 4 still there. Send the crew back." |
-| 10 | Report | **Print** | "One page for the council." |
+| 9 | Verification | **Mark completed** → **Run verification** | "The after-drive checks the work: 6 fixed, 4 still there. Good repairs are proven by data, not by a supervisor's opinion." |
+| 10 | Report | **Print** | "One page for the council, including who confirmed each AI finding." |
 | 11 | top bar | **ไทย** | "Built for Thai crews." Switch back with **EN**. |
+
+## Questions judges may ask
+
+| Question | Answer |
+|---|---|
+| Does this replace inspectors? | No. It removes the tape-measure walk. Inspectors review the AI's evidence and plan the budget; every AI finding can be confirmed or rejected, with their name on it. |
+| What if the AI is wrong? | The engineer sees why it flagged the spot (3D cross-section and a plain-language note) and rejects it. Rejected findings leave the plan. |
+| What skills do crews need? | A phone. The job card says where, what and which materials, in Thai; Navigate opens the route. |
+| Is the data real? | The demo drive is synthetic, placed on real Bang Sue streets. The pipeline runs on real phone video (see the backend README). |
+| Where does the data live? | On a server the district runs. No cloud account; accounts are added by the district's admin. |
 
 ## If something goes wrong
 
