@@ -62,6 +62,9 @@ export function MapView({
   const [seg, setSeg] = useState<{ id: string; lng: number; lat: number; pinned: boolean } | null>(null);
   const [cursor, setCursor] = useState("");
   const [tilesFailed, setTilesFailed] = useState(false);
+  // Fall back to the plain style only if the base map never loaded. One bad tile later (or a request
+  // cancelled by panning) must not wipe the street map mid-demo.
+  const baseOk = useRef(false);
   const segAt = (e: MapLayerMouseEvent) => {
     const id = e.features?.[0]?.properties?.id as string | undefined;
     return id ? { id, lng: e.lngLat.lng, lat: e.lngLat.lat } : null;
@@ -119,14 +122,23 @@ export function MapView({
       </div>
     )}
     {tilesFailed && (
-      <p role="status" className="absolute bottom-8 left-3 z-10 max-w-xs rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground">
-        {t("Map tiles could not load (offline?). Showing the route on a plain background.", "โหลดแผนที่ไม่ได้ (ออฟไลน์?) แสดงเส้นทางบนพื้นเรียบแทน")}
-      </p>
+      <div role="status" className="absolute bottom-8 left-3 z-10 flex max-w-xs items-start gap-3 rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground">
+        <p>{t("Map tiles could not load (offline?). Showing the route on a plain background.", "โหลดแผนที่ไม่ได้ (ออฟไลน์?) แสดงเส้นทางบนพื้นเรียบแทน")}</p>
+        <button type="button" className="shrink-0 font-medium text-foreground underline underline-offset-2" onClick={() => setTilesFailed(false)}>
+          {t("Retry", "ลองใหม่")}
+        </button>
+      </div>
     )}
     <MapGL
       ref={ref}
       onError={(e) => {
-        if ((e as { sourceId?: string }).sourceId === BASE_SOURCE) setTilesFailed(true);
+        const err = e as { sourceId?: string; error?: { name?: string; message?: string } };
+        if (err.sourceId !== BASE_SOURCE || err.error?.name === "AbortError") return;
+        console.warn("base map:", err.error?.message ?? err.error);
+        if (!baseOk.current) setTilesFailed(true);
+      }}
+      onSourceData={(e) => {
+        if (e.sourceId === BASE_SOURCE && e.isSourceLoaded) baseOk.current = true;
       }}
       mapStyle={tilesFailed ? PLAIN_STYLE : BASE_STYLE}
       initialViewState={{ longitude: analysis.findings[0]?.lon ?? 100.5, latitude: analysis.findings[0]?.lat ?? 13.8, zoom: 17 }}
