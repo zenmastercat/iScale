@@ -38,12 +38,12 @@ Then in the laptop browser open **`http://<laptop-ip>:3000`** (not localhost, so
 | # | Where | Click | Say |
 |---|---|---|---|
 | 1 | Overview | (demo processing) | "A car with a phone drove 242 m of Bang Sue: Pracha Rat Sai 2, then up Pracha Rat Sai 1. No inspector walked it." (The demo data is synthetic, placed on these real roads; say so if asked.) |
-| 2 | Overview | point at the headline | "89 out of 100, 10 open defects, USD 2,585 to fix. Every number is measured, not guessed." |
+| 2 | Overview | point at the headline | "89 out of 100, 10 open defects, ฿90,247 to fix. Every number is measured, not guessed." |
 | 3 | Overview | a red/orange count in *Open defects by type* | "Every count opens the evidence." → Findings table, filtered |
 | 4 | Map | click the high-severity pothole | "7.8 cm deep, 0.87 m across, 31 L of missing asphalt. Measured from the 3D scan." |
 | 5 | Drawer | scan the QR with the phone | "The crew gets it on their phone." Phone shows the job card: address, materials in baht, Navigate |
 | 6 | Fix first | — | "Ranked by severity × safety × traffic: the most dangerous defect on the busiest road comes first." |
-| 7 | Repair plan | drag the budget slider down | "Only have USD 1,500? This is what you fund; the rest waits." |
+| 7 | Repair plan | press the 50 % budget button | "Only have ฿45,000? This is what you fund; the rest waits." |
 | 8 | Repair plan | **Create work order** | "One click, the crew has the list." |
 | 9 | Verification | **Mark completed** → **Run verification** | "The after-drive checks the work: 6 fixed, 4 still there. Send the crew back." |
 | 10 | Report | **Print** | "One page for the council." |
@@ -64,5 +64,5 @@ Then in the laptop browser open **`http://<laptop-ip>:3000`** (not localhost, so
 ## Numbers to know (demo street)
 
 242 m surveyed · 10 segments of 25 m · condition 89/100 (Good) · 10 open defects (4 high) ·
-repair estimate USD 2,585 incl. USD 1,200 mobilisation · after repairs: 6 verified, 4 still present.
-Plan costs are USD; materials on the job card are THB.
+repair estimate ฿90,247 incl. ฿42,000 mobilisation (8 segments × ฿5,250) · after repairs: 6 verified, 4 still present.
+All amounts are Thai baht. Unit rates are placeholders (old USD rates × 35); say so if asked.
