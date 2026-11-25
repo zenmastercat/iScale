@@ -8,6 +8,7 @@ import { CostByAction } from "@/components/overview/cost-by-action";
 import { DefectMatrix } from "@/components/overview/defect-matrix";
 import { FixFirstTable } from "@/components/overview/fix-first-table";
 import { SegmentChange } from "@/components/overview/segment-change";
+import { SegmentDiagram } from "@/components/linear/segment-diagram";
 import { getAnalysis, qk } from "@/lib/api";
 import { findingsQuery, OPEN_STATUSES } from "@/lib/findings-filter";
 import { useT } from "@/lib/i18n";
@@ -97,7 +98,7 @@ function OverviewBody() {
           label={t("Condition index", "ดัชนีสภาพถนน")}
           value={stats.score === null ? "–" : formatNumber(stats.score)}
           unit="/100"
-          sub={`${bandFor(stats.score).label} · ${t("PCI-like, 0–100", "คล้าย PCI, 0–100")}`}
+          sub={`${t(bandFor(stats.score).label, bandFor(stats.score).th)} · ${t("PCI-like, 0–100", "คล้าย PCI, 0–100")}`}
           href={withSel("/map")}
         />
         <KpiTile
@@ -133,6 +134,13 @@ function OverviewBody() {
           <DefectMatrix findings={an.findings} labelFor={labelFor} withSel={withSel} />
         </Card>
       </div>
+
+      <Card
+        title={t("Segment line diagram", "แผนภาพเส้นตรงรายช่วง")}
+        note={t("Condition, defects, width, coverage and roughness along the chainage", "สภาพ ข้อบกพร่อง ความกว้าง ความครอบคลุม และความขรุขระ ตามระยะทาง")}
+      >
+        <SegmentDiagram segments={an.segments} findings={an.findings} labelFor={labelFor} withSel={withSel} />
+      </Card>
 
       <div className={`grid grid-cols-1 gap-6 md:gap-4 ${comparison ? "xl:grid-cols-2" : ""}`}>
         <Card title={t("Repair cost by action", "ค่าซ่อมตามวิธีซ่อม")} note={t(`All open repairs · ${currency}`, `งานซ่อมทั้งหมด · ${currency}`)}>

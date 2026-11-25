@@ -249,6 +249,42 @@ try {
   await page.emulateMedia({ media: "screen" });
   step(fs.existsSync(path.join(OUT, "report.pdf")), "report prints to PDF", "rehearsal/report.pdf");
 
+  where = "team + phone";
+  await page.goto(`${BASE}/team?${sel}`);
+  await settle();
+  await page.getByLabel(/^name$/i).fill("Somchai K.");
+  await page.getByLabel(/^username$/i).fill("crew.somchai");
+  await page.getByRole("button", { name: /^add$/i }).click();
+  await settle(1000);
+  const team = await j("/api/team");
+  step(team.some((u) => u.username === "crew.somchai"), "Team: admin adds a crew member");
+  await shot("story-team");
+  // a second browser = the crew phone: its own device key
+  const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const pp = await phone.newPage();
+  pp.on("pageerror", (e) => errors.push(`phone: ${e.message}`));
+  await pp.goto(`${BASE}/job?finding=${high.id}&${sel}`);
+  await pp.waitForURL(/\/login/, { timeout: 15000 }).catch(() => {});
+  await pp.getByLabel("Username").fill("crew.somchai");
+  await pp.getByRole("button", { name: "Sign in" }).click();
+  const back = await pp.waitForURL(/\/job/, { timeout: 15000 }).then(() => true, () => false);
+  await pp.waitForLoadState("networkidle").catch(() => {});
+  await pp.waitForTimeout(800);
+  step(back && /navigate/i.test(await pp.locator("body").innerText()), "crew phone signs in and lands on the job card");
+  await pp.screenshot({ path: path.join(OUT, "story-phone-job-card.png"), fullPage: true });
+  await phone.close();
+
+  where = "thai";
+  await page.goto(`${BASE}/?${sel}`);
+  await settle();
+  await page.getByRole("button", { name: "เปลี่ยนเป็นภาษาไทย" }).click();
+  await settle(400);
+  const thText = await page.locator("body").innerText();
+  step(/ภาพรวม/.test(thText) && /ข้อบกพร่อง/.test(thText), "Thai switch translates the Overview");
+  await shot("story-overview-thai");
+  await page.getByRole("button", { name: "Switch to English" }).click();
+  await settle(300);
+
   where = "sign out";
   await page.goto(`${BASE}/?${sel}`);
   await settle();

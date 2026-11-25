@@ -17,6 +17,13 @@ export function evidenceSource(f?: Finding) {
   return EVIDENCE[f.source] ?? f.source;
 }
 
+const EVIDENCE_TH: Record<string, string> = { geometry: "วัดจริง", decoder: "วัดจริง + ตัวตรวจจับ", manual: "บันทึกด้วยมือ" };
+/** Thai label for evidenceSource (CSV exports keep the English one). */
+export function evidenceSourceTh(f?: Finding) {
+  if (!f) return "หมุดที่แชร์";
+  return EVIDENCE_TH[f.source] ?? f.source;
+}
+
 /** Top-N of GET /api/priority, with the measurement sentence from the analysis. */
 export function FixFirstTable({
   items,
@@ -57,7 +64,7 @@ export function FixFirstTable({
                   <SeverityBadge severity={it.severity} size="sm" />
                 </td>
                 <td className="num py-3 md:py-2 pr-4">{it.segment_id}</td>
-                <td className="py-3 md:py-2 pr-4 text-sm text-grey-700">{evidenceSource(f)}</td>
+                <td className="py-3 md:py-2 pr-4 text-sm text-grey-700">{t(evidenceSource(f), evidenceSourceTh(f))}</td>
                 <td className="py-3 md:py-2 pr-4 text-right font-medium">
                   <Money amount={it.cost} currency={currency} />
                 </td>
