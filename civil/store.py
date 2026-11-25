@@ -70,12 +70,35 @@ def survey_dir(pid: str, sid: str) -> Path:
 
 
 # --- projects ---------------------------------------------------------------
-def create_project(name: str, origin_lat: float, origin_lon: float, company_id: str | None = None) -> dict:
+def create_project(
+    name: str,
+    origin_lat: float,
+    origin_lon: float,
+    company_id: str | None = None,
+    meta: dict | None = None,
+) -> dict:
     if not (-90 <= origin_lat <= 90 and -180 <= origin_lon <= 180):
         raise ValueError("origin out of range")
     pid = new_id()
-    proj = {"id": pid, "name": name[:120] or "Untitled", "origin_lat": origin_lat, "origin_lon": origin_lon,
-            "created": time.time(), "surveys": [], "baseline": None, "company_id": company_id}
+    m = meta or {}
+    proj = {
+        "id": pid,
+        "name": name.strip()[:120] or "Untitled",
+        "origin_lat": origin_lat,
+        "origin_lon": origin_lon,
+        "created": time.time(),
+        "surveys": [],
+        "baseline": None,
+        "company_id": company_id,
+        "road_name": m.get("road_name", ""),
+        "client": m.get("client", ""),
+        "survey_date": m.get("survey_date", ""),
+        "notes": m.get("notes", ""),
+        "route": m.get("route", []),
+        "scale_setup": m.get("scale_setup", {}),
+        "report_prefs": m.get("report_prefs", {}),
+        "photos": [],
+    }
     _write_json(project_dir(pid) / "project.json", proj)
     _write_json(project_dir(pid) / "workorders.json", [])
     return proj

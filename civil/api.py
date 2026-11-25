@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 
-from . import auth, catalog, chat, check3d, helper, worker, groups, jobcard, location, materials, measure_api, pins, pipeline, planning, priority, scene_scale_api, settings, store, xmpp
+from . import auth, catalog, chat, check3d, helper, worker, groups, jobcard, location, materials, measure_api, pins, pipeline, planning, priority, projects as projects_api, scene_scale_api, settings, store, xmpp
 from .analysis.condition import score_segments
 from .config import ALLOWED_HOSTS, DEFAULT_ORIGIN, MAX_UPLOAD_BYTES, STATIC_DIR, unit_costs
 from .decoders import registry
@@ -46,6 +46,7 @@ app.include_router(check3d.router)
 app.include_router(worker.router)
 app.include_router(measure_api.router)
 app.include_router(scene_scale_api.router)
+app.include_router(projects_api.router)
 
 # A web page on another site must not drive this local API:
 # - Host check stops DNS-rebinding (a hostile domain resolving to 127.0.0.1);
@@ -70,7 +71,12 @@ async def guard(request: Request, call_next):
             if size is None and "chunked" in request.headers.get("transfer-encoding", "").lower():
                 return JSONResponse({"detail": "send a Content-Length"}, status_code=411)  # else the size check is skipped
             ctype = request.headers.get("content-type", "")
-            cap = MAX_UPLOAD_BYTES + 1_000_000 if ctype.startswith("multipart/form-data") else MAX_JSON_BYTES
+            if ctype.startswith("multipart/form-data"):
+                cap = MAX_UPLOAD_BYTES + 1_000_000
+            elif path in ("/api/projects", "/api/project-draft"):
+                cap = projects_api.MAX_PROJECT_JSON_BYTES
+            else:
+                cap = MAX_JSON_BYTES
             if size and size.isdigit() and int(size) > cap:
                 return JSONResponse({"detail": "request too large"}, status_code=413)
         if path not in PUBLIC_API and not path.startswith("/api/worker/"):  # the worker routes check their own token
@@ -107,12 +113,6 @@ async def _bad(_: Request, exc: ValueError):
 
 
 # --- models ----------------------------------------------------------------------
-class ProjectIn(BaseModel):
-    name: str = Field(max_length=120)
-    origin_lat: float = DEFAULT_ORIGIN[0]
-    origin_lon: float = DEFAULT_ORIGIN[1]
-
-
 class FindingIn(BaseModel):
     type: str
     x: float
@@ -171,8 +171,18 @@ def projects(request: Request):
 
 
 @app.post("/api/projects")
-def create_project(p: ProjectIn, request: Request):
-    return store.create_project(p.name, p.origin_lat, p.origin_lon, auth.require(request)["company_id"])
+def create_project(p: projects_api.ProjectCreateIn, request: Request):
+    me = measure_api.require_staff(request)
+    meta = {
+        "road_name": p.road_name,
+        "client": p.client,
+        "survey_date": p.survey_date,
+        "notes": p.notes,
+        "route": p.route,
+        "scale_setup": p.scale_setup.model_dump(),
+        "report_prefs": p.report_prefs.model_dump(),
+    }
+    return store.create_project(p.name, p.origin_lat, p.origin_lon, me["company_id"], meta=meta)
 
 
 @app.get("/api/projects/{pid}")
