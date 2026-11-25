@@ -68,9 +68,9 @@ def merge_split(findings: list[dict], gap: float = 0.3) -> list[dict]:
         tgt["x"], tgt["y"] = tgt["x"] * w + f["x"] * (1 - w), tgt["y"] * w + f["y"] * (1 - w)
         tgt["bbox"] = [min(tgt["bbox"][i], f["bbox"][i]) for i in range(3)] + [max(tgt["bbox"][i], f["bbox"][i]) for i in range(3, 6)]
         m, n = tgt["metrics"], f["metrics"]
-        for k in ("area_m2", "volume_m3"):
+        for k, prec in (("area_m2", 5), ("volume_m3", 6)):
             if k in m or k in n:
-                m[k] = round(m.get(k, 0) + n.get(k, 0), 4)
+                m[k] = round(m.get(k, 0) + n.get(k, 0), prec)
         for k in ("height_max_m", "step_m", "texture_std_mm"):
             if k in m or k in n:
                 m[k] = max(m.get(k, 0), n.get(k, 0))
@@ -137,15 +137,23 @@ def analyze(rec: Reconstruction, params: dict | None = None) -> dict:
     xyz = rec.points
     path_idx, station, offset = station_offset(xyz[:, :2].astype(np.float64), path, PATH_STEP)
 
-    # Near-ground filter relative to local trajectory elevation so uphill/downhill roads aren't clipped at z = 1 m
+    # Near-ground filter relative to local road elevation under the trajectory:
+    # follows uphill/downhill slopes while excluding vehicles, pedestrians, and canopies above the road
     t_xy = traj[:, :2].astype(np.float64)
     t_z = traj[:, 2].astype(np.float64)
     d2_tp = ((path[:, None, :] - t_xy[None, :, :]) ** 2).sum(-1)
     path_z = t_z[d2_tp.argmin(1)]
-    margin = 0.5 if float(np.median(path_z)) > 0.5 else 1.0
+    near_path = np.abs(offset) < 3.0
+    if near_path.sum() >= 50:
+        dz_cam = path_z[path_idx[near_path]] - xyz[near_path, 2].astype(np.float64)
+        below_cam = dz_cam[dz_cam > -0.2]
+        cam_h_est = max(0.0, float(np.median(below_cam))) if len(below_cam) >= 50 else 0.0
+    else:
+        cam_h_est = 0.0
+    local_road_z = path_z - cam_h_est
 
     findings: list[dict] = []
-    low = xyz[:, 2] < (path_z[path_idx] + margin)  # surface analysis uses near-ground points only
+    low = xyz[:, 2] < (local_road_z[path_idx] + 0.65)  # surface analysis uses near-ground points only
     for seg in segs:
         m = low & (station >= seg["s0"]) & (station < seg["s1"]) & (np.abs(offset) < 14)
         if m.sum() < 500:

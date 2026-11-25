@@ -140,3 +140,39 @@ def test_small_dense_pothole_detected_and_measured_accurately_when_min_area_allo
     assert abs(m["depth_max_m"] - D) < 0.006, f"depth={m['depth_max_m']} vs {D}"
     assert abs(m["area_m2"] - gt_area) / gt_area < 0.15, f"area={m['area_m2']} vs {gt_area:.5f}"
     assert abs(m["volume_m3"] - gt_vol) / gt_vol < 0.18, f"vol={m['volume_m3']} vs {gt_vol:.6f}"
+
+
+def test_sub_10cm_dense_laser_like_pothole_achieves_tight_area_and_depth_accuracy():
+    """On a sub-mm dense 9 cm pothole surrounded by a coarser 2 cm road cloud (so the coarse
+    10 cm raster sees it as a 20 cm block), fine-cell sizing must adapt to the depression's
+    point density rather than the coarse 10 cm box diameter (area err < 10%, depth < 0.3 cm)."""
+    rng = np.random.default_rng(31)
+    # Dense 2 mm points inside the pothole (mimicking dense scan/reprojection) + 2 cm road around it
+    R, D = 0.044, 0.041
+    ps, po = np.meshgrid(np.arange(3.0 - R, 3.0 + R, 0.002), np.arange(-R, R, 0.002), indexing="ij")
+    px, py = po.ravel(), ps.ravel()
+    r2 = px * px + (py - 3.0) ** 2
+    inside = r2 < R * R
+    px, py = px[inside], py[inside]
+    pz = -D * np.sqrt(np.maximum(0.0, 1.0 - (r2[inside] / (R * R)) ** 2))
+    # 2 cm road surface outside the pothole
+    cs, co = np.meshgrid(np.arange(0.0, 6.0, 0.02), np.arange(-2.5, 2.5, 0.02), indexing="ij")
+    cx, cy = co.ravel(), cs.ravel()
+    out = (cx * cx + (cy - 3.0) ** 2) >= R * R
+    pts = np.vstack([
+        np.c_[px, py, pz],
+        np.c_[cx[out], cy[out], rng.normal(0.0, 0.001, int(out.sum()))],
+    ]).astype(np.float32)
+    poses = np.repeat(np.eye(4)[None], 13, axis=0)
+    poses[:, :3, 3] = np.c_[np.zeros(13), np.linspace(0.0, 6.0, 13), np.full(13, 0.8)]
+    rec = Reconstruction(points=pts, poses=poses, meta={"metric": True, "up_axis": "z"})
+    an = analyze(rec, {"pothole_min_area_m2": 0.002, "pothole_min_depth_m": 0.015})
+    potholes = [f for f in an["findings"] if f["type"] == "pothole"]
+    assert len(potholes) == 1, potholes
+    m = potholes[0]["metrics"]
+    # Exact analytical area = pi*R^2, volume = (pi/4) * pi*R^2 * D for sqrt(1 - (r/R)^4)
+    gt_area = math.pi * R * R
+    gt_vol = (math.pi / 4.0) * gt_area * D
+    assert abs(m["depth_max_m"] - D) < 0.003, f"depth={m['depth_max_m']} vs {D}"
+    assert abs(m["area_m2"] - gt_area) / gt_area < 0.10, f"area={m['area_m2']} vs {gt_area:.5f}"
+    assert abs(m["volume_m3"] - gt_vol) / gt_vol < 0.10, f"vol={m['volume_m3']} vs {gt_vol:.6f}"

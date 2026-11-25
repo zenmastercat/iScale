@@ -118,19 +118,22 @@ class SegmentSurface:
 
 
 def _fill_interior_nans(grid: np.ndarray, min_neighbors: int = 4) -> np.ndarray:
-    """Fill isolated single-cell NaN gaps from the median of their 8-neighbours."""
+    """Fill isolated single-cell NaN gaps that are bracketed on opposite sides by valid cells
+    (so gaps inside a depression close without ever dilating the depression outward into empty space)."""
     out = grid.copy()
     nan_m = ~np.isfinite(out)
     if not nan_m.any() or out.shape[0] < 3 or out.shape[1] < 3:
         return out
     pad = np.pad(out, 1, constant_values=np.nan)
-    win = np.lib.stride_tricks.sliding_window_view(pad, (3, 3)).reshape(out.shape[0], out.shape[1], 9)
-    valid_cnt = np.isfinite(win).sum(axis=2)
-    fill_ok = nan_m & (valid_cnt >= min_neighbors)
+    win = np.lib.stride_tricks.sliding_window_view(pad, (3, 3))
+    fin = np.isfinite(win)
+    valid_cnt = fin.sum(axis=(2, 3))
+    bracketed = (fin[:, :, 0, 1] & fin[:, :, 2, 1]) | (fin[:, :, 1, 0] & fin[:, :, 1, 2])
+    fill_ok = nan_m & bracketed & (valid_cnt >= min_neighbors)
     if fill_ok.any():
         with np.errstate(all="ignore"), __import__("warnings").catch_warnings():
             __import__("warnings").simplefilter("ignore", RuntimeWarning)
-            med = np.nanmedian(win, axis=2)
+            med = np.nanmedian(win.reshape(out.shape[0], out.shape[1], 9), axis=2)
         out[fill_ok] = med[fill_ok]
     return out
 
@@ -172,16 +175,24 @@ def _refine_depression(
     if int(ring_pts.sum()) < 25:
         return None
 
-    # Choose local fine cell from actual local point density (no hardcoded dataset scale)
-    ring_area = max(4.0 * hs * ho - (span_s + 2 * margin) * (span_o + 2 * margin), 0.05)
-    rho = float(ring_pts.sum()) / ring_area
-    fc_rho = math.sqrt(1.6 / max(rho, 1.0))
-    fc_tgt = max(0.008, min(0.035, dia0 / 10.0))
-    fc = float(np.clip(max(fc_rho, fc_tgt), 0.008, surf.cell))
+    # Choose local fine cell from actual point density of the depressed points (not diluted by coarse 10 cm box)
+    coarse_area = max((span_s + 2 * margin) * (span_o + 2 * margin), 0.01)
+    ring_area = max(4.0 * hs * ho - coarse_area, 0.05)
+    rho_ring = float(ring_pts.sum()) / ring_area
+    dep_pts = in_coarse & (pz < z_surf_c - max(0.008, 0.5 * dmin))
+    if int(dep_pts.sum()) >= 20:
+        dep_area = max(float(np.ptp(ps[dep_pts])) * float(np.ptp(po[dep_pts])), 1e-4)
+        rho_in = float(dep_pts.sum()) / dep_area
+    else:
+        in_pts = in_coarse & (pz < z_surf_c + 0.20)
+        rho_in = float(in_pts.sum()) / coarse_area
+    rho_eff = max(rho_in, rho_ring)
+    fc_rho = math.sqrt(2.0 / max(rho_eff, 1.0))
+    fc = float(np.clip(fc_rho, 0.003, surf.cell))
     nu_f = max(5, int(math.ceil(2.0 * hs / fc)))
     nv_f = max(5, int(math.ceil(2.0 * ho / fc)))
-    if nu_f * nv_f > 90_000:
-        fc = math.sqrt(4.0 * hs * ho / 90_000.0)
+    if nu_f * nv_f > 40_000:
+        fc = math.sqrt(4.0 * hs * ho / 40_000.0)
         nu_f = max(5, int(math.ceil(2.0 * hs / fc)))
         nv_f = max(5, int(math.ceil(2.0 * ho / fc)))
 
@@ -226,8 +237,8 @@ def _refine_depression(
         r_clean[spike] = nbr_med[spike]
 
     r_fill = _fill_interior_nans(r_clean, min_neighbors=4)
-    # Noise-calibrated rim threshold: follows sloped bowls cleanly without bleeding into flat noisy road
-    rim_t = float(np.clip(max(0.003, 1.8 * sigma_ring), 0.003, 0.010))
+    # Noise-calibrated rim threshold: 3 mm on smooth scans, scales with 2.2x intact asphalt MAD on rough roads
+    rim_t = float(np.clip(max(0.003, 2.2 * sigma_ring), 0.003, 0.010))
     inside_seed_box = (
         (st_f[:, None] >= s_lo - fc) & (st_f[:, None] <= s_hi + fc)
         & (of_f[None, :] >= o_lo - fc) & (of_f[None, :] <= o_hi + fc)
@@ -239,14 +250,25 @@ def _refine_depression(
 
     # Grow region; if noise causes bleed to crop border, tighten rim_t up to 0.012 m
     reg = None
+    used_rt = rim_t
     for rt in (rim_t, max(rim_t, 0.006), max(rim_t, 0.010), 0.012):
         cand = grow(seed, rr < -rt)
         touches_border = bool(cand[0, :].any() or cand[-1, :].any() or cand[:, 0].any() or cand[:, -1].any())
         if not touches_border:
             reg = cand
+            used_rt = rt
             break
     if reg is None or not reg.any():
         return None
+
+    # One-cell sloped-rim step: recover outer sloped wall touching reg without leaking into stone texture (<2.5 mm)
+    dil = reg.copy()
+    dil[1:, :] |= reg[:-1, :]
+    dil[:-1, :] |= reg[1:, :]
+    dil[:, 1:] |= reg[:, :-1]
+    dil[:, :-1] |= reg[:, 1:]
+    rim_add = dil & (~reg) & np.isfinite(r_fill) & (r_fill < -max(0.0025, 0.55 * used_rt))
+    reg = reg | rim_add
 
     # Keep the connected component(s) overlapping the seed (if fragmented by a ridge, keep all seeded comps)
     comps = label_components(reg)
@@ -259,13 +281,28 @@ def _refine_depression(
     cell_a = fc * fc
     area = float(len(filled)) * cell_a
 
-    # Interpolate any remaining interior NaN depths inside `filled` from valid cells in `filled`
-    rf_vals = r_fill[fi, fj].copy()
+    # Smoothly interpolate any remaining empty cells strictly inside `filled` via 4-neighbor harmonic relaxation
+    r_interp = r_fill.copy()
+    filled_mask = np.zeros_like(reg)
+    filled_mask[fi, fj] = True
+    for _ in range(8):
+        miss = filled_mask & (~np.isfinite(r_interp))
+        if not miss.any():
+            break
+        pad_i = np.pad(r_interp, 1, constant_values=np.nan)
+        nbrs = np.stack([pad_i[:-2, 1:-1], pad_i[2:, 1:-1], pad_i[1:-1, :-2], pad_i[1:-1, 2:]], axis=-1)
+        has_n = np.isfinite(nbrs).any(axis=-1)
+        upd = miss & has_n
+        if not upd.any():
+            break
+        with np.errstate(all="ignore"), __import__("warnings").catch_warnings():
+            __import__("warnings").simplefilter("ignore", RuntimeWarning)
+            r_interp[upd] = np.nanmean(nbrs[upd], axis=-1)
+    rf_vals = r_interp[fi, fj].copy()
     valid_rf = np.isfinite(rf_vals)
     if not valid_rf.any():
         return None
     if not valid_rf.all():
-        # Nearest-neighbor fill within the small filled patch
         rf_vals[~valid_rf] = float(np.nanmedian(rf_vals[valid_rf]))
     depths = np.maximum(0.0, -rf_vals)
 
@@ -279,6 +316,8 @@ def _refine_depression(
     d_valid = depths[valid_rf]
     depth = float(np.nanmax(d_valid)) if len(d_valid) < 15 else float(np.nanpercentile(d_valid, 98))
     depth_med = float(np.median(depths))
+    if not unreliable and (depth < dmin or depth_med < 0.25 * dmin):
+        return None
     volume = float(np.sum(depths) * cell_a)
     per = perimeter(fine_cells) * fc * (math.pi / 4.0)
     circ = float(min(1.0, 4.0 * math.pi * area / (per * per))) if per > 0 else 0.0
@@ -430,8 +469,8 @@ def detect_surface(seg: dict, surf: SegmentSurface, path: np.ndarray, step: floa
                          unreliable: bool, circ: float, flat: float, bowl: float,
                          so_coords: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None) -> None:
         dia = 2 * math.sqrt(area / math.pi)
-        m = {"area_m2": round(area, 4), "depth_max_m": None if unreliable else round(depth, 4),
-             "depth_median_m": round(depth_med, 4), "volume_m3": round(volume, 5), "diameter_m": round(dia, 3),
+        m = {"area_m2": round(area, 5), "depth_max_m": None if unreliable else round(depth, 4),
+             "depth_median_m": round(depth_med, 4), "volume_m3": round(volume, 6), "diameter_m": round(dia, 3),
              "circularity": round(circ, 2), "flat_share": round(flat, 2), "bowl": round(bowl, 2)}
         if unreliable:
             m["depth_unreliable"] = True
