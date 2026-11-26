@@ -15,7 +15,7 @@ export function MapLegend({ showCondition, showDefects, colourBy, segments }: { 
   const words = useWords();
   const sev: Record<string, string> = { high: "สูง", medium: "กลาง", low: "ต่ำ" };
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-1 pt-3 text-sm" aria-label={t("Legend", "คำอธิบายสัญลักษณ์")}>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs md:text-sm" role="group" aria-label={t("Legend", "คำอธิบายสัญลักษณ์")}>
       {showCondition && colourBy !== "condition" && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="font-semibold">{t(METRICS[colourBy].en, METRICS[colourBy].th)}</span>

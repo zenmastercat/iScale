@@ -113,7 +113,7 @@ export function MapView({
   return (
     <div className="relative size-full max-md:[&_.maplibregl-ctrl-group_button]:size-11!">
     {focused && (
-      <div className="absolute top-3 left-3 z-10 flex flex-col gap-1 rounded-md border bg-card p-3 text-sm" role="status">
+      <div className="absolute right-3 bottom-8 z-10 flex flex-col gap-1 rounded-md border bg-card p-3 text-sm" role="status">
         <span className="num font-semibold">{focused.id}</span>
         <ConditionChip score={focused.condition} showLabel />
         <span className="text-muted-foreground">
@@ -122,7 +122,7 @@ export function MapView({
       </div>
     )}
     {tilesFailed && (
-      <div role="status" className="pointer-events-none absolute bottom-8 left-3 z-10 flex max-w-xs items-start gap-3 rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground">
+      <div role="status" className="pointer-events-none absolute top-3 right-16 z-10 flex max-w-[14rem] md:max-w-xs items-start gap-3 rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground">
         <p>{t("Map tiles could not load (offline?). Showing the route on a plain background.", "โหลดแผนที่ไม่ได้ (ออฟไลน์?) แสดงเส้นทางบนพื้นเรียบแทน")}</p>
         <button type="button" className="pointer-events-auto shrink-0 font-medium text-foreground underline underline-offset-2" onClick={() => setTilesFailed(false)}>
           {t("Retry", "ลองใหม่")}

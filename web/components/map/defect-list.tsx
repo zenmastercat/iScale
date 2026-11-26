@@ -57,7 +57,7 @@ export function DefectList({
       {list.length === 0 ? (
         <p className="p-3 text-sm text-muted-foreground">{t("No defects here.", "ไม่มีข้อบกพร่องในพื้นที่นี้")}</p>
       ) : (
-        <ul className="min-h-0 flex-1 overflow-y-auto">
+        <ul className="min-h-0 flex-1 overflow-y-auto pb-20">
           {list.map((f) => {
             const resolved = f.status === "fixed" || f.status === "verified" || f.status === "dismissed";
             const at = findingChainage(f, segments);
