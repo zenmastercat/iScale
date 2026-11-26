@@ -10,51 +10,53 @@ import { useLang, useT } from "@/lib/i18n";
 import { useHelperOpen } from "@/components/helper/open-state";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useReviewCounts } from "@/lib/review-counts";
-import { NAV, ROUTES } from "./nav";
+import { useRailStatus } from "@/lib/rail-status";
+import { NAV, NAV_GROUPS, ROUTES } from "./nav";
 
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
-/** Left rail on md+ screens. */
+/** Left rail on md+ screens: Work (in workflow order, with a status line), Explore, Team. */
 export function SideRail() {
   const pathname = usePathname();
   const { withSel } = useSelection();
   const { lang } = useLang();
-  const { unreviewed, stillPresent } = useReviewCounts();
-  const badge: Record<string, number | null> = { "/findings": unreviewed, "/verification": stillPresent };
+  const status = useRailStatus();
   return (
-    <nav aria-label="Main" className="sticky top-0 hidden print:hidden h-dvh w-60 shrink-0 flex-col bg-sidebar px-3 py-6 text-sidebar-foreground md:flex">
-      <Link href={withSel("/")} className="mb-8 px-3">
+    <nav aria-label="Main" className="sticky top-0 hidden print:hidden h-dvh w-60 shrink-0 flex-col overflow-y-auto bg-sidebar px-3 py-6 text-sidebar-foreground md:flex">
+      <Link href={withSel("/")} className="mb-6 px-3">
         <Logo />
       </Link>
-      <p className="mb-2 px-3 text-xs font-medium tracking-wider text-white/70 uppercase">{lang === "th" ? "พื้นที่ทำงาน" : "Workspace"}</p>
-      <ul className="flex flex-col gap-1">
-        {NAV.map(({ href, label, th, icon: Icon }) => {
-          const active = isActive(pathname, href);
-          return (
-            <li key={href}>
-              <Link
-                href={withSel(href)}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex min-h-11 items-center gap-3 rounded-md px-3 text-[15px] font-medium transition-colors",
-                  active ? "bg-sidebar-accent text-white" : "text-white/85 hover:bg-white/8 hover:text-white",
-                )}
-              >
-                <Icon aria-hidden className="size-5" strokeWidth={1.75} />
-                {lang === "th" ? th : label}
-                {(badge[href] ?? 0) > 0 && (
-                  <span
-                    className="num ml-auto rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold text-white"
-                    aria-label={href === "/findings" ? (lang === "th" ? `${badge[href]} รายการรอตรวจ` : `${badge[href]} to review`) : (lang === "th" ? `${badge[href]} จุดยังพบอยู่` : `${badge[href]} still present`)}
-                  >
-                    {badge[href]}
-                  </span>
-                )}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+      {NAV_GROUPS.map((g, gi) => (
+        <div key={g.id} className={gi === 0 ? "" : "mt-5"}>
+          <p className="mb-2 px-3 text-xs font-medium tracking-wider text-white/70 uppercase">{lang === "th" ? g.th : g.label}</p>
+          <ul className="flex flex-col gap-1">
+            {NAV.filter((n) => n.group === g.id)
+              .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
+              .map(({ href, label, th, icon: Icon }) => {
+                const active = isActive(pathname, href);
+                const line = status[href];
+                return (
+                  <li key={href}>
+                    <Link
+                      href={withSel(href)}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "flex min-h-11 items-center gap-3 rounded-md px-3 py-1.5 text-[15px] font-medium transition-colors",
+                        active ? "bg-sidebar-accent text-white" : "text-white/85 hover:bg-white/8 hover:text-white",
+                      )}
+                    >
+                      <Icon aria-hidden className="size-5 shrink-0" strokeWidth={1.75} />
+                      <span className="flex min-w-0 flex-col leading-tight">
+                        {lang === "th" ? th : label}
+                        {line && <span className="num truncate text-xs font-normal text-white/70">{line}</span>}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+          </ul>
+        </div>
+      ))}
     </nav>
   );
 }

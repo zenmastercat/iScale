@@ -60,7 +60,7 @@ export function ChatView() {
     (async () => {
       try {
         const tok = await getXmppToken();
-        if (tok.running === false) throw new Error("not running");
+        if (tok.running === false) throw new Error(""); // the page already says the server is not running
       } catch (e) {
         if (!dead) {
           setReason(e instanceof Error ? e.message : "");

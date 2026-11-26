@@ -94,9 +94,15 @@ export function AskPanel({ variant = "page" }: { variant?: "page" | "panel" }) {
       setMsgs((m) => [...m.filter((x) => !x.pending), { id: next.current++, role: "bot", text: r.reply, reply: r }]);
     },
     onError: (e: Error) => {
-      setMsgs((m) => [...m.filter((x) => !x.pending), { id: next.current++, role: "bot", text: t(`That didn't work: ${e.message}`, `ไม่สำเร็จ: ${e.message}`) }]);
+      setMsgs((m) => [...m.filter((x) => !x.pending), { id: next.current++, role: "bot", text: failText(e.message) }]);
     },
   });
+  // the server's own error messages are English; the common one gets a Thai text
+  const failText = (msg: string) => {
+    const m = /can't reach Civil Helper's model provider \((.+)\)/.exec(msg);
+    if (m) return t(`That didn't work: ${msg}`, `ไม่สำเร็จ: เข้าถึงผู้ให้บริการโมเดลของผู้ช่วยวิศวกรไม่ได้ (${m[1]})`);
+    return t(`That didn't work: ${msg}`, `ไม่สำเร็จ: ${msg}`);
+  };
   const send = (q: string) => {
     const v = q.trim();
     if (!v || ask.isPending) return;

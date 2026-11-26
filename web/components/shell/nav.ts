@@ -23,16 +23,24 @@ export const ROUTES = {
   login: "/login",
 } as const;
 
+/** Side rail sections, in order. "work" follows the job from drive to report (by rank); the array order below is the phone bar order. */
+export type NavGroup = "work" | "explore" | "team";
+export const NAV_GROUPS: { id: NavGroup; label: string; th: string }[] = [
+  { id: "work", label: "Work", th: "งาน" },
+  { id: "explore", label: "Explore", th: "ดูข้อมูล" },
+  { id: "team", label: "Team", th: "ทีม" },
+];
+
 /** phone: "bar" = a tab in the phone bottom bar, "more" = in its More sheet (the bar fits 6 columns: 5 tabs + More). The side rail lists all. */
-export const NAV: { href: string; label: string; short: string; th: string; shortTh: string; icon: LucideIcon; phone: "bar" | "more" }[] = [
-  { href: ROUTES.overview, label: "Overview", short: "Overview", th: "ภาพรวม", shortTh: "ภาพรวม", icon: LayoutDashboard, phone: "bar" },
-  { href: ROUTES.map, label: "Map", short: "Map", th: "แผนที่", shortTh: "แผนที่", icon: Map, phone: "bar" },
-  { href: ROUTES.findings, label: "Findings", short: "Findings", th: "รายการที่พบ", shortTh: "รายการ", icon: Table2, phone: "more" },
-  { href: ROUTES.fixFirst, label: "Fix first", short: "Fix first", th: "ซ่อมก่อน", shortTh: "ซ่อมก่อน", icon: ListOrdered, phone: "bar" },
-  { href: ROUTES.plan, label: "Repair plan", short: "Plan", th: "แผนซ่อม", shortTh: "แผน", icon: Wrench, phone: "bar" },
-  { href: ROUTES.verification, label: "Verification", short: "Verify", th: "ตรวจผลการซ่อม", shortTh: "ตรวจผล", icon: ClipboardCheck, phone: "more" },
-  { href: ROUTES.surveys, label: "Surveys", short: "Surveys", th: "การสำรวจ", shortTh: "สำรวจ", icon: Route, phone: "more" },
-  { href: ROUTES.report, label: "Report", short: "Report", th: "รายงาน", shortTh: "รายงาน", icon: FileText, phone: "more" },
-  { href: ROUTES.team, label: "Team", short: "Team", th: "ทีม", shortTh: "ทีม", icon: Users, phone: "more" },
-  { href: ROUTES.chat, label: "Chat", short: "Chat", th: "แชท", shortTh: "แชท", icon: MessageCircle, phone: "bar" },
+export const NAV: { href: string; label: string; short: string; th: string; shortTh: string; icon: LucideIcon; phone: "bar" | "more"; group: NavGroup; rank?: number }[] = [
+  { href: ROUTES.overview, label: "Overview", short: "Overview", th: "ภาพรวม", shortTh: "ภาพรวม", icon: LayoutDashboard, phone: "bar", group: "explore" },
+  { href: ROUTES.map, label: "Map", short: "Map", th: "แผนที่", shortTh: "แผนที่", icon: Map, phone: "bar", group: "explore" },
+  { href: ROUTES.findings, label: "Findings", short: "Findings", th: "รายการที่พบ", shortTh: "รายการ", icon: Table2, phone: "more", group: "work", rank: 2 },
+  { href: ROUTES.fixFirst, label: "Fix first", short: "Fix first", th: "ซ่อมก่อน", shortTh: "ซ่อมก่อน", icon: ListOrdered, phone: "bar", group: "explore" },
+  { href: ROUTES.plan, label: "Repair plan", short: "Plan", th: "แผนซ่อม", shortTh: "แผน", icon: Wrench, phone: "bar", group: "work", rank: 3 },
+  { href: ROUTES.verification, label: "Verification", short: "Verify", th: "ตรวจผลการซ่อม", shortTh: "ตรวจผล", icon: ClipboardCheck, phone: "more", group: "work", rank: 4 },
+  { href: ROUTES.surveys, label: "Surveys", short: "Surveys", th: "การสำรวจ", shortTh: "สำรวจ", icon: Route, phone: "more", group: "work", rank: 1 },
+  { href: ROUTES.report, label: "Report", short: "Report", th: "รายงาน", shortTh: "รายงาน", icon: FileText, phone: "more", group: "work", rank: 5 },
+  { href: ROUTES.team, label: "Team", short: "Team", th: "ทีม", shortTh: "ทีม", icon: Users, phone: "more", group: "team" },
+  { href: ROUTES.chat, label: "Chat", short: "Chat", th: "แชท", shortTh: "แชท", icon: MessageCircle, phone: "bar", group: "team" },
 ];

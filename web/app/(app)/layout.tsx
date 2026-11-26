@@ -7,6 +7,7 @@ import { BottomBar, SideRail } from "@/components/shell/side-rail";
 import { TopBar } from "@/components/shell/top-bar";
 import { ServerDown } from "@/components/shared/server-down";
 import { AppShellSkeleton } from "@/components/skeletons";
+import { useT } from "@/lib/i18n";
 import { useAuthState } from "@/lib/queries";
 import { SelectionProvider } from "@/lib/selection";
 
@@ -32,6 +33,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const t = useT();
   const { data, isLoading, isError, error, refetch, isFetching } = useAuthState();
   // auth/state is 200 with user=null when signed out; an error means the server is unreachable
   const signedOut = !isLoading && !isError && !data?.user;
@@ -45,7 +47,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-card focus:p-2">
-        Skip to content
+        {t("Skip to content", "ข้ามไปยังเนื้อหา")}
       </a>
       <Suspense fallback={<AppShellSkeleton />}>
         <Shell>{children}</Shell>

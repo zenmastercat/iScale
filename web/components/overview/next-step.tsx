@@ -1,7 +1,6 @@
 "use client";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
-import { findingsQuery } from "@/lib/findings-filter";
 import { useT } from "@/lib/i18n";
 import { useReviewCounts } from "@/lib/review-counts";
 import { useWorkOrders } from "@/lib/queries";
@@ -21,7 +20,7 @@ export function NextStep() {
   if (unreviewed > 0) {
     text = t(`${unreviewed} AI findings need an engineer's decision`, `ข้อบกพร่องจาก AI ${unreviewed} จุด รอวิศวกรตัดสินใจ`);
     action = t("Review now", "ตรวจเลย");
-    href = withSel("/findings", findingsQuery({ review: "none", sort: { key: "check", desc: false } }));
+    href = withSel("/review");
   } else if (orders.data.length === 0) {
     text = t("Every AI finding has been reviewed. Next: plan the repairs.", "วิศวกรตรวจข้อบกพร่องจาก AI ครบแล้ว ขั้นต่อไป: วางแผนซ่อม");
     action = t("Plan the repairs", "วางแผนซ่อม");

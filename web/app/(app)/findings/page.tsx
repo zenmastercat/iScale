@@ -1,6 +1,7 @@
 "use client";
 import { useQueryClient } from "@tanstack/react-query";
-import { Layers, Table2 } from "lucide-react";
+import { ClipboardCheck, Layers, Table2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -15,6 +16,7 @@ import { ApiError, createWorkOrder, qk } from "@/lib/api";
 import { findingsQuery, parseFindingsFilter, type FindingsFilter } from "@/lib/findings-filter";
 import { useWords } from "@/components/map/words";
 import { useT } from "@/lib/i18n";
+import { useReviewCounts } from "@/lib/review-counts";
 import { useAnalysis, useCatalogLabel, usePriority } from "@/lib/queries";
 import { useSelection } from "@/lib/selection";
 
@@ -209,12 +211,25 @@ function FindingsBody() {
   );
 }
 
+function ReviewLink() {
+  const t = useT();
+  const { withSel } = useSelection();
+  const { unreviewed } = useReviewCounts();
+  if (!unreviewed) return null;
+  return (
+    <Link href={withSel("/review")} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand/90 md:min-h-9">
+      <ClipboardCheck className="size-4" aria-hidden />
+      {t("Review", "ตรวจ")} <span className="num">({unreviewed})</span>
+    </Link>
+  );
+}
+
 export default function FindingsPage() {
   const t = useT();
   const { project, survey } = useSelection();
   return (
     <>
-      <PageHeader title={t("Findings", "รายการที่พบ")} crumb={project && survey ? `${project.name} / ${survey.name}` : undefined} />
+      <PageHeader title={t("Findings", "รายการที่พบ")} crumb={project && survey ? `${project.name} / ${survey.name}` : undefined} actions={<ReviewLink />} />
       <SurveyGate>
         <FindingsBody />
       </SurveyGate>

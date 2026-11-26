@@ -330,6 +330,62 @@ try {
   await shot("story-sukhumvit-findings");
   step(tableBadges >= weak.length, "Sukhumvit findings table: weak tracks marked Check first", `${tableBadges} badges for ${weak.length} weak tracks`);
 
+  // chat page: no XMPP server in the rehearsal, so it must say so, and the only console error allowed is the 503 of the token request
+  where = "chat";
+  const chatErrs = [];
+  const onChatErr = (m) => m.type() === "error" && chatErrs.push(m.text());
+  page.on("console", onChatErr);
+  const mark = errors.length;
+  await page.goto(`${BASE}/chat?${skSel}`);
+  await settle(1500);
+  page.off("console", onChatErr);
+  const chatNoServer = await page.getByText("Chat server not available").count();
+  const unexpected = [...chatErrs.filter((e) => !/\b503\b/.test(e)), ...errors.slice(mark).filter((e) => !/HTTP 503/.test(e) && !/\b503\b/.test(e))];
+  errors.length = mark; // the expected 503 is not a failure of the final console check
+  await shot("story-chat-unavailable", false);
+  step(chatNoServer > 0 && unexpected.length === 0, "Chat: 'Chat server not available' state, no unexpected console errors", unexpected.slice(0, 3).join(" | ") || `notice=${chatNoServer}`);
+
+  // floating Civil Helper: opens, answers a survey question by rule, Esc closes
+  where = "helper";
+  await page.goto(`${BASE}/surveys?${skSel}`);
+  await settle();
+  await page.getByRole("button", { name: "Ask Civil Helper" }).click();
+  const panel = page.getByRole("dialog", { name: "Civil Helper" });
+  const opened = await panel.waitFor({ timeout: 5000 }).then(() => true, () => false);
+  await panel.getByRole("button", { name: "How many high severity potholes are there?" }).click();
+  const answered = await panel.getByText(/Found \d+ potholes/).first().waitFor({ timeout: 15000 }).then(() => true, () => false);
+  await shot("story-helper-panel", false);
+  await page.keyboard.press("Escape");
+  const closed = await panel.waitFor({ state: "hidden", timeout: 5000 }).then(() => true, () => false);
+  step(opened && answered && closed, "Civil Helper: button opens the panel, rule answer, Esc closes", `opened=${opened} answered=${answered} closed=${closed}`);
+
+  // phone 390: bottom bar has 6 tabs, More sheet, Ask Civil Helper from More; then the same in Thai
+  where = "phone bar";
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${BASE}/?${skSel}`);
+  await settle();
+  const tabs = await page.getByRole("navigation", { name: "Main" }).locator("li").count();
+  await page.getByRole("button", { name: "More" }).click();
+  const sheet = page.getByRole("dialog").filter({ hasText: "Verification" });
+  const moreOk = await sheet.getByRole("link", { name: "Verification" }).waitFor({ timeout: 5000 }).then(() => true, () => false);
+  await shot("story-phone-more", false);
+  await sheet.getByRole("button", { name: "Ask Civil Helper" }).click();
+  const phonePanel = await page.getByRole("dialog", { name: "Civil Helper" }).waitFor({ timeout: 5000 }).then(() => true, () => false);
+  step(tabs === 6 && moreOk && phonePanel, "Phone 390: 6 tabs, More sheet lists pages, Ask Civil Helper opens the panel", `tabs=${tabs} more=${moreOk} panel=${phonePanel}`);
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => localStorage.setItem("iscale-lang", "th"));
+  await page.goto(`${BASE}/?${skSel}`);
+  await settle();
+  await page.getByRole("button", { name: "เพิ่มเติม" }).click();
+  const thSheet = page.getByRole("dialog");
+  await thSheet.waitFor({ timeout: 5000 }).catch(() => {});
+  const thTxt = await thSheet.innerText();
+  await shot("story-phone-more-thai", false);
+  step(/การตรวจ|ตรวจผล/.test(thTxt) && /ถามผู้ช่วยวิศวกร/.test(thTxt) && !/Verification|Surveys|Report|Team|Findings/.test(thTxt), "Phone 390 Thai: More sheet labels are Thai", thTxt.split("\n").join(" | ").slice(0, 160));
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => localStorage.setItem("iscale-lang", "en"));
+  await page.setViewportSize({ width: 1440, height: 900 });
+
   const real = errors.filter((e) => !/GL Driver|WebGL|GPU stall/i.test(e));
   step(real.length === 0, "no console errors or 5xx", real.slice(0, 5).join(" | "));
   // venue without internet: block the map's tile host. The route and markers must still show, with a notice.
@@ -342,6 +398,29 @@ try {
   await offline.waitForTimeout(2500); // let the style swap and fit finish before the picture
   await offline.screenshot({ path: path.join(OUT, "story-map-offline.png") });
   step(notice && offMarkers > 0, "map without tile server: notice shown, defects still on the map", `notice=${notice} markers=${offMarkers}`);
+
+  // week 0 A: review queue. Open it, answer two findings with the keyboard, the Overview count drops by two.
+  where = "review queue";
+  const needs = async () => (await j(`/api/projects/${sk.id}/surveys/${skSid}/analysis`)).findings.filter((f) => f.severity !== null && f.source !== "manual" && !f.review?.verdict).length;
+  const overviewCount = async () => {
+    await page.goto(`${BASE}/?${skSel}`);
+    await settle(1200);
+    const m = (await page.locator("main").innerText()).match(/(\d+)\s+AI findings need/);
+    return m ? Number(m[1]) : 0;
+  };
+  const rqBefore = await needs();
+  const ovBefore = await overviewCount();
+  await page.goto(`${BASE}/review?${skSel}`);
+  await page.getByRole("region", { name: "Review AI findings" }).waitFor({ timeout: 15000 });
+  await page.getByText(new RegExp(`^1 / ${rqBefore}$`)).waitFor({ timeout: 15000 }).catch(() => {});
+  await shot("story-review-queue", false);
+  await page.keyboard.press("c");
+  await page.getByText(new RegExp(`^2 / ${rqBefore}$`)).waitFor({ timeout: 15000 }).catch(() => {});
+  await page.keyboard.press("u");
+  await page.getByText(new RegExp(`^3 / ${rqBefore}$`)).waitFor({ timeout: 15000 }).catch(() => {});
+  const rqAfter = await needs();
+  const ovAfter = await overviewCount();
+  step(rqBefore > 2 && rqAfter === rqBefore - 2 && ovBefore === rqBefore && ovAfter === rqAfter, "Review queue: C and U with the keyboard, progress moves, Overview count drops by 2", `queue ${rqBefore} -> ${rqAfter}, overview ${ovBefore} -> ${ovAfter}`);
   await browser.close();
 } catch (e) {
   step(false, "rehearsal aborted", e.message);
