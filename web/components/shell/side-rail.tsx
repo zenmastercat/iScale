@@ -1,12 +1,16 @@
 "use client";
+import { Bot, Menu, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useSelection } from "@/lib/selection";
 import { Logo } from "./logo";
-import { useLang } from "@/lib/i18n";
+import { useLang, useT } from "@/lib/i18n";
+import { useHelperOpen } from "@/components/helper/open-state";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useReviewCounts } from "@/lib/review-counts";
-import { NAV } from "./nav";
+import { NAV, ROUTES } from "./nav";
 
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
@@ -55,36 +59,92 @@ export function SideRail() {
   );
 }
 
-/** Bottom tab bar on phones. */
+/** Bottom tab bar on phones: the "bar" pages plus More (a bottom sheet with every other page and Civil Helper). */
 export function BottomBar() {
   const pathname = usePathname();
   const { withSel } = useSelection();
   const { lang } = useLang();
+  const t = useT();
+  const { setOpen: openHelper } = useHelperOpen();
+  const [more, setMore] = useState(false);
+  const { unreviewed, stillPresent } = useReviewCounts();
+  const badge: Record<string, number | null> = { "/findings": unreviewed, "/verification": stillPresent };
+  const label = (n: (typeof NAV)[number]) => (lang === "th" ? n.th : n.label);
+  const moreItems = NAV.filter((n) => n.phone === "more");
+  const moreActive = moreItems.some((n) => isActive(pathname, n.href)) || pathname.startsWith(ROUTES.helper);
+  const tab = "flex min-h-14 w-full flex-col items-center justify-center gap-0.5 text-[11px] font-medium";
+  const row = "flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-[15px] font-medium hover:bg-grey-50";
   return (
-    <nav
-      aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-sidebar pb-[env(safe-area-inset-bottom)] md:hidden print:hidden"
-    >
-      <ul className="grid grid-cols-6">
-        {NAV.filter((n) => !n.desktopOnly).map(({ href, short, shortTh, icon: Icon }) => {
-          const active = isActive(pathname, href);
-          return (
-            <li key={href}>
-              <Link
-                href={withSel(href)}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium",
-                  active ? "text-white" : "text-white/70",
-                )}
-              >
-                <Icon aria-hidden className={cn("size-5", active && "text-[#8ec0f0]")} strokeWidth={1.75} />
-                {lang === "th" ? shortTh : short}
+    <>
+      <nav
+        aria-label="Main"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-sidebar pb-[env(safe-area-inset-bottom)] md:hidden print:hidden"
+      >
+        <ul className="grid grid-cols-6">
+          {NAV.filter((n) => n.phone === "bar").map(({ href, short, shortTh, icon: Icon }) => {
+            const active = isActive(pathname, href);
+            return (
+              <li key={href}>
+                <Link
+                  href={withSel(href)}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(tab, active ? "text-white" : "text-white/70")}
+                >
+                  <Icon aria-hidden className={cn("size-5", active && "text-[#8ec0f0]")} strokeWidth={1.75} />
+                  {lang === "th" ? shortTh : short}
+                </Link>
+              </li>
+            );
+          })}
+          <li>
+            <button
+              type="button"
+              onClick={() => setMore(true)}
+              aria-haspopup="dialog"
+              aria-current={moreActive ? "page" : undefined}
+              className={cn(tab, moreActive ? "text-white" : "text-white/70")}
+            >
+              <Menu aria-hidden className={cn("size-5", moreActive && "text-[#8ec0f0]")} strokeWidth={1.75} />
+              {t("More", "เพิ่มเติม")}
+            </button>
+          </li>
+        </ul>
+      </nav>
+      <Sheet open={more} onOpenChange={setMore}>
+        <SheetContent side="bottom" className="max-h-[85dvh] gap-0 overflow-y-auto pb-[env(safe-area-inset-bottom)] md:hidden">
+          <SheetHeader>
+            <SheetTitle>{t("More", "เพิ่มเติม")}</SheetTitle>
+          </SheetHeader>
+          <ul className="flex flex-col gap-0.5 px-2 pb-3">
+            {moreItems.map((n) => {
+              const active = isActive(pathname, n.href);
+              const Icon = n.icon;
+              const count = badge[n.href] ?? 0;
+              return (
+                <li key={n.href}>
+                  <Link href={withSel(n.href)} onClick={() => setMore(false)} aria-current={active ? "page" : undefined} className={cn(row, active && "bg-grey-50 text-brand")}>
+                    <Icon aria-hidden className="size-5" strokeWidth={1.75} />
+                    {label(n)}
+                    {count > 0 && <span className="num ml-auto rounded-full bg-grey-100 px-2 py-0.5 text-xs font-semibold">{count}</span>}
+                  </Link>
+                </li>
+              );
+            })}
+            <li>
+              <button type="button" className={row} onClick={() => { setMore(false); openHelper(true); }}>
+                <Bot aria-hidden className="size-5" strokeWidth={1.75} />
+                {t("Ask Civil Helper", "ถามผู้ช่วยวิศวกร")}
+              </button>
+            </li>
+            <li>
+              <Link href={withSel(ROUTES.helper)} onClick={() => setMore(false)} aria-current={pathname.startsWith(ROUTES.helper) ? "page" : undefined} className={cn(row, pathname.startsWith(ROUTES.helper) && "bg-grey-50 text-brand")}>
+                <Settings2 aria-hidden className="size-5" strokeWidth={1.75} />
+                {t("Helper library & settings", "คลังเอกสารและการตั้งค่าผู้ช่วย")}
               </Link>
             </li>
-          );
-        })}
-      </ul>
-    </nav>
+          </ul>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }

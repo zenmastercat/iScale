@@ -64,7 +64,8 @@ function Answer({ text }: { text: string }) {
   );
 }
 
-export function AskPanel() {
+export function AskPanel({ variant = "page" }: { variant?: "page" | "panel" }) {
+  const panel = variant === "panel";
   const t = useT();
   const qc = useQueryClient();
   const { projectId, surveyId, withSel } = useSelection();
@@ -114,8 +115,8 @@ export function AskPanel() {
 
   const s = status.data;
   return (
-    <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground" role="status">
+    <div className={panel ? "flex h-full min-h-0 flex-col gap-2" : "flex flex-col gap-4"}>
+      <p className="text-xs text-muted-foreground md:text-sm" role="status">
         {status.isLoading
           ? t("Checking Civil Helper…", "กำลังตรวจสอบผู้ช่วยวิศวกร…")
           : s?.reachable
@@ -128,7 +129,7 @@ export function AskPanel() {
               : t("Civil Helper's status could not be loaded. Survey questions below still work.", "โหลดสถานะผู้ช่วยวิศวกรไม่ได้ คำถามเกี่ยวกับการสำรวจด้านล่างยังใช้ได้")}
       </p>
 
-      <div role="log" className="flex min-h-64 flex-col gap-3 rounded-lg border bg-card p-4 md:p-3" aria-live="polite" aria-label={t("Conversation", "บทสนทนา")}>
+      <div role="log" className={panel ? "flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-lg border bg-card p-3" : "flex min-h-64 flex-col gap-3 rounded-lg border bg-card p-4 md:p-3"} aria-live="polite" aria-label={t("Conversation", "บทสนทนา")}>
         {msgs.length === 0 && (
           <p className="text-sm text-muted-foreground">
             {t("Ask about this survey, or about standards and repair methods.", "ถามเกี่ยวกับการสำรวจนี้ มาตรฐาน หรือวิธีซ่อม")}
@@ -177,7 +178,7 @@ export function AskPanel() {
         <div ref={end} />
       </div>
 
-      <div role="group" className="flex flex-wrap gap-2" aria-label={t("Suggested questions", "คำถามแนะนำ")}>
+      <div role="group" className={panel ? "flex max-h-28 flex-wrap gap-2 overflow-y-auto" : "flex flex-wrap gap-2"} aria-label={t("Suggested questions", "คำถามแนะนำ")}>
         {suggestions.map((q) => (
           <button key={q} type="button" onClick={() => send(q)} className="min-h-11 rounded-full border bg-card px-3 text-sm hover:bg-grey-50 md:min-h-9">
             {q}

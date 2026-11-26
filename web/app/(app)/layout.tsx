@@ -1,6 +1,8 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { Suspense, useEffect } from "react";
+import { HelperOpenProvider } from "@/components/helper/open-state";
+import { HelperLauncher } from "@/components/helper/launcher";
 import { BottomBar, SideRail } from "@/components/shell/side-rail";
 import { TopBar } from "@/components/shell/top-bar";
 import { ServerDown } from "@/components/shared/server-down";
@@ -11,6 +13,7 @@ import { SelectionProvider } from "@/lib/selection";
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <SelectionProvider>
+      <HelperOpenProvider>
       <div className="flex min-h-dvh">
         <SideRail />
         <div className="flex min-w-0 flex-1 flex-col">
@@ -21,6 +24,8 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
       <BottomBar />
+      <HelperLauncher />
+      </HelperOpenProvider>
     </SelectionProvider>
   );
 }
