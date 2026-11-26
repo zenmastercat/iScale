@@ -289,3 +289,7 @@ When location is on, and only while iScale is on screen:
 
 The server refuses GPS pins and drive tracks from people whose location is off (HTTP 403). Browsers allow
 location and the camera only on HTTPS or on localhost.
+
+
+
+https://www.canva.com/design/DAHbE_QUq8M/y0ekGa-C9xbDN2VB8PCajA/edit
